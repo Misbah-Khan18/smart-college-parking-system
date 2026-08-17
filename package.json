@@ -1,0 +1,16 @@
+{
+  "name": "smart-college-parking-system-root",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Smart College Parking System - Root Runner",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "preview": "npm --prefix frontend run preview",
+    "install-frontend": "npm --prefix frontend install"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
