@@ -1,16 +1,38 @@
-# React + Vite
+# 🚗 Smart College Parking System - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the React 19 + Vite frontend application for the **Smart College Parking System**.
 
-Currently, two official plugins are available:
+## 🚀 Quick Run Guide
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Navigate to this directory:
+   ```bash
+   cd frontend
+   ```
 
-## React Compiler
+2. Install dependencies (if not already done):
+   ```bash
+   npm install
+   ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+3. Launch the development server:
+   ```bash
+   npm run dev
+   ```
 
-## Expanding the ESLint configuration
+4. Open `http://localhost:5173/` in your browser.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠️ Key Scripts
+
+- `npm run dev`: Starts local Vite development server with Hot Module Replacement.
+- `npm run build`: Compiles production bundle to `dist/`.
+- `npm run preview`: Previews built production bundle.
+- `npm run lint`: Runs ESLint for syntax checks.
+
+## 🌟 Features Included
+
+- **Interactive 2D Parking Bay Visualizer** (Zone A: Students, Zone B: Faculty, Zone C: EV Charging, Zone D: Two-Wheelers)
+- **Instant Slot Reservation & Digital Permit Modal** with simulated QR code & print capability
+- **Simulated ANPR Boom Barrier Gate Terminal** (Animated Inbound/Outbound barrier)
+- **Real-Time Campus Telemetry & Traffic Analytics**
+- **Security & Access Audit Logs**
+- **Role Switcher** (Student / Faculty / Security Admin)
