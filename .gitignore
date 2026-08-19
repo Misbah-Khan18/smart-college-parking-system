@@ -1,0 +1,91 @@
+# ==========================================
+# 🚗 Smart College Parking System - .gitignore
+# ==========================================
+
+# 1. Dependencies & Package Managers
+node_modules/
+frontend/node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# 2. Environment Variables & Secrets (NEVER COMMIT SENSITIVE KEYS)
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+*.env
+*.env.*
+
+# 3. Database Files & Local Storage
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sql.dump
+*.dump
+/data/*.sqlite
+/data/*.db
+
+# 4. Build Outputs & Bundles
+dist/
+dist-ssr/
+build/
+out/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# 5. Runtime, Diagnostics & Log Files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 6. Testing & Coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# 7. IDE & Text Editor Configurations
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swo
+*.swp
+
+# 8. Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# 9. Temporary & Scratch Files
+.cache/
+tmp/
+temp/
