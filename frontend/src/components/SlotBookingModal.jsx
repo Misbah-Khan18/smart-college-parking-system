@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { XIcon, CarIcon, BikeIcon, EvIcon, QrIcon, CheckIcon } from './Icons'
 
 export default function SlotBookingModal({
@@ -7,15 +7,24 @@ export default function SlotBookingModal({
   initialSlot,
   availableSlots,
   onConfirmBooking,
-  currentRole
+  currentRole,
+  user
 }) {
   const [slotId, setSlotId] = useState(initialSlot ? initialSlot.id : (availableSlots[0]?.id || ''))
   const [vehicleNumber, setVehicleNumber] = useState('')
-  const [ownerName, setOwnerName] = useState('')
+  const [ownerName, setOwnerName] = useState(user?.displayName || '')
   const [category, setCategory] = useState(currentRole === 'Faculty' ? 'Faculty' : 'Student')
   const [durationHours, setDurationHours] = useState('2')
   const [vehicleType, setVehicleType] = useState(initialSlot?.type || 'car')
   const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    if (isOpen && user?.displayName && !ownerName) {
+      setOwnerName(user.displayName)
+    }
+  }, [isOpen, user?.displayName])
+
+
 
   if (!isOpen) return null
 

@@ -1,14 +1,56 @@
 import React, { useState, useEffect } from 'react'
-import { ShieldIcon, BellIcon, UserIcon, RefreshCwIcon, MapPinIcon } from './Icons'
+import { BellIcon, UserIcon, RefreshCwIcon, MapPinIcon, LogOutIcon } from './Icons'
+import { logout } from '../firebase/auth'
 
-export default function Navbar({ activeTab, setActiveTab, currentRole, setCurrentRole, notifications, onRefresh, unreadCount }) {
+export default function Navbar({
+  user,
+  onLogout,
+  activeTab,
+  setActiveTab,
+  currentRole,
+  setCurrentRole,
+  notifications,
+  onRefresh,
+  unreadCount
+}) {
   const [time, setTime] = useState(new Date())
   const [showNotifications, setShowNotifications] = useState(false)
+  const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    setImgError(false)
+  }, [user?.photoURL])
+
+  const handleLogout = async () => {
+    try {
+      if (onLogout) {
+        await onLogout()
+      } else {
+        await logout()
+      }
+    } catch (err) {
+      console.error('Failed to logout:', err)
+    }
+  }
+
+  const getInitials = () => {
+    if (user?.displayName) {
+      const parts = user.displayName.trim().split(/\s+/)
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+      }
+      return user.displayName.slice(0, 2).toUpperCase()
+    }
+    if (user?.email) {
+      return user.email.slice(0, 2).toUpperCase()
+    }
+    return 'CP'
+  }
 
   return (
     <header className="navbar-container">
@@ -129,7 +171,50 @@ export default function Navbar({ activeTab, setActiveTab, currentRole, setCurren
             <option value="Security Admin">Security Admin</option>
           </select>
         </div>
+
+        {/* Google User Profile & Logout */}
+        {user && (
+          <div className="user-profile-badge">
+            <div className="user-avatar-wrap">
+              {user.photoURL && !imgError ? (
+                <img
+                  src={user.photoURL}
+                  alt={user.displayName || 'Google Profile'}
+                  className="user-avatar-img"
+                  referrerPolicy="no-referrer"
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <div className="user-avatar-fallback">
+                  {getInitials()}
+                </div>
+              )}
+              <span className="user-status-indicator" title="Connected via Google Auth"></span>
+            </div>
+
+            <div className="user-info-stack">
+              <span className="user-name" title={user.displayName || 'Campus User'}>
+                {user.displayName || 'Campus User'}
+              </span>
+              <span className="user-email" title={user.email || ''}>
+                {user.email || 'campus-auth@college.edu'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="user-logout-btn"
+              onClick={handleLogout}
+              title="Sign out of campus account"
+              aria-label="Sign out"
+            >
+              <LogOutIcon className="w-4 h-4 logout-icon" />
+              <span className="logout-btn-text">Sign Out</span>
+            </button>
+          </div>
+        )}
       </div>
     </header>
   )
 }
+

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
+import { logout } from './firebase/auth'
 import Login from './pages/Login'
 import { INITIAL_SLOTS, INITIAL_LOGS } from './data/initialSlots'
 import Navbar from './components/Navbar'
@@ -52,9 +53,20 @@ function App() {
     setToast({ title, message, type })
   }, [])
 
+  const handleLogout = async () => {
+    try {
+      await logout()
+      showToast('Logged Out', 'You have been signed out successfully.', 'info')
+    } catch (err) {
+      console.error('Logout error:', err)
+      showToast('Logout Error', 'Unable to sign out. Please try again.', 'error')
+    }
+  }
+
   const triggerTelemetryRefresh = () => {
     showToast('Telemetry Synchronized', 'All ultrasonic & RFID campus parking nodes re-calibrated successfully.', 'info')
   }
+
 
   // Handle Slot Booking Reservation
   const handleConfirmBooking = (bookingData) => {
@@ -264,6 +276,8 @@ function App() {
 
       {/* Top Navigation */}
       <Navbar
+        user={user}
+        onLogout={handleLogout}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentRole={currentRole}
@@ -344,7 +358,9 @@ function App() {
         availableSlots={availableSlots}
         onConfirmBooking={handleConfirmBooking}
         currentRole={currentRole}
+        user={user}
       />
+
 
       <PassModal
         pass={activePass}
