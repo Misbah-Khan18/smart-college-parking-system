@@ -1,4 +1,7 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from './firebase/firebase'
+import Login from './pages/Login'
 import { INITIAL_SLOTS, INITIAL_LOGS } from './data/initialSlots'
 import Navbar from './components/Navbar'
 import StatsOverview from './components/StatsOverview'
@@ -12,6 +15,18 @@ import NotificationToast from './components/NotificationToast'
 import './App.css'
 
 function App() {
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+      setAuthLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
   const [slots, setSlots] = useState(INITIAL_SLOTS)
   const [logs, setLogs] = useState(INITIAL_LOGS)
   const [activeTab, setActiveTab] = useState('map') // 'map' | 'gate' | 'analytics' | 'logs'
@@ -149,14 +164,14 @@ function App() {
       prev.map((s) =>
         s.id === targetSlot.id
           ? {
-              ...s,
-              status: 'occupied',
-              plate: plate,
-              owner: owner || s.owner || 'Campus User',
-              category: category || s.category || 'Student',
-              entryTime: nowTime,
-              reservedUntil: null
-            }
+            ...s,
+            status: 'occupied',
+            plate: plate,
+            owner: owner || s.owner || 'Campus User',
+            category: category || s.category || 'Student',
+            entryTime: nowTime,
+            reservedUntil: null
+          }
           : s
       )
     )
@@ -220,11 +235,33 @@ function App() {
       duration: '1h 25m'
     }
   }
-
   const availableSlots = slots.filter((s) => s.status === 'available')
+
+  if (authLoading) {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <div className="login-logo">
+            <span className="login-logo-icon">P</span>
+          </div>
+
+          <h1>SmartPark.Campus</h1>
+
+          <p className="login-subtitle">
+            Loading secure access...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Login />
+  }
 
   return (
     <div className="app-layout">
+
       {/* Top Navigation */}
       <Navbar
         activeTab={activeTab}
