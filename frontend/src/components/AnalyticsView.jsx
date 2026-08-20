@@ -1,6 +1,6 @@
 import React from 'react'
 import { HOURLY_TRAFFIC_DATA } from '../data/initialSlots'
-import { BarChartIcon, ShieldIcon, CarIcon, EvIcon, BikeIcon } from './Icons'
+import { BarChartIcon, CheckIcon, CarIcon, EvIcon, BikeIcon, ShieldIcon } from './Icons'
 
 export default function AnalyticsView({ slots }) {
   const total = slots.length
@@ -8,62 +8,157 @@ export default function AnalyticsView({ slots }) {
   const reserved = slots.filter((s) => s.status === 'reserved').length
   const available = slots.filter((s) => s.status === 'available').length
 
-  const carSlots = slots.filter((s) => s.type === 'car')
-  const evSlots = slots.filter((s) => s.type === 'ev')
-  const bikeSlots = slots.filter((s) => s.type === 'bike')
+  const occupancyRate = Math.round(((occupied + reserved) / total) * 100) || 0
 
-  const getZoneOccupancy = (zoneSlots) => {
-    if (!zoneSlots.length) return 0
-    const taken = zoneSlots.filter((s) => s.status !== 'available').length
-    return Math.round((taken / zoneSlots.length) * 100)
-  }
-
-  const carOcc = getZoneOccupancy(carSlots)
-  const evOcc = getZoneOccupancy(evSlots)
-  const bikeOcc = getZoneOccupancy(bikeSlots)
+  const zones = [
+    {
+      name: 'Zone A - Student Cars',
+      icon: <CarIcon className="w-5 h-5 text-cyan" />,
+      glowClass: 'bg-cyan-glow',
+      barColor: '#06b6d4',
+      slots: slots.filter((s) => s.zone.includes('Zone A')),
+    },
+    {
+      name: 'Zone B - Faculty & Staff',
+      icon: <ShieldIcon className="w-5 h-5 text-indigo" />,
+      glowClass: 'bg-indigo-glow',
+      barColor: '#6366f1',
+      slots: slots.filter((s) => s.zone.includes('Zone B')),
+    },
+    {
+      name: 'Zone C - EV Fast Charging',
+      icon: <EvIcon className="w-5 h-5 text-amber" />,
+      glowClass: 'bg-amber-glow',
+      barColor: '#f59e0b',
+      slots: slots.filter((s) => s.zone.includes('Zone C')),
+    },
+    {
+      name: 'Zone D - Two-Wheelers & Bikes',
+      icon: <BikeIcon className="w-5 h-5 text-emerald" />,
+      glowClass: 'bg-cyan-glow',
+      barColor: '#10b981',
+      slots: slots.filter((s) => s.zone.includes('Zone D')),
+    },
+  ]
 
   return (
     <div className="analytics-view-container">
-      {/* Top metrics */}
+      {/* Top 3 Live Metrics */}
       <div className="analytics-top-grid">
+        {/* Real-time Empty Slots */}
         <div className="analytics-card glass-card">
           <div className="card-header-clean">
-            <span className="card-sub">Campus Utilization Rate</span>
-            <h3>{Math.round(((occupied + reserved) / total) * 100)}%</h3>
+            <span className="card-sub">Real-Time Empty Slots</span>
+            <h3 className="text-emerald font-bold">{available} Bays Open</h3>
           </div>
-          <p className="card-hint">Calculated across all 4 zones ({occupied + reserved} / {total} bays)</p>
+          <p className="card-hint">{total - available} occupied or reserved out of {total} total campus slots</p>
           <div className="progress-bar-container mt-2">
-            <div className="progress-bar-fill" style={{ width: `${((occupied + reserved) / total) * 100}%` }}></div>
+            <div
+              className="progress-bar-fill"
+              style={{
+                width: `${(available / total) * 100}%`,
+                background: 'linear-gradient(90deg, #10b981, #06b6d4)'
+              }}
+            ></div>
           </div>
         </div>
 
+        {/* Overall Campus Utilization */}
         <div className="analytics-card glass-card">
           <div className="card-header-clean">
-            <span className="card-sub">Peak Congestion Period</span>
+            <span className="card-sub">Campus Occupancy Rate</span>
+            <h3 className="text-cyan font-bold">{occupancyRate}% Load</h3>
+          </div>
+          <p className="card-hint">
+            {occupancyRate >= 80 ? '⚠️ High campus traffic' : '🟢 Smooth parking flow'}
+          </p>
+          <div className="progress-bar-container mt-2">
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${occupancyRate}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* Peak Window Prediction */}
+        <div className="analytics-card glass-card">
+          <div className="card-header-clean">
+            <span className="card-sub">Peak Rush Window</span>
             <h3>09:00 AM - 11:30 AM</h3>
           </div>
-          <p className="card-hint">Morning lectures commencement rush</p>
-          <span className="badge-warning-pill">High Demand Window</span>
-        </div>
-
-        <div className="analytics-card glass-card">
-          <div className="card-header-clean">
-            <span className="card-sub">EV Charging Efficiency</span>
-            <h3>{evOcc}% Load</h3>
+          <p className="card-hint">Morning lectures & lab commencement period</p>
+          <div className="mt-2">
+            <span className="badge-warning-pill">Expect High Demand</span>
           </div>
-          <p className="card-hint">{evSlots.filter(s => s.status === 'available').length} port(s) ready for fast recharge</p>
-          <span className="badge-eco-pill">⚡ Zero Carbon Zone</span>
         </div>
       </div>
 
-      {/* Hourly Traffic Chart Simulation */}
+      {/* Real-time Empty Slots by Zone Breakdown */}
+      <div className="zones-breakdown-section">
+        <h3 className="section-title">Real-Time Available Slots by Zone</h3>
+        <div className="zones-breakdown-grid">
+          {zones.map((z, idx) => {
+            const zTotal = z.slots.length
+            const zEmptySlots = z.slots.filter((s) => s.status === 'available')
+            const zEmptyCount = zEmptySlots.length
+            const zOccRate = zTotal ? Math.round(((zTotal - zEmptyCount) / zTotal) * 100) : 0
+
+            return (
+              <div key={idx} className="breakdown-card glass-card">
+                <div className="b-header">
+                  <div className={`b-icon-wrap ${z.glowClass}`}>
+                    {z.icon}
+                  </div>
+                  <div>
+                    <h4>{z.name}</h4>
+                    <span className="text-muted">{zTotal} Total Bays</span>
+                  </div>
+                </div>
+
+                <div className="b-stat">
+                  <span className="b-percent text-emerald font-bold">
+                    {zEmptyCount} Empty Bays
+                  </span>
+                  <span className="text-muted">{zOccRate}% Occupied</span>
+                </div>
+
+                <div className="progress-bar-container">
+                  <div
+                    className="progress-bar-fill"
+                    style={{
+                      width: `${zOccRate}%`,
+                      background: z.barColor
+                    }}
+                  ></div>
+                </div>
+
+                {/* Available Slot Chips */}
+                <div className="empty-chips-row">
+                  <span className="chips-label">Available Slots:</span>
+                  {zEmptySlots.length === 0 ? (
+                    <span className="no-slots-badge">Full</span>
+                  ) : (
+                    zEmptySlots.map((s) => (
+                      <span key={s.id} className="empty-slot-chip">
+                        {s.id}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Hourly Traffic Chart */}
       <div className="chart-section glass-card">
         <div className="chart-header">
           <div className="chart-title-wrap">
             <BarChartIcon className="w-5 h-5 text-cyan" />
-            <h3>Campus Parking Occupancy By Hour (Live Telemetry)</h3>
+            <h3>Today's Hourly Parking Occupancy Trend</h3>
           </div>
-          <span className="chart-badge">Today's Pattern</span>
+          <span className="chart-badge">Live Telemetry</span>
         </div>
 
         <div className="chart-bar-graph">
@@ -82,66 +177,6 @@ export default function AnalyticsView({ slots }) {
               </div>
             )
           })}
-        </div>
-      </div>
-
-      {/* Zone Breakdown Grid */}
-      <div className="zones-breakdown-grid">
-        <div className="breakdown-card glass-card">
-          <div className="b-header">
-            <div className="b-icon-wrap bg-cyan-glow">
-              <CarIcon className="w-5 h-5 text-cyan" />
-            </div>
-            <div>
-              <h4>Zone A & B (Cars & Faculty)</h4>
-              <span className="text-muted">{carSlots.length} Slots Total</span>
-            </div>
-          </div>
-          <div className="b-stat">
-            <span className="b-percent">{carOcc}% Occupied</span>
-            <span className="text-muted">{carSlots.filter(s => s.status === 'available').length} Available</span>
-          </div>
-          <div className="progress-bar-container">
-            <div className="progress-bar-fill" style={{ width: `${carOcc}%` }}></div>
-          </div>
-        </div>
-
-        <div className="breakdown-card glass-card">
-          <div className="b-header">
-            <div className="b-icon-wrap bg-amber-glow">
-              <EvIcon className="w-5 h-5 text-amber" />
-            </div>
-            <div>
-              <h4>Zone C (EV Green Fleet)</h4>
-              <span className="text-muted">{evSlots.length} Slots Total</span>
-            </div>
-          </div>
-          <div className="b-stat">
-            <span className="b-percent text-amber">{evOcc}% Occupied</span>
-            <span className="text-muted">{evSlots.filter(s => s.status === 'available').length} Ports Open</span>
-          </div>
-          <div className="progress-bar-container">
-            <div className="progress-bar-fill fill-amber" style={{ width: `${evOcc}%` }}></div>
-          </div>
-        </div>
-
-        <div className="breakdown-card glass-card">
-          <div className="b-header">
-            <div className="b-icon-wrap bg-indigo-glow">
-              <BikeIcon className="w-5 h-5 text-indigo" />
-            </div>
-            <div>
-              <h4>Zone D (Two-Wheelers)</h4>
-              <span className="text-muted">{bikeSlots.length} Slots Total</span>
-            </div>
-          </div>
-          <div className="b-stat">
-            <span className="b-percent text-indigo">{bikeOcc}% Occupied</span>
-            <span className="text-muted">{bikeSlots.filter(s => s.status === 'available').length} Spaces Free</span>
-          </div>
-          <div className="progress-bar-container">
-            <div className="progress-bar-fill fill-indigo" style={{ width: `${bikeOcc}%` }}></div>
-          </div>
         </div>
       </div>
     </div>

@@ -383,10 +383,16 @@
 .user-info-stack {
   display: flex;
   flex-direction: column;
-  max-width: 150px;
+  max-width: 180px;
   overflow: hidden;
   text-align: left;
   line-height: 1.2;
+}
+
+.user-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .user-name {
@@ -397,6 +403,19 @@
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.01em;
+}
+
+.user-role-pill {
+  font-size: 0.65rem;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  color: var(--accent-cyan);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
 }
 
 .user-email {
@@ -620,7 +639,46 @@
 .status-filter-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.status-toggle-btns {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-glass);
+}
+
+.status-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-btn:hover {
+  color: #fff;
+}
+
+.status-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.status-btn.available.active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.status-btn.occupied.active {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fb7185;
 }
 
 .status-dropdown {

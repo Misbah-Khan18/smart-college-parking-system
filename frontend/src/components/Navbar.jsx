@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { BellIcon, UserIcon, RefreshCwIcon, MapPinIcon, LogOutIcon } from './Icons'
+import { LogOutIcon } from './Icons'
 import { logout } from '../firebase/auth'
 
 export default function Navbar({
   user,
+  userProfile,
   onLogout,
   activeTab,
   setActiveTab,
   currentRole,
-  setCurrentRole,
-  notifications,
-  onRefresh,
-  unreadCount
 }) {
   const [time, setTime] = useState(new Date())
-  const [showNotifications, setShowNotifications] = useState(false)
   const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
@@ -52,8 +48,11 @@ export default function Navbar({
     return 'CP'
   }
 
+  const displayRole = userProfile?.role || currentRole || 'Student'
+
   return (
     <header className="navbar-container">
+      {/* Left: Brand Logo */}
       <div className="navbar-left">
         <div className="brand-logo">
           <div className="logo-icon-wrap">
@@ -61,17 +60,12 @@ export default function Navbar({
           </div>
           <div className="brand-info">
             <h1 className="brand-title">SmartPark<span className="accent-dot">.</span>Campus</h1>
-            <span className="brand-subtitle">IoT College Parking Management</span>
+            <span className="brand-subtitle">Smart Parking System</span>
           </div>
-        </div>
-
-        <div className="location-pill">
-          <MapPinIcon className="w-4 h-4 text-emerald" />
-          <span>Main Campus Central Parking</span>
-          <span className="live-status-dot"></span>
         </div>
       </div>
 
+      {/* Center: Clean Navigation Tabs */}
       <nav className="nav-tabs">
         <button
           type="button"
@@ -82,17 +76,17 @@ export default function Navbar({
         </button>
         <button
           type="button"
-          className={`nav-tab-btn ${activeTab === 'gate' ? 'active' : ''}`}
-          onClick={() => setActiveTab('gate')}
-        >
-          Gate Terminal
-        </button>
-        <button
-          type="button"
           className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
           Live Analytics
+        </button>
+        <button
+          type="button"
+          className={`nav-tab-btn ${activeTab === 'gate' ? 'active' : ''}`}
+          onClick={() => setActiveTab('gate')}
+        >
+          Gate Terminal
         </button>
         <button
           type="button"
@@ -103,83 +97,25 @@ export default function Navbar({
         </button>
       </nav>
 
+      {/* Right: Live Clock, User Profile & Sign Out */}
       <div className="navbar-right">
+        {/* Live Timing Clock */}
         <div className="live-clock">
-          <span className="clock-time">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-          <span className="clock-date">{time.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+          <span className="clock-time">
+            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+          <span className="clock-date">
+            {time.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+          </span>
         </div>
 
-        <button 
-          type="button" 
-          className="refresh-btn" 
-          onClick={onRefresh} 
-          title="Refresh slot telemetry"
-        >
-          <RefreshCwIcon className="w-4 h-4" />
-        </button>
-
-        {/* Notifications Dropdown */}
-        <div className="notifications-wrapper">
-          <button 
-            type="button" 
-            className="icon-btn notif-btn" 
-            onClick={() => setShowNotifications(!showNotifications)}
-            aria-label="Notifications"
-          >
-            <BellIcon className="w-5 h-5" />
-            {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
-          </button>
-
-          {showNotifications && (
-            <div className="notifications-dropdown">
-              <div className="notif-header">
-                <h4>System Notifications</h4>
-                <span className="notif-count-badge">{notifications.length} alerts</span>
-              </div>
-              <div className="notif-list">
-                {notifications.length === 0 ? (
-                  <p className="empty-notif">No new notifications</p>
-                ) : (
-                  notifications.map((n) => (
-                    <div key={n.id} className={`notif-item ${n.type}`}>
-                      <div className="notif-bullet"></div>
-                      <div className="notif-content">
-                        <div className="notif-title-row">
-                          <span className="notif-title">{n.title}</span>
-                          <span className="notif-time">{n.time}</span>
-                        </div>
-                        <p className="notif-msg">{n.message}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Role Selector */}
-        <div className="role-selector">
-          <UserIcon className="w-4 h-4 text-muted" />
-          <select 
-            value={currentRole} 
-            onChange={(e) => setCurrentRole(e.target.value)}
-            className="role-select"
-          >
-            <option value="Student">Student Mode</option>
-            <option value="Faculty">Faculty / Staff</option>
-            <option value="Security Admin">Security Admin</option>
-          </select>
-        </div>
-
-        {/* Google User Profile & Logout */}
         {user && (
           <div className="user-profile-badge">
             <div className="user-avatar-wrap">
               {user.photoURL && !imgError ? (
                 <img
                   src={user.photoURL}
-                  alt={user.displayName || 'Google Profile'}
+                  alt={user.displayName || 'User Profile'}
                   className="user-avatar-img"
                   referrerPolicy="no-referrer"
                   onError={() => setImgError(true)}
@@ -189,15 +125,17 @@ export default function Navbar({
                   {getInitials()}
                 </div>
               )}
-              <span className="user-status-indicator" title="Connected via Google Auth"></span>
             </div>
 
             <div className="user-info-stack">
-              <span className="user-name" title={user.displayName || 'Campus User'}>
-                {user.displayName || 'Campus User'}
-              </span>
+              <div className="user-name-row">
+                <span className="user-name" title={user.displayName || 'Campus User'}>
+                  {user.displayName || 'Campus User'}
+                </span>
+                <span className="user-role-pill">{displayRole}</span>
+              </div>
               <span className="user-email" title={user.email || ''}>
-                {user.email || 'campus-auth@college.edu'}
+                {user.email || ''}
               </span>
             </div>
 
@@ -205,7 +143,7 @@ export default function Navbar({
               type="button"
               className="user-logout-btn"
               onClick={handleLogout}
-              title="Sign out of campus account"
+              title="Sign out"
               aria-label="Sign out"
             >
               <LogOutIcon className="w-4 h-4 logout-icon" />
@@ -217,4 +155,3 @@ export default function Navbar({
     </header>
   )
 }
-

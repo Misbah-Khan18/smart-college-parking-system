@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
-import { logout } from './firebase/auth'
+import { logout, getUserProfile } from './firebase/auth'
 import Login from './pages/Login'
 import { INITIAL_SLOTS, INITIAL_LOGS } from './data/initialSlots'
 import Navbar from './components/Navbar'
@@ -10,27 +10,18 @@ import ParkingLotMap from './components/ParkingLotMap'
 import SlotBookingModal from './components/SlotBookingModal'
 import GateSimulator from './components/GateSimulator'
 import LiveVehicleLog from './components/LiveVehicleLog'
-import AnalyticsView from './components/AnalyticsView'
 import PassModal from './components/PassModal'
 import NotificationToast from './components/NotificationToast'
 import './App.css'
 
 function App() {
   const [user, setUser] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser)
-      setAuthLoading(false)
-    })
-
-    return () => unsubscribe()
-  }, [])
 
   const [slots, setSlots] = useState(INITIAL_SLOTS)
   const [logs, setLogs] = useState(INITIAL_LOGS)
-  const [activeTab, setActiveTab] = useState('map') // 'map' | 'gate' | 'analytics' | 'logs'
+  const [activeTab, setActiveTab] = useState('map') // 'map' | 'gate' | 'logs'
   const [selectedZone, setSelectedZone] = useState('All Zones')
   const [filterStatus, setFilterStatus] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -42,12 +33,27 @@ function App() {
   const [activePass, setActivePass] = useState(null)
   const [toast, setToast] = useState(null)
 
-  // Notification logs
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'info', title: 'System Online', message: 'Smart IoT Campus sensors connected and transmitting telemetry.', time: '09:00 AM' },
-    { id: 2, type: 'warning', title: 'High Zone B Demand', message: 'Faculty parking bay B is at 80% capacity.', time: '09:15 AM' },
-  ])
-  const [unreadCount, setUnreadCount] = useState(2)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser)
+      if (currentUser) {
+        try {
+          const profile = await getUserProfile(currentUser.uid)
+          if (profile) {
+            setUserProfile(profile)
+            if (profile.role) {
+              setCurrentRole(profile.role)
+            }
+          }
+        } catch (e) {
+          console.warn('Could not sync user profile:', e)
+        }
+      }
+      setAuthLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const showToast = useCallback((title, message, type = 'success') => {
     setToast({ title, message, type })
@@ -56,17 +62,13 @@ function App() {
   const handleLogout = async () => {
     try {
       await logout()
-      showToast('Logged Out', 'You have been signed out successfully.', 'info')
+      setUserProfile(null)
+      showToast('Logged Out', 'Signed out successfully.', 'info')
     } catch (err) {
       console.error('Logout error:', err)
       showToast('Logout Error', 'Unable to sign out. Please try again.', 'error')
     }
   }
-
-  const triggerTelemetryRefresh = () => {
-    showToast('Telemetry Synchronized', 'All ultrasonic & RFID campus parking nodes re-calibrated successfully.', 'info')
-  }
-
 
   // Handle Slot Booking Reservation
   const handleConfirmBooking = (bookingData) => {
@@ -98,20 +100,9 @@ function App() {
       slot: slotId,
       category: category,
       vehicleType: vehicleType,
-      gate: 'Online App Portal'
+      gate: 'App Portal'
     }
     setLogs((prev) => [newLog, ...prev])
-
-    // Push notification
-    const newNotif = {
-      id: Date.now(),
-      type: 'success',
-      title: `Slot ${slotId} Reserved`,
-      message: `Pass generated for ${vehicleNumber} (${ownerName}). Valid until ${reservedUntil}.`,
-      time: nowTime
-    }
-    setNotifications((prev) => [newNotif, ...prev])
-    setUnreadCount((c) => c + 1)
 
     // Open pass modal
     setActivePass({
@@ -124,7 +115,7 @@ function App() {
       zone: slots.find(s => s.id === slotId)?.zone
     })
 
-    showToast('Slot Reserved Successfully', `Assigned Slot: ${slotId}. Digital Pass is ready to scan.`, 'success')
+    showToast('Booking Confirmed', `Slot ${slotId} reserved for ${vehicleNumber}.`, 'success')
   }
 
   // Handle Manual Release / Checkout
@@ -147,27 +138,25 @@ function App() {
       action: 'EXIT',
       plate: target.plate || 'N/A',
       slot: slotId,
-      duration: 'Manual Release',
+      duration: 'Released',
       fee: 'Free',
-      gate: 'Admin Console'
+      gate: 'Admin Action'
     }
     setLogs((prev) => [newLog, ...prev])
 
-    showToast('Slot Freed', `Slot ${slotId} is now available for other vehicles.`, 'info')
+    showToast('Slot Cleared', `Slot ${slotId} is now available.`, 'info')
   }
 
-  // Handle Automated Gate Inbound Entry
+  // Handle Gate Entry
   const handleVehicleEntry = ({ plate, owner, type, category }) => {
-    // Check if vehicle has an existing reservation
     let targetSlot = slots.find((s) => s.status === 'reserved' && s.plate.toLowerCase() === plate.toLowerCase())
 
-    // If no reservation, find next available matching slot
     if (!targetSlot) {
       targetSlot = slots.find((s) => s.status === 'available' && (type === 'car' ? (s.type === 'car') : s.type === type))
     }
 
     if (!targetSlot) {
-      return { success: false, message: `No available parking bay found for ${type.toUpperCase()} type.` }
+      return { success: false, message: `No available slots found for vehicle type ${type.toUpperCase()}.` }
     }
 
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -179,7 +168,7 @@ function App() {
             ...s,
             status: 'occupied',
             plate: plate,
-            owner: owner || s.owner || 'Campus User',
+            owner: owner || s.owner || 'Campus Member',
             category: category || s.category || 'Student',
             entryTime: nowTime,
             reservedUntil: null
@@ -196,11 +185,11 @@ function App() {
       slot: targetSlot.id,
       category: category || 'Student',
       vehicleType: type,
-      gate: 'Main Gate 1 (ANPR)'
+      gate: 'Main Gate'
     }
     setLogs((prev) => [newLog, ...prev])
 
-    showToast('Vehicle Admitted', `${plate} assigned to Slot ${targetSlot.id} (${targetSlot.zone})`, 'success')
+    showToast('Vehicle Admitted', `${plate} assigned to Slot ${targetSlot.id}`, 'success')
 
     return {
       success: true,
@@ -209,7 +198,7 @@ function App() {
     }
   }
 
-  // Handle Automated Gate Outbound Exit
+  // Handle Gate Exit
   const handleVehicleExit = (plate) => {
     const targetSlot = slots.find((s) => s.plate.toLowerCase() === plate.toLowerCase() && s.status !== 'available')
 
@@ -233,20 +222,21 @@ function App() {
       action: 'EXIT',
       plate: plate,
       slot: targetSlot.id,
-      duration: '1h 25m',
-      fee: 'Free (Campus Permit)',
-      gate: 'Exit Barrier (ANPR)'
+      duration: '1h 15m',
+      fee: 'Free',
+      gate: 'Exit Gate'
     }
     setLogs((prev) => [newLog, ...prev])
 
-    showToast('Vehicle Checked Out', `${plate} cleared Slot ${targetSlot.id}. Barrier opened.`, 'info')
+    showToast('Vehicle Exited', `${plate} checked out. Slot ${targetSlot.id} is free.`, 'info')
 
     return {
       success: true,
       slotId: targetSlot.id,
-      duration: '1h 25m'
+      duration: '1h 15m'
     }
   }
+
   const availableSlots = slots.filter((s) => s.status === 'available')
 
   if (authLoading) {
@@ -256,12 +246,8 @@ function App() {
           <div className="login-logo">
             <span className="login-logo-icon">P</span>
           </div>
-
           <h1>SmartPark.Campus</h1>
-
-          <p className="login-subtitle">
-            Loading secure access...
-          </p>
+          <p className="login-subtitle">Loading...</p>
         </div>
       </div>
     )
@@ -273,26 +259,22 @@ function App() {
 
   return (
     <div className="app-layout">
-
-      {/* Top Navigation */}
+      {/* Clean Navbar */}
       <Navbar
         user={user}
+        userProfile={userProfile}
         onLogout={handleLogout}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentRole={currentRole}
-        setCurrentRole={setCurrentRole}
-        notifications={notifications}
-        unreadCount={unreadCount}
-        onRefresh={triggerTelemetryRefresh}
       />
 
-      {/* Main Container */}
+      {/* Main Content Area */}
       <main className="main-content">
-        {/* Real-time KPI Stats Banner */}
+        {/* Simple 3-Card KPI Stats */}
         <StatsOverview slots={slots} />
 
-        {/* Tab Content */}
+        {/* Tab View */}
         <section className="tab-body">
           {activeTab === 'map' && (
             <ParkingLotMap
@@ -337,17 +319,13 @@ function App() {
             />
           )}
 
-          {activeTab === 'analytics' && (
-            <AnalyticsView slots={slots} />
-          )}
-
           {activeTab === 'logs' && (
             <LiveVehicleLog logs={logs} />
           )}
         </section>
       </main>
 
-      {/* Modals & Floating Alerts */}
+      {/* Booking & Pass Modals */}
       <SlotBookingModal
         isOpen={isBookingOpen}
         onClose={() => {
@@ -359,8 +337,8 @@ function App() {
         onConfirmBooking={handleConfirmBooking}
         currentRole={currentRole}
         user={user}
+        userProfile={userProfile}
       />
-
 
       <PassModal
         pass={activePass}
@@ -372,11 +350,10 @@ function App() {
         onDismiss={() => setToast(null)}
       />
 
-      {/* Footer */}
+      {/* Clean Footer */}
       <footer className="app-footer">
         <div className="footer-content">
-          <span>Smart College Parking System &bull; IoT Telemetry & ANPR Gate Automation</span>
-          <span className="footer-tag">Department of Computer Science &amp; Engineering &bull; Mini Project</span>
+          <span>Smart College Parking System &bull; Clean &amp; Real-Time</span>
         </div>
       </footer>
     </div>

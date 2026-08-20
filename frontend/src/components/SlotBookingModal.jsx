@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { XIcon, CarIcon, BikeIcon, EvIcon, QrIcon, CheckIcon } from './Icons'
+import { XIcon, QrIcon, CheckIcon } from './Icons'
 
 export default function SlotBookingModal({
   isOpen,
@@ -8,23 +8,38 @@ export default function SlotBookingModal({
   availableSlots,
   onConfirmBooking,
   currentRole,
-  user
+  user,
+  userProfile
 }) {
   const [slotId, setSlotId] = useState(initialSlot ? initialSlot.id : (availableSlots[0]?.id || ''))
   const [vehicleNumber, setVehicleNumber] = useState('')
-  const [ownerName, setOwnerName] = useState(user?.displayName || '')
+  const [ownerName, setOwnerName] = useState('')
   const [category, setCategory] = useState(currentRole === 'Faculty' ? 'Faculty' : 'Student')
   const [durationHours, setDurationHours] = useState('2')
   const [vehicleType, setVehicleType] = useState(initialSlot?.type || 'car')
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (isOpen && user?.displayName && !ownerName) {
-      setOwnerName(user.displayName)
+    if (isOpen) {
+      if (initialSlot) {
+        setSlotId(initialSlot.id)
+        setVehicleType(initialSlot.type || 'car')
+      } else if (availableSlots.length > 0) {
+        setSlotId(availableSlots[0].id)
+        setVehicleType(availableSlots[0].type || 'car')
+      }
+
+      const name = userProfile?.displayName || user?.displayName || ''
+      setOwnerName(name)
+
+      if (userProfile?.defaultPlate) {
+        setVehicleNumber(userProfile.defaultPlate)
+      }
+      if (userProfile?.role) {
+        setCategory(userProfile.role)
+      }
     }
-  }, [isOpen, user?.displayName])
-
-
+  }, [isOpen, initialSlot, availableSlots, user, userProfile])
 
   if (!isOpen) return null
 
@@ -66,7 +81,7 @@ export default function SlotBookingModal({
         <div className="modal-header">
           <div className="modal-title-wrap">
             <QrIcon className="w-5 h-5 text-cyan" />
-            <h3 className="modal-title">Reserve Campus Parking Slot</h3>
+            <h3 className="modal-title">Book Parking Slot</h3>
           </div>
           <button type="button" className="close-btn" onClick={onClose}>
             <XIcon className="w-5 h-5" />
@@ -78,20 +93,24 @@ export default function SlotBookingModal({
 
           {/* Select Slot */}
           <div className="form-group">
-            <label htmlFor="slot-select">Choose Parking Slot</label>
+            <label htmlFor="slot-select">Select Available Slot</label>
             <select
               id="slot-select"
               value={slotId}
-              onChange={(e) => setSlotId(e.target.value)}
+              onChange={(e) => {
+                setSlotId(e.target.value)
+                const selected = availableSlots.find((s) => s.id === e.target.value)
+                if (selected?.type) setVehicleType(selected.type)
+              }}
               className="form-control"
               required
             >
               {availableSlots.length === 0 ? (
-                <option value="">No available slots</option>
+                <option value="">No slots currently available</option>
               ) : (
                 availableSlots.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.id} - {s.zone} ({s.type.toUpperCase()})
+                    Slot {s.id} &bull; {s.zone.replace(/ \(.*\)/, '')} ({s.type.toUpperCase()})
                   </option>
                 ))
               )}
@@ -101,11 +120,11 @@ export default function SlotBookingModal({
           <div className="form-row">
             {/* Owner Name */}
             <div className="form-group">
-              <label htmlFor="owner-name">Full Name / ID</label>
+              <label htmlFor="owner-name">Name</label>
               <input
                 id="owner-name"
                 type="text"
-                placeholder="e.g. Aryan Sharma (CS21B04)"
+                placeholder="Driver or Student Name"
                 value={ownerName}
                 onChange={(e) => setOwnerName(e.target.value)}
                 className="form-control"
@@ -115,7 +134,7 @@ export default function SlotBookingModal({
 
             {/* Vehicle Number */}
             <div className="form-group">
-              <label htmlFor="vehicle-plate">License Plate Number</label>
+              <label htmlFor="vehicle-plate">Vehicle Plate</label>
               <input
                 id="vehicle-plate"
                 type="text"
@@ -131,60 +150,34 @@ export default function SlotBookingModal({
           <div className="form-row">
             {/* Category */}
             <div className="form-group">
-              <label htmlFor="user-category">Campus Category</label>
+              <label htmlFor="user-category">Category</label>
               <select
                 id="user-category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="form-control"
               >
-                <option value="Student">Student (Registered)</option>
-                <option value="Faculty">Faculty / Professor</option>
-                <option value="Staff">College Staff</option>
-                <option value="Visitor">Official Guest / Visitor</option>
+                <option value="Student">Student</option>
+                <option value="Faculty">Faculty / Staff</option>
+                <option value="Security Admin">Security Admin</option>
+                <option value="Visitor">Visitor</option>
               </select>
             </div>
 
-            {/* Vehicle Type */}
+            {/* Duration */}
             <div className="form-group">
-              <label htmlFor="vehicle-type-select">Vehicle Type</label>
+              <label htmlFor="duration-select">Duration</label>
               <select
-                id="vehicle-type-select"
-                value={vehicleType}
-                onChange={(e) => setVehicleType(e.target.value)}
+                id="duration-select"
+                value={durationHours}
+                onChange={(e) => setDurationHours(e.target.value)}
                 className="form-control"
               >
-                <option value="car">🚗 4-Wheeler Car</option>
-                <option value="ev">⚡ Electric Vehicle (EV)</option>
-                <option value="bike">🏍️ Two-Wheeler / Scooter</option>
+                <option value="1">1 Hour</option>
+                <option value="2">2 Hours</option>
+                <option value="4">4 Hours</option>
+                <option value="8">Full Day (8 Hours)</option>
               </select>
-            </div>
-          </div>
-
-          {/* Duration */}
-          <div className="form-group">
-            <label htmlFor="duration-select">Reservation Duration</label>
-            <select
-              id="duration-select"
-              value={durationHours}
-              onChange={(e) => setDurationHours(e.target.value)}
-              className="form-control"
-            >
-              <option value="1">1 Hour (Quick Visit)</option>
-              <option value="2">2 Hours (Lecture Period)</option>
-              <option value="4">4 Hours (Lab Session / Half Day)</option>
-              <option value="8">8 Hours (Full Campus Day)</option>
-            </select>
-          </div>
-
-          <div className="booking-info-box">
-            <div className="info-row">
-              <span>Campus Parking Fee:</span>
-              <span className="fee-badge">FREE (Institutional Pass)</span>
-            </div>
-            <div className="info-row">
-              <span>Gate Entry Access:</span>
-              <span className="text-emerald font-bold">Automatic ANPR / QR Scan</span>
             </div>
           </div>
 
@@ -194,7 +187,7 @@ export default function SlotBookingModal({
             </button>
             <button type="submit" className="btn btn-primary">
               <CheckIcon className="w-4 h-4" />
-              Generate Digital Pass
+              Confirm Booking
             </button>
           </div>
         </form>
