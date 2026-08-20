@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { CarIcon, BikeIcon, EvIcon, SearchIcon, PlusCircleIcon, ShieldIcon } from './Icons'
 
 export default function ParkingLotMap({
@@ -14,7 +14,13 @@ export default function ParkingLotMap({
   onReleaseSlot,
   currentRole
 }) {
-  const zones = ['All Zones', 'Zone A (Student Cars)', 'Zone B (Faculty & Staff)', 'Zone C (EV Charging)', 'Zone D (Two-Wheelers)']
+  const zones = [
+    { label: 'All Bays', value: 'All Zones' },
+    { label: 'Zone A (Student)', value: 'Zone A (Student Cars)' },
+    { label: 'Zone B (Faculty)', value: 'Zone B (Faculty & Staff)' },
+    { label: 'Zone C (EV Charging)', value: 'Zone C (EV Charging)' },
+    { label: 'Zone D (Two-Wheelers)', value: 'Zone D (Two-Wheelers)' },
+  ]
 
   const filteredSlots = useMemo(() => {
     return slots.filter((slot) => {
@@ -31,23 +37,24 @@ export default function ParkingLotMap({
   const getVehicleIcon = (type) => {
     switch (type) {
       case 'bike':
-        return <BikeIcon className="w-5 h-5" />
+        return <BikeIcon className="w-4 h-4" />
       case 'ev':
-        return <EvIcon className="w-5 h-5" />
+        return <EvIcon className="w-4 h-4" />
       default:
-        return <CarIcon className="w-5 h-5" />
+        return <CarIcon className="w-4 h-4" />
     }
   }
 
   return (
     <div className="parking-map-container">
       {/* Controls & Filter Bar */}
-      <div className="map-toolbar">
+      <div className="map-toolbar simple-toolbar">
+        {/* Search */}
         <div className="search-box">
           <SearchIcon className="w-4 h-4 text-muted" />
           <input
             type="text"
-            placeholder="Search slot (e.g. A-02), plate, or name..."
+            placeholder="Search slot (e.g. A-01), plate, or name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -57,30 +64,45 @@ export default function ParkingLotMap({
           )}
         </div>
 
+        {/* Zone Filter Buttons */}
         <div className="zone-filter-pills">
-          {zones.map((zone) => (
+          {zones.map((z) => (
             <button
-              key={zone}
+              key={z.value}
               type="button"
-              className={`filter-pill ${selectedZone === zone ? 'active' : ''}`}
-              onClick={() => setSelectedZone(zone)}
+              className={`filter-pill ${selectedZone === z.value ? 'active' : ''}`}
+              onClick={() => setSelectedZone(z.value)}
             >
-              {zone.replace(/ \(.*\)/, '')}
+              {z.label}
             </button>
           ))}
         </div>
 
+        {/* Status Filter & Book Action */}
         <div className="status-filter-group">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="status-dropdown"
-          >
-            <option value="all">All Statuses</option>
-            <option value="available">🟢 Available</option>
-            <option value="occupied">🔴 Occupied</option>
-            <option value="reserved">🟡 Reserved</option>
-          </select>
+          <div className="status-toggle-btns">
+            <button
+              type="button"
+              className={`status-btn ${filterStatus === 'all' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('all')}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              className={`status-btn available ${filterStatus === 'available' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('available')}
+            >
+              Available
+            </button>
+            <button
+              type="button"
+              className={`status-btn occupied ${filterStatus === 'occupied' ? 'active' : ''}`}
+              onClick={() => setFilterStatus('occupied')}
+            >
+              Occupied
+            </button>
+          </div>
 
           <button
             type="button"
@@ -93,32 +115,37 @@ export default function ParkingLotMap({
         </div>
       </div>
 
-      {/* Map Legend */}
-      <div className="map-legend">
+      {/* Clean Legend */}
+      <div className="map-legend simple-legend">
         <div className="legend-item">
           <span className="legend-dot status-available"></span>
-          <span>Available ({slots.filter(s => s.status === 'available').length})</span>
+          <span>Available ({slots.filter((s) => s.status === 'available').length})</span>
         </div>
         <div className="legend-item">
           <span className="legend-dot status-occupied"></span>
-          <span>Occupied ({slots.filter(s => s.status === 'occupied').length})</span>
+          <span>Occupied ({slots.filter((s) => s.status === 'occupied').length})</span>
         </div>
         <div className="legend-item">
           <span className="legend-dot status-reserved"></span>
-          <span>Reserved ({slots.filter(s => s.status === 'reserved').length})</span>
-        </div>
-        <div className="legend-item">
-          <span className="legend-badge-ev">⚡ EV Charging Slot</span>
+          <span>Reserved ({slots.filter((s) => s.status === 'reserved').length})</span>
         </div>
       </div>
 
-      {/* Slots Grid */}
+      {/* Clean Slots Grid */}
       <div className="slots-grid-view">
         {filteredSlots.length === 0 ? (
           <div className="empty-state">
-            <ShieldIcon className="w-12 h-12 text-muted" />
-            <p>No parking slots match the selected filter criteria.</p>
-            <button type="button" className="btn btn-secondary" onClick={() => { setSelectedZone('All Zones'); setFilterStatus('all'); setSearchQuery(''); }}>
+            <ShieldIcon className="w-10 h-10 text-muted" />
+            <p>No parking slots match the selected filters.</p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setSelectedZone('All Zones')
+                setFilterStatus('all')
+                setSearchQuery('')
+              }}
+            >
               Reset Filters
             </button>
           </div>
@@ -138,7 +165,6 @@ export default function ParkingLotMap({
                   <div className="slot-id-badge">
                     <span className="slot-id-text">{slot.id}</span>
                     {slot.type === 'ev' && <span className="ev-tag">⚡ EV</span>}
-                    {slot.type === 'bike' && <span className="bike-tag">🏍️ 2W</span>}
                   </div>
                   <div className="slot-type-icon">{getVehicleIcon(slot.type)}</div>
                 </div>
@@ -146,17 +172,14 @@ export default function ParkingLotMap({
                 <div className="slot-body">
                   <div className="slot-status-indicator">
                     <span className={`status-pill ${slot.status}`}>
-                      {slot.status.toUpperCase()}
+                      {slot.status}
                     </span>
                   </div>
 
                   {isOccupied && (
                     <div className="slot-info">
                       <span className="plate-num">{slot.plate}</span>
-                      <span className="owner-name">{slot.owner || 'Registered User'}</span>
-                      {slot.entryTime && (
-                        <span className="time-tag">Entry: {slot.entryTime}</span>
-                      )}
+                      <span className="owner-name">{slot.owner || 'Occupied'}</span>
                     </div>
                   )}
 
@@ -165,15 +188,14 @@ export default function ParkingLotMap({
                       <span className="plate-num">{slot.plate}</span>
                       <span className="owner-name">{slot.owner}</span>
                       {slot.reservedUntil && (
-                        <span className="time-tag reserved">Until: {slot.reservedUntil}</span>
+                        <span className="time-tag">Until {slot.reservedUntil}</span>
                       )}
                     </div>
                   )}
 
                   {isAvailable && (
                     <div className="slot-info available-info">
-                      <span className="ready-text">Slot Ready</span>
-                      <span className="zone-hint">{slot.zone.split(' ')[1]}</span>
+                      <span className="ready-text">Ready to park</span>
                     </div>
                   )}
                 </div>
@@ -185,7 +207,7 @@ export default function ParkingLotMap({
                       className="btn-slot-action btn-book-quick"
                       onClick={() => onOpenBooking(slot)}
                     >
-                      Reserve Now
+                      Book
                     </button>
                   ) : (
                     <div className="occupied-actions">
@@ -194,9 +216,9 @@ export default function ParkingLotMap({
                           type="button"
                           className="btn-slot-action btn-release"
                           onClick={() => onReleaseSlot(slot.id)}
-                          title="Checkout vehicle & clear slot"
+                          title="Checkout vehicle"
                         >
-                          Checkout / Release
+                          Checkout
                         </button>
                       )}
                     </div>
