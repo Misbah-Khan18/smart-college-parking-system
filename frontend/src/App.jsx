@@ -668,6 +668,7 @@ export default function App() {
               onVehicleEntry={handleVehicleEntry}
               onVehicleExit={handleVehicleExit}
               onShowPass={(passData) => setActivePass(passData)}
+              onNavigateToMap={() => setActiveTab('map')}
             />
           )}
 
