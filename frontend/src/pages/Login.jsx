@@ -68,8 +68,10 @@ export default function Login({ onDemoLogin }) {
         return 'Google sign-in popup was closed before completing.'
       case 'auth/popup-blocked':
         return 'Google sign-in popup was blocked by your browser. Please enable popups.'
+      case 'auth/unauthorized-domain':
+        return `Domain "${window.location.hostname}" is not authorized in Firebase. Please add "${window.location.hostname}" in Firebase Console > Authentication > Settings > Authorized Domains, or use Quick Demo Access below.`
       case 'auth/operation-not-allowed':
-        return 'This authentication method is not enabled in Firebase. You can also use 1-Click Quick Demo Access.'
+        return 'Google Sign-In is not enabled in your Firebase Console (Authentication > Sign-in method > Google). You can also use 1-Click Quick Demo Access below.'
       case 'auth/network-request-failed':
         return 'Network connection issue. You can use 1-Click Quick Demo Access below.'
       default:
