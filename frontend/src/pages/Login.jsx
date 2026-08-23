@@ -16,10 +16,11 @@ import {
   CheckIcon,
   AlertCircleIcon,
   UserPlusIcon,
+  ShieldIcon
 } from '../components/Icons'
 import './Login.css'
 
-function Login() {
+export default function Login({ onDemoLogin }) {
   const [activeTab, setActiveTab] = useState('login') // 'login' | 'register'
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -66,11 +67,11 @@ function Login() {
       case 'auth/popup-blocked':
         return 'Google sign-in popup was blocked by your browser. Please allow popups.'
       case 'auth/operation-not-allowed':
-        return 'This sign-in method is currently disabled in the Firebase Console. Please enable it under Authentication > Sign-in method.'
+        return 'This sign-in method is currently disabled in the Firebase Console. You can also use Quick Demo Access below.'
       case 'auth/network-request-failed':
-        return 'Network connection error. Please check your internet connection.'
+        return 'Network connection error. You can also use Quick Demo Access below.'
       default:
-        return err?.message || 'An unexpected error occurred. Please try again.'
+        return err?.message || 'An unexpected error occurred. Please try again or use Demo Access.'
     }
   }
 
@@ -153,7 +154,6 @@ function Login() {
         campusId: regCampusId.trim().toUpperCase(),
         defaultPlate: regPlate.trim().toUpperCase(),
       })
-      // User is automatically logged in upon successful creation in Firebase Auth
     } catch (err) {
       console.error('Registration Error:', err)
       setError(formatAuthError(err))
@@ -185,6 +185,40 @@ function Login() {
     }
   }
 
+  // Quick Demo Access Helper
+  const triggerDemo = (role) => {
+    if (onDemoLogin) {
+      const demoUsers = {
+        'Security Admin': {
+          uid: 'demo-admin-01',
+          displayName: 'Officer Vikram Rathore',
+          email: 'admin.security@college.edu',
+          role: 'Security Admin',
+          campusId: 'SEC-889',
+          defaultPlate: 'MH-04-SEC-01',
+        },
+        'Student': {
+          uid: 'demo-student-01',
+          displayName: 'Ananya Deshmukh',
+          email: 'ananya.cs21@college.edu',
+          role: 'Student',
+          campusId: 'CS21B044',
+          defaultPlate: 'MH-04-AB-1234',
+        },
+        'Faculty': {
+          uid: 'demo-faculty-01',
+          displayName: 'Dr. Rajesh Kulkarni',
+          email: 'dr.kulkarni@college.edu',
+          role: 'Faculty',
+          campusId: 'FAC-IT-12',
+          defaultPlate: 'MH-04-FAC-99',
+        }
+      }
+
+      onDemoLogin(demoUsers[role] || demoUsers['Student'])
+    }
+  }
+
   return (
     <div className="login-page">
       <div className="login-card">
@@ -194,7 +228,38 @@ function Login() {
             <span className="login-logo-icon">P</span>
           </div>
           <h1>SmartPark<span className="accent-dot">.</span>Campus</h1>
-          <p className="login-subtitle">IoT College Parking Management & Gate Automation</p>
+          <p className="login-subtitle">IoT Campus Parking Management &amp; Gate Automation</p>
+        </div>
+
+        {/* Quick Demo Access Bar */}
+        <div className="demo-access-banner glass-card">
+          <div className="demo-header">
+            <ShieldIcon className="w-4 h-4 text-cyan" />
+            <span>⚡ 1-Click Quick Demo Access</span>
+          </div>
+          <div className="demo-btn-group">
+            <button
+              type="button"
+              className="demo-pill-btn admin"
+              onClick={() => triggerDemo('Security Admin')}
+            >
+              🛡️ Security Admin
+            </button>
+            <button
+              type="button"
+              className="demo-pill-btn student"
+              onClick={() => triggerDemo('Student')}
+            >
+              🎓 Student (Scooty)
+            </button>
+            <button
+              type="button"
+              className="demo-pill-btn faculty"
+              onClick={() => triggerDemo('Faculty')}
+            >
+              👨‍🏫 Professor
+            </button>
+          </div>
         </div>
 
         {/* Forgot Password Sub-View */}
@@ -403,7 +468,7 @@ function Login() {
               </div>
             )}
 
-            {/* REGISTER / CREATE ACCOUNT TAB CONTENT */}
+            {/* REGISTER TAB CONTENT */}
             {activeTab === 'register' && (
               <div className="tab-fade-enter">
                 <div className="section-title-wrap">
@@ -431,7 +496,7 @@ function Login() {
                     </div>
                   </div>
 
-                  {/* Campus Role & Roll / Campus ID */}
+                  {/* Role & Roll ID */}
                   <div className="auth-form-row">
                     <div className="auth-input-group flex-1">
                       <label htmlFor="reg-role">Role / Category *</label>
@@ -492,7 +557,7 @@ function Login() {
                         <input
                           id="reg-plate"
                           type="text"
-                          placeholder="KA-05-AB-1234"
+                          placeholder="MH-04-AB-1234"
                           value={regPlate}
                           onChange={(e) => setRegPlate(e.target.value)}
                           className="uppercase-input"
@@ -502,7 +567,7 @@ function Login() {
                     </div>
                   </div>
 
-                  {/* Password & Confirm Password */}
+                  {/* Passwords */}
                   <div className="auth-form-row">
                     <div className="auth-input-group flex-1">
                       <label htmlFor="reg-password">Password *</label>
@@ -595,5 +660,3 @@ function Login() {
     </div>
   )
 }
-
-export default Login

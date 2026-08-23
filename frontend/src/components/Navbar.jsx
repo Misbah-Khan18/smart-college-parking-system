@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { LogOutIcon } from './Icons'
+import { useState, useEffect } from 'react'
+import { LogOutIcon, BellIcon, RefreshCwIcon } from './Icons'
 import { logout } from '../firebase/auth'
 
 export default function Navbar({
@@ -9,18 +9,19 @@ export default function Navbar({
   activeTab,
   setActiveTab,
   currentRole,
+  notifications = [],
+  unreadCount = 0,
+  onRefresh,
+  onClearNotifications
 }) {
   const [time, setTime] = useState(new Date())
   const [imgError, setImgError] = useState(false)
+  const [showNotifMenu, setShowNotifMenu] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
-
-  useEffect(() => {
-    setImgError(false)
-  }, [user?.photoURL])
 
   const handleLogout = async () => {
     try {
@@ -35,12 +36,13 @@ export default function Navbar({
   }
 
   const getInitials = () => {
-    if (user?.displayName) {
-      const parts = user.displayName.trim().split(/\s+/)
+    const name = userProfile?.displayName || user?.displayName
+    if (name) {
+      const parts = name.trim().split(/\s+/)
       if (parts.length >= 2) {
         return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
       }
-      return user.displayName.slice(0, 2).toUpperCase()
+      return name.slice(0, 2).toUpperCase()
     }
     if (user?.email) {
       return user.email.slice(0, 2).toUpperCase()
@@ -49,58 +51,67 @@ export default function Navbar({
   }
 
   const displayRole = userProfile?.role || currentRole || 'Student'
+  const displayName = userProfile?.displayName || user?.displayName || 'Campus User'
+  const displayEmail = userProfile?.email || user?.email || ''
 
   return (
     <header className="navbar-container">
-      {/* Left: Brand Logo */}
+      {/* Left: Brand Logo & Campus Badge */}
       <div className="navbar-left">
         <div className="brand-logo">
           <div className="logo-icon-wrap">
             <span className="logo-p-badge">P</span>
           </div>
           <div className="brand-info">
-            <h1 className="brand-title">SmartPark<span className="accent-dot">.</span>Campus</h1>
-            <span className="brand-subtitle">Smart Parking System</span>
+            <h1 className="brand-title">
+              SmartPark<span className="accent-dot">.</span>Campus
+            </h1>
+            <span className="brand-subtitle">IoT Parking Management System</span>
           </div>
+        </div>
+
+        <div className="location-pill hidden-mobile">
+          <span className="live-status-dot"></span>
+          <span>Main Campus Central</span>
         </div>
       </div>
 
-      {/* Center: Clean Navigation Tabs */}
+      {/* Center: Navigation Tabs */}
       <nav className="nav-tabs">
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'map' ? 'active' : ''}`}
           onClick={() => setActiveTab('map')}
         >
-          Parking Map
+          🅿️ Parking Map
         </button>
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
-          Live Analytics
+          📊 Live Analytics
         </button>
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'gate' ? 'active' : ''}`}
           onClick={() => setActiveTab('gate')}
         >
-          Gate Terminal
+          🚧 Gate Terminal
         </button>
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'logs' ? 'active' : ''}`}
           onClick={() => setActiveTab('logs')}
         >
-          Activity Log
+          📜 Activity Log
         </button>
       </nav>
 
-      {/* Right: Live Clock, User Profile & Sign Out */}
+      {/* Right: Live Clock, Telemetry Refresh, Notifications & Profile */}
       <div className="navbar-right">
         {/* Live Timing Clock */}
-        <div className="live-clock">
+        <div className="live-clock hidden-mobile">
           <span className="clock-time">
             {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
@@ -109,33 +120,95 @@ export default function Navbar({
           </span>
         </div>
 
+        {/* Refresh Sensor Data Button */}
+        {onRefresh && (
+          <button
+            type="button"
+            className="icon-btn refresh-btn"
+            onClick={onRefresh}
+            title="Refresh Telemetry Data"
+            aria-label="Refresh Telemetry Data"
+          >
+            <RefreshCwIcon className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* Notifications Bell & Dropdown */}
+        <div className="notifications-wrapper">
+          <button
+            type="button"
+            className="icon-btn notif-toggle-btn"
+            onClick={() => setShowNotifMenu(!showNotifMenu)}
+            title="Campus Alerts"
+            aria-label="Campus Alerts"
+          >
+            <BellIcon className="w-4 h-4" />
+            {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+          </button>
+
+          {showNotifMenu && (
+            <div className="notifications-dropdown glass-card">
+              <div className="notif-dropdown-header">
+                <h4>Recent Parking Events</h4>
+                {notifications.length > 0 && onClearNotifications && (
+                  <button
+                    type="button"
+                    className="clear-notif-btn"
+                    onClick={() => {
+                      onClearNotifications()
+                      setShowNotifMenu(false)
+                    }}
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+              <div className="notif-dropdown-list">
+                {notifications.length === 0 ? (
+                  <div className="notif-empty">No new parking events or alerts.</div>
+                ) : (
+                  notifications.slice(0, 6).map((item, idx) => (
+                    <div key={idx} className={`notif-item ${item.type || 'info'}`}>
+                      <div className="notif-item-header">
+                        <strong>{item.title}</strong>
+                        <span className="notif-time">{item.time || 'Just now'}</span>
+                      </div>
+                      <p>{item.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* User Profile Badge & Logout */}
         {user && (
           <div className="user-profile-badge">
             <div className="user-avatar-wrap">
               {user.photoURL && !imgError ? (
                 <img
+                  key={user.photoURL}
                   src={user.photoURL}
-                  alt={user.displayName || 'User Profile'}
+                  alt={displayName}
                   className="user-avatar-img"
                   referrerPolicy="no-referrer"
                   onError={() => setImgError(true)}
                 />
               ) : (
-                <div className="user-avatar-fallback">
-                  {getInitials()}
-                </div>
+                <div className="user-avatar-fallback">{getInitials()}</div>
               )}
             </div>
 
-            <div className="user-info-stack">
+            <div className="user-info-stack hidden-mobile">
               <div className="user-name-row">
-                <span className="user-name" title={user.displayName || 'Campus User'}>
-                  {user.displayName || 'Campus User'}
+                <span className="user-name" title={displayName}>
+                  {displayName}
                 </span>
                 <span className="user-role-pill">{displayRole}</span>
               </div>
-              <span className="user-email" title={user.email || ''}>
-                {user.email || ''}
+              <span className="user-email" title={displayEmail}>
+                {displayEmail}
               </span>
             </div>
 
@@ -143,8 +216,8 @@ export default function Navbar({
               type="button"
               className="user-logout-btn"
               onClick={handleLogout}
-              title="Sign out"
-              aria-label="Sign out"
+              title="Sign Out"
+              aria-label="Sign Out"
             >
               <LogOutIcon className="w-4 h-4 logout-icon" />
               <span className="logout-btn-text">Sign Out</span>

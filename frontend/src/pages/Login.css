@@ -89,6 +89,63 @@
   letter-spacing: 0.2px;
 }
 
+/* Quick Demo Access */
+.demo-access-banner {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px dashed rgba(6, 182, 212, 0.4);
+  border-radius: 14px;
+}
+
+.demo-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.demo-btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+.demo-pill-btn {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.demo-pill-btn:hover {
+  background: rgba(6, 182, 212, 0.2);
+  border-color: rgba(6, 182, 212, 0.5);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.demo-pill-btn.admin:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.5);
+}
+
+.demo-pill-btn.student:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
 /* Auth Navigation Tabs */
 .auth-nav-tabs {
   display: flex;

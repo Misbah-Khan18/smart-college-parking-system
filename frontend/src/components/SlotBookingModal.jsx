@@ -1,47 +1,59 @@
-import React, { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { XIcon, QrIcon, CheckIcon } from './Icons'
 
 export default function SlotBookingModal({
   isOpen,
   onClose,
   initialSlot,
-  availableSlots,
+  availableSlots = [],
+  onConfirmBooking,
+  currentRole = 'Student',
+  user,
+  userProfile
+}) {
+  if (!isOpen) return null
+
+  return (
+    <SlotBookingContent
+      key={initialSlot?.id || 'default-booking'}
+      onClose={onClose}
+      initialSlot={initialSlot}
+      availableSlots={availableSlots}
+      onConfirmBooking={onConfirmBooking}
+      currentRole={currentRole}
+      user={user}
+      userProfile={userProfile}
+    />
+  )
+}
+
+function SlotBookingContent({
+  onClose,
+  initialSlot,
+  availableSlots = [],
   onConfirmBooking,
   currentRole,
   user,
   userProfile
 }) {
-  const [slotId, setSlotId] = useState(initialSlot ? initialSlot.id : (availableSlots[0]?.id || ''))
-  const [vehicleNumber, setVehicleNumber] = useState('')
-  const [ownerName, setOwnerName] = useState('')
-  const [category, setCategory] = useState(currentRole === 'Faculty' ? 'Faculty' : 'Student')
+  const defaultSlotId = initialSlot?.id || availableSlots[0]?.id || ''
+  const defaultSlot = initialSlot || availableSlots.find((s) => s.id === defaultSlotId)
+
+  const [slotId, setSlotId] = useState(defaultSlotId)
+  const [vehicleNumber, setVehicleNumber] = useState(userProfile?.defaultPlate || '')
+  const [ownerName, setOwnerName] = useState(userProfile?.displayName || user?.displayName || '')
+  const [category, setCategory] = useState(userProfile?.role || (currentRole === 'Faculty' ? 'Faculty' : 'Student'))
   const [durationHours, setDurationHours] = useState('2')
-  const [vehicleType, setVehicleType] = useState(initialSlot?.type || 'car')
+  const [vehicleType, setVehicleType] = useState(defaultSlot?.type || 'bike')
   const [errorMsg, setErrorMsg] = useState('')
 
-  useEffect(() => {
-    if (isOpen) {
-      if (initialSlot) {
-        setSlotId(initialSlot.id)
-        setVehicleType(initialSlot.type || 'car')
-      } else if (availableSlots.length > 0) {
-        setSlotId(availableSlots[0].id)
-        setVehicleType(availableSlots[0].type || 'car')
-      }
-
-      const name = userProfile?.displayName || user?.displayName || ''
-      setOwnerName(name)
-
-      if (userProfile?.defaultPlate) {
-        setVehicleNumber(userProfile.defaultPlate)
-      }
-      if (userProfile?.role) {
-        setCategory(userProfile.role)
-      }
+  const handleSlotSelect = (selectedId) => {
+    setSlotId(selectedId)
+    const selected = availableSlots.find((s) => s.id === selectedId)
+    if (selected?.type) {
+      setVehicleType(selected.type)
     }
-  }, [isOpen, initialSlot, availableSlots, user, userProfile])
-
-  if (!isOpen) return null
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -50,11 +62,11 @@ export default function SlotBookingModal({
       return
     }
     if (!vehicleNumber.trim()) {
-      setErrorMsg('Please enter vehicle registration number.')
+      setErrorMsg('Please enter vehicle registration plate number.')
       return
     }
     if (!ownerName.trim()) {
-      setErrorMsg('Please enter driver / student / faculty name.')
+      setErrorMsg('Please enter student / faculty / driver name.')
       return
     }
 
@@ -81,9 +93,9 @@ export default function SlotBookingModal({
         <div className="modal-header">
           <div className="modal-title-wrap">
             <QrIcon className="w-5 h-5 text-cyan" />
-            <h3 className="modal-title">Book Parking Slot</h3>
+            <h3 className="modal-title">Reserve Parking Slot</h3>
           </div>
-          <button type="button" className="close-btn" onClick={onClose}>
+          <button type="button" className="close-btn" onClick={onClose} aria-label="Close booking modal">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
@@ -97,11 +109,7 @@ export default function SlotBookingModal({
             <select
               id="slot-select"
               value={slotId}
-              onChange={(e) => {
-                setSlotId(e.target.value)
-                const selected = availableSlots.find((s) => s.id === e.target.value)
-                if (selected?.type) setVehicleType(selected.type)
-              }}
+              onChange={(e) => handleSlotSelect(e.target.value)}
               className="form-control"
               required
             >
@@ -110,7 +118,7 @@ export default function SlotBookingModal({
               ) : (
                 availableSlots.map((s) => (
                   <option key={s.id} value={s.id}>
-                    Slot {s.id} &bull; {s.zone.replace(/ \(.*\)/, '')} ({s.type.toUpperCase()})
+                    Slot {s.id} &bull; {s.floor} ({s.section}) [{s.type.toUpperCase()}]
                   </option>
                 ))
               )}
@@ -120,7 +128,7 @@ export default function SlotBookingModal({
           <div className="form-row">
             {/* Owner Name */}
             <div className="form-group">
-              <label htmlFor="owner-name">Name</label>
+              <label htmlFor="owner-name">Full Name</label>
               <input
                 id="owner-name"
                 type="text"
@@ -138,7 +146,7 @@ export default function SlotBookingModal({
               <input
                 id="vehicle-plate"
                 type="text"
-                placeholder="e.g. KA-05-AB-1234"
+                placeholder="MH-04-AB-1234"
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value)}
                 className="form-control uppercase-input"
@@ -150,7 +158,7 @@ export default function SlotBookingModal({
           <div className="form-row">
             {/* Category */}
             <div className="form-group">
-              <label htmlFor="user-category">Category</label>
+              <label htmlFor="user-category">Role / Category</label>
               <select
                 id="user-category"
                 value={category}
@@ -158,7 +166,8 @@ export default function SlotBookingModal({
                 className="form-control"
               >
                 <option value="Student">Student</option>
-                <option value="Faculty">Faculty / Staff</option>
+                <option value="Faculty">Faculty / Professor</option>
+                <option value="Staff">College Staff</option>
                 <option value="Security Admin">Security Admin</option>
                 <option value="Visitor">Visitor</option>
               </select>
@@ -166,7 +175,7 @@ export default function SlotBookingModal({
 
             {/* Duration */}
             <div className="form-group">
-              <label htmlFor="duration-select">Duration</label>
+              <label htmlFor="duration-select">Reservation Duration</label>
               <select
                 id="duration-select"
                 value={durationHours}
@@ -187,7 +196,7 @@ export default function SlotBookingModal({
             </button>
             <button type="submit" className="btn btn-primary">
               <CheckIcon className="w-4 h-4" />
-              Confirm Booking
+              Confirm Reservation
             </button>
           </div>
         </form>

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import { CheckIcon, AlertCircleIcon, XIcon } from './Icons'
 
 export default function NotificationToast({ toast, onDismiss }) {
@@ -23,7 +23,7 @@ export default function NotificationToast({ toast, onDismiss }) {
         <h5 className="toast-title">{toast.title}</h5>
         <p className="toast-msg">{toast.message}</p>
       </div>
-      <button type="button" className="toast-close" onClick={onDismiss}>
+      <button type="button" className="toast-close" onClick={onDismiss} aria-label="Dismiss alert">
         <XIcon className="w-4 h-4" />
       </button>
     </div>

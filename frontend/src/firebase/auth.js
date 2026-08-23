@@ -142,7 +142,7 @@ export const getUserProfile = async (uid) => {
       const parsed = JSON.parse(local)
       return parsed
     }
-  } catch (e) {
+  } catch {
     // Ignore cache error
   }
 

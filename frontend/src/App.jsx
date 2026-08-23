@@ -1,52 +1,79 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
-import { logout, getUserProfile } from './firebase/auth'
-import Login from './pages/Login'
+import { getUserProfile, logout } from './firebase/auth'
 import { INITIAL_SLOTS, INITIAL_LOGS } from './data/initialSlots'
+
 import Navbar from './components/Navbar'
 import StatsOverview from './components/StatsOverview'
 import ParkingLotMap from './components/ParkingLotMap'
-import SlotBookingModal from './components/SlotBookingModal'
+import AnalyticsView from './components/AnalyticsView'
 import GateSimulator from './components/GateSimulator'
 import LiveVehicleLog from './components/LiveVehicleLog'
+import SlotBookingModal from './components/SlotBookingModal'
 import PassModal from './components/PassModal'
 import NotificationToast from './components/NotificationToast'
+import Login from './pages/Login'
 import './App.css'
 
-function App() {
-  const [user, setUser] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
-  const [authLoading, setAuthLoading] = useState(true)
+export default function App() {
+  // ==========================================
+  // AUTHENTICATION & USER PROFILE
+  // ==========================================
+  const [user, setUser] = useState(() => {
+    const savedDemo = localStorage.getItem('demo_user_session')
+    if (savedDemo) {
+      try {
+        return JSON.parse(savedDemo)
+      } catch {
+        localStorage.removeItem('demo_user_session')
+      }
+    }
+    return null
+  })
 
-  const [slots, setSlots] = useState(INITIAL_SLOTS)
-  const [logs, setLogs] = useState(INITIAL_LOGS)
-  const [activeTab, setActiveTab] = useState('map') // 'map' | 'gate' | 'logs'
-  const [selectedZone, setSelectedZone] = useState('All Zones')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [currentRole, setCurrentRole] = useState('Student')
+  const [userProfile, setUserProfile] = useState(() => {
+    const savedDemo = localStorage.getItem('demo_user_session')
+    if (savedDemo) {
+      try {
+        return JSON.parse(savedDemo)
+      } catch {
+        // ignore
+      }
+    }
+    return null
+  })
 
-  // Modals state
-  const [isBookingOpen, setIsBookingOpen] = useState(false)
-  const [bookingSlotTarget, setBookingSlotTarget] = useState(null)
-  const [activePass, setActivePass] = useState(null)
-  const [toast, setToast] = useState(null)
+  const [authLoading, setAuthLoading] = useState(() => {
+    return !localStorage.getItem('demo_user_session')
+  })
 
+  // Listen to Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser)
       if (currentUser) {
+        setUser(currentUser)
         try {
           const profile = await getUserProfile(currentUser.uid)
           if (profile) {
             setUserProfile(profile)
-            if (profile.role) {
-              setCurrentRole(profile.role)
-            }
+          } else {
+            setUserProfile({
+              displayName: currentUser.displayName || 'Campus Member',
+              email: currentUser.email,
+              role: 'Student',
+              photoURL: currentUser.photoURL || ''
+            })
           }
-        } catch (e) {
-          console.warn('Could not sync user profile:', e)
+        } catch (err) {
+          console.warn('Profile fetch warning:', err)
+        }
+      } else {
+        // Only clear if not in an active demo session
+        const activeDemo = localStorage.getItem('demo_user_session')
+        if (!activeDemo) {
+          setUser(null)
+          setUserProfile(null)
         }
       }
       setAuthLoading(false)
@@ -55,70 +82,153 @@ function App() {
     return () => unsubscribe()
   }, [])
 
-  const showToast = useCallback((title, message, type = 'success') => {
+  // Handle Quick Demo Login
+  const handleDemoLogin = (demoData) => {
+    localStorage.setItem('demo_user_session', JSON.stringify(demoData))
+    setUser(demoData)
+    setUserProfile(demoData)
+  }
+
+  // Handle Logout
+  const handleLogout = async () => {
+    localStorage.removeItem('demo_user_session')
+    setUser(null)
+    setUserProfile(null)
+    try {
+      await logout()
+    } catch {
+      // Ignored
+    }
+  }
+
+  // ==========================================
+  // APPLICATION STATE
+  // ==========================================
+  const [slots, setSlots] = useState(INITIAL_SLOTS)
+  const [logs, setLogs] = useState(INITIAL_LOGS)
+  const [activeTab, setActiveTab] = useState('map') // 'map' | 'analytics' | 'gate' | 'logs'
+
+  // Map Filter States
+  const [selectedZone, setSelectedZone] = useState('All Sections')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Modals & Notifications State
+  const [isBookingOpen, setIsBookingOpen] = useState(false)
+  const [bookingSlotTarget, setBookingSlotTarget] = useState(null)
+  const [activePass, setActivePass] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [notifications, setNotifications] = useState([
+    {
+      title: 'ANPR System Active',
+      message: 'Main barrier sensors and real-time bay telemetry online.',
+      time: '09:00 AM',
+      type: 'info'
+    },
+    {
+      title: 'Morning Shift Commenced',
+      message: 'Ground Floor & Basement parking monitoring enabled.',
+      time: '08:30 AM',
+      type: 'info'
+    }
+  ])
+  const [unreadCount, setUnreadCount] = useState(2)
+
+  const currentRole = userProfile?.role || 'Security Admin'
+
+  const showToast = useCallback((title, message, type = 'info') => {
     setToast({ title, message, type })
   }, [])
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-      setUserProfile(null)
-      showToast('Logged Out', 'Signed out successfully.', 'info')
-    } catch (err) {
-      console.error('Logout error:', err)
-      showToast('Logout Error', 'Unable to sign out. Please try again.', 'error')
-    }
-  }
+  const availableSlots = useMemo(() => {
+    return slots.filter((s) => s.status === 'available')
+  }, [slots])
 
-  // Handle Slot Booking Reservation
-  const handleConfirmBooking = (bookingData) => {
-    const { slotId, vehicleNumber, ownerName, category, vehicleType, reservedUntil } = bookingData
+  // ==========================================
+  // BOOKING HANDLER
+  // ==========================================
+  const handleConfirmBooking = ({
+    slotId,
+    vehicleNumber,
+    ownerName,
+    category,
+    vehicleType,
+    reservedUntil
+  }) => {
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
 
-    setSlots((prev) =>
-      prev.map((slot) => {
-        if (slot.id === slotId) {
+    const targetSlot = slots.find((s) => s.id === slotId)
+    const slotFloor = targetSlot?.floor || 'Campus'
+    const slotSection = targetSlot?.section || 'General'
+
+    setSlots((prevSlots) =>
+      prevSlots.map((s) => {
+        if (s.id === slotId) {
           return {
-            ...slot,
+            ...s,
             status: 'reserved',
             plate: vehicleNumber,
             owner: ownerName,
-            category: category,
-            type: vehicleType,
-            reservedUntil: reservedUntil,
+            category: category || 'Student',
+            type: vehicleType || s.type,
+            reservedUntil: reservedUntil || 'Full Day',
+            entryTime: null
           }
         }
-        return slot
+        return s
       })
     )
 
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    // Add Log Entry
     const newLog = {
       id: `LOG-${Date.now().toString().slice(-4)}`,
       timestamp: nowTime,
-      action: 'RESERVED',
+      action: 'ENTRY',
       plate: vehicleNumber,
       slot: slotId,
-      category: category,
-      vehicleType: vehicleType,
-      gate: 'App Portal'
+      category: category || 'Student',
+      vehicleType: vehicleType || 'Scooty',
+      gate: 'App Pre-Reservation'
     }
     setLogs((prev) => [newLog, ...prev])
 
-    // Open pass modal
-    setActivePass({
-      passId: `SMP-${Math.floor(100000 + Math.random() * 900000)}`,
+    // Add Notification
+    const newNotif = {
+      title: `Bay ${slotId} Reserved`,
+      message: `Pass generated for ${vehicleNumber} (${ownerName}). Valid until ${reservedUntil}.`,
+      time: nowTime,
+      type: 'success'
+    }
+    setNotifications((prev) => [newNotif, ...prev])
+    setUnreadCount((c) => c + 1)
+
+    // Open Pass Modal
+    const generatedPass = {
+      passId: `SMP-${slotId.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`,
       slotId,
       plate: vehicleNumber,
       owner: ownerName,
-      category,
-      reservedUntil,
-      zone: slots.find(s => s.id === slotId)?.zone
-    })
+      category: category || 'Student',
+      reservedUntil: reservedUntil || 'Full Day Pass',
+      floor: slotFloor,
+      section: slotSection,
+      zone: `${slotFloor} - ${slotSection}`
+    }
+    setActivePass(generatedPass)
 
-    showToast('Booking Confirmed', `Slot ${slotId} reserved for ${vehicleNumber}.`, 'success')
+    showToast(
+      'Slot Reserved Successfully',
+      `Bay ${slotId} on ${slotFloor} reserved. Digital Pass is ready to scan.`,
+      'success'
+    )
   }
 
-  // Handle Manual Release / Checkout
+  // ==========================================
+  // RELEASE / CHECKOUT HANDLER
+  // ==========================================
   const handleReleaseSlot = (slotId) => {
     const target = slots.find((s) => s.id === slotId)
     if (!target) return
@@ -126,53 +236,104 @@ function App() {
     setSlots((prev) =>
       prev.map((s) =>
         s.id === slotId
-          ? { ...s, status: 'available', plate: '', owner: '', category: '', reservedUntil: null, entryTime: null }
+          ? {
+              ...s,
+              status: 'available',
+              plate: '',
+              owner: '',
+              category: '',
+              reservedUntil: null,
+              entryTime: null
+            }
           : s
       )
     )
 
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
     const newLog = {
       id: `LOG-${Date.now().toString().slice(-4)}`,
       timestamp: nowTime,
       action: 'EXIT',
       plate: target.plate || 'N/A',
       slot: slotId,
-      duration: 'Released',
+      duration: 'Manual Checkout',
       fee: 'Free',
-      gate: 'Admin Action'
+      gate: 'Admin Console'
     }
     setLogs((prev) => [newLog, ...prev])
 
-    showToast('Slot Cleared', `Slot ${slotId} is now available.`, 'info')
+    showToast(
+      'Bay Freed & Checked Out',
+      `Slot ${slotId} on ${target.floor} is now available for other students.`,
+      'info'
+    )
   }
 
-  // Handle Gate Entry
-  const handleVehicleEntry = ({ plate, owner, type, category }) => {
-    let targetSlot = slots.find((s) => s.status === 'reserved' && s.plate.toLowerCase() === plate.toLowerCase())
+  // ==========================================
+  // GATE SIMULATOR INBOUND ENTRY HANDLER
+  // ==========================================
+  const handleVehicleEntry = ({
+    plate,
+    owner,
+    type,
+    category,
+    preferredFloor
+  }) => {
+    // 1. Check if vehicle has an existing reservation
+    let targetSlot = slots.find(
+      (s) =>
+        s.status === 'reserved' &&
+        s.plate &&
+        s.plate.toLowerCase() === plate.toLowerCase()
+    )
 
+    // 2. If no reservation, allocate based on preferred floor or vehicle type
     if (!targetSlot) {
-      targetSlot = slots.find((s) => s.status === 'available' && (type === 'car' ? (s.type === 'car') : s.type === type))
+      if (preferredFloor) {
+        targetSlot = slots.find(
+          (s) => s.status === 'available' && s.floor === preferredFloor
+        )
+      } else if (type === 'scooty') {
+        // Scooty preferred on Ground Floor (Girls Scooty)
+        targetSlot =
+          slots.find((s) => s.status === 'available' && s.floor === 'Ground Floor') ||
+          slots.find((s) => s.status === 'available')
+      } else {
+        // Two-wheelers / Bikes preferred on Basement
+        targetSlot =
+          slots.find((s) => s.status === 'available' && s.floor === 'Basement') ||
+          slots.find((s) => s.status === 'available')
+      }
     }
 
     if (!targetSlot) {
-      return { success: false, message: `No available slots found for vehicle type ${type.toUpperCase()}.` }
+      return {
+        success: false,
+        message: `No available parking bay found on campus for ${type.toUpperCase()}.`
+      }
     }
 
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
 
     setSlots((prev) =>
       prev.map((s) =>
         s.id === targetSlot.id
           ? {
-            ...s,
-            status: 'occupied',
-            plate: plate,
-            owner: owner || s.owner || 'Campus Member',
-            category: category || s.category || 'Student',
-            entryTime: nowTime,
-            reservedUntil: null
-          }
+              ...s,
+              status: 'occupied',
+              plate,
+              owner: owner || s.owner || 'Campus User',
+              category: category || s.category || 'Student',
+              entryTime: nowTime,
+              reservedUntil: null
+            }
           : s
       )
     )
@@ -181,37 +342,76 @@ function App() {
       id: `LOG-${Date.now().toString().slice(-4)}`,
       timestamp: nowTime,
       action: 'ENTRY',
-      plate: plate,
+      plate,
       slot: targetSlot.id,
       category: category || 'Student',
       vehicleType: type,
-      gate: 'Main Gate'
+      gate: 'Main Gate 1 (ANPR Scanner)'
     }
     setLogs((prev) => [newLog, ...prev])
 
-    showToast('Vehicle Admitted', `${plate} assigned to Slot ${targetSlot.id}`, 'success')
+    const passData = {
+      passId: `SMP-${targetSlot.id.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`,
+      slotId: targetSlot.id,
+      plate,
+      owner: owner || 'Campus Member',
+      category: category || 'Student',
+      reservedUntil: 'Active Session',
+      floor: targetSlot.floor,
+      section: targetSlot.section,
+      zone: `${targetSlot.floor} - ${targetSlot.section}`
+    }
+
+    showToast(
+      'Vehicle Admitted at Barrier',
+      `${plate} assigned to Bay ${targetSlot.id} (${targetSlot.floor}). Barrier lifted.`,
+      'success'
+    )
 
     return {
       success: true,
       slotId: targetSlot.id,
-      zone: targetSlot.zone
+      floor: targetSlot.floor,
+      section: targetSlot.section,
+      passData
     }
   }
 
-  // Handle Gate Exit
+  // ==========================================
+  // GATE SIMULATOR OUTBOUND EXIT HANDLER
+  // ==========================================
   const handleVehicleExit = (plate) => {
-    const targetSlot = slots.find((s) => s.plate.toLowerCase() === plate.toLowerCase() && s.status !== 'available')
+    const targetSlot = slots.find(
+      (s) =>
+        s.plate &&
+        s.plate.toLowerCase() === plate.toLowerCase() &&
+        s.status !== 'available'
+    )
 
     if (!targetSlot) {
-      return { success: false, message: `No parked vehicle found with license plate ${plate}.` }
+      return {
+        success: false,
+        message: `No active vehicle found with license plate ${plate}.`
+      }
     }
 
-    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
 
     setSlots((prev) =>
       prev.map((s) =>
         s.id === targetSlot.id
-          ? { ...s, status: 'available', plate: '', owner: '', category: '', reservedUntil: null, entryTime: null }
+          ? {
+              ...s,
+              status: 'available',
+              plate: '',
+              owner: '',
+              category: '',
+              reservedUntil: null,
+              entryTime: null
+            }
           : s
       )
     )
@@ -220,15 +420,19 @@ function App() {
       id: `LOG-${Date.now().toString().slice(-4)}`,
       timestamp: nowTime,
       action: 'EXIT',
-      plate: plate,
+      plate,
       slot: targetSlot.id,
       duration: '1h 15m',
-      fee: 'Free',
-      gate: 'Exit Gate'
+      fee: 'Free (Campus Permit)',
+      gate: 'Exit Barrier 2 (ANPR)'
     }
     setLogs((prev) => [newLog, ...prev])
 
-    showToast('Vehicle Exited', `${plate} checked out. Slot ${targetSlot.id} is free.`, 'info')
+    showToast(
+      'Vehicle Checked Out',
+      `${plate} cleared Bay ${targetSlot.id} (${targetSlot.floor}). Outbound barrier raised.`,
+      'info'
+    )
 
     return {
       success: true,
@@ -237,29 +441,45 @@ function App() {
     }
   }
 
-  const availableSlots = slots.filter((s) => s.status === 'available')
+  // Refresh Telemetry Trigger
+  const triggerTelemetryRefresh = () => {
+    showToast(
+      'Telemetry Synchronized',
+      'Ultrasonic bay sensors & ANPR cameras live update completed.',
+      'info'
+    )
+  }
 
+  // ==========================================
+  // AUTH LOADING STATE
+  // ==========================================
   if (authLoading) {
     return (
       <div className="login-page">
-        <div className="login-card">
+        <div className="login-card loading-state-card">
           <div className="login-logo">
             <span className="login-logo-icon">P</span>
           </div>
-          <h1>SmartPark.Campus</h1>
-          <p className="login-subtitle">Loading...</p>
+          <h1>SmartPark<span className="accent-dot">.</span>Campus</h1>
+          <p className="login-subtitle">Initializing campus telemetry connection...</p>
         </div>
       </div>
     )
   }
 
+  // ==========================================
+  // UNAUTHENTICATED: LOGIN VIEW
+  // ==========================================
   if (!user) {
-    return <Login />
+    return <Login onDemoLogin={handleDemoLogin} />
   }
 
+  // ==========================================
+  // AUTHENTICATED: MAIN APP DASHBOARD
+  // ==========================================
   return (
     <div className="app-layout">
-      {/* Clean Navbar */}
+      {/* Top Navbar */}
       <Navbar
         user={user}
         userProfile={userProfile}
@@ -267,15 +487,23 @@ function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentRole={currentRole}
+        notifications={notifications}
+        unreadCount={unreadCount}
+        onRefresh={triggerTelemetryRefresh}
+        onClearNotifications={() => {
+          setNotifications([])
+          setUnreadCount(0)
+        }}
       />
 
-      {/* Main Content Area */}
+      {/* Main Dashboard Container */}
       <main className="main-content">
-        {/* Simple 3-Card KPI Stats */}
+        {/* KPI Stats Overview */}
         <StatsOverview slots={slots} />
 
-        {/* Tab View */}
+        {/* Dynamic Tab Views */}
         <section className="tab-body">
+          {/* TAB 1: PARKING LOT MAP */}
           {activeTab === 'map' && (
             <ParkingLotMap
               slots={slots}
@@ -291,13 +519,15 @@ function App() {
                   setIsBookingOpen(true)
                 } else if (slot.plate) {
                   setActivePass({
-                    passId: `SMP-${slot.id.replace('-', '')}`,
+                    passId: `SMP-${slot.id.replace(/[^a-zA-Z0-9]/g, '')}`,
                     slotId: slot.id,
                     plate: slot.plate,
                     owner: slot.owner,
                     category: slot.category,
                     reservedUntil: slot.reservedUntil || 'Active Session',
-                    zone: slot.zone
+                    floor: slot.floor,
+                    section: slot.section,
+                    zone: `${slot.floor} - ${slot.section}`
                   })
                 }
               }}
@@ -310,6 +540,10 @@ function App() {
             />
           )}
 
+          {/* TAB 2: LIVE ANALYTICS */}
+          {activeTab === 'analytics' && <AnalyticsView slots={slots} />}
+
+          {/* TAB 3: GATE TERMINAL */}
           {activeTab === 'gate' && (
             <GateSimulator
               slots={slots}
@@ -319,13 +553,12 @@ function App() {
             />
           )}
 
-          {activeTab === 'logs' && (
-            <LiveVehicleLog logs={logs} />
-          )}
+          {/* TAB 4: ACTIVITY LOG */}
+          {activeTab === 'logs' && <LiveVehicleLog logs={logs} />}
         </section>
       </main>
 
-      {/* Booking & Pass Modals */}
+      {/* Modals & Toasts */}
       <SlotBookingModal
         isOpen={isBookingOpen}
         onClose={() => {
@@ -340,24 +573,21 @@ function App() {
         userProfile={userProfile}
       />
 
-      <PassModal
-        pass={activePass}
-        onClose={() => setActivePass(null)}
-      />
+      <PassModal pass={activePass} onClose={() => setActivePass(null)} />
 
-      <NotificationToast
-        toast={toast}
-        onDismiss={() => setToast(null)}
-      />
+      <NotificationToast toast={toast} onDismiss={() => setToast(null)} />
 
-      {/* Clean Footer */}
+      {/* Campus Footer */}
       <footer className="app-footer">
         <div className="footer-content">
-          <span>Smart College Parking System &bull; Clean &amp; Real-Time</span>
+          <span>
+            Smart College Parking System &bull; Real-Time IoT Telemetry &amp; ANPR Gate Control
+          </span>
+          <span className="footer-tag">
+            Ground Floor (Girls Scooty) &bull; Basement (Boys Parking) &bull; 160 Total Bays
+          </span>
         </div>
       </footer>
     </div>
   )
 }
-
-export default App

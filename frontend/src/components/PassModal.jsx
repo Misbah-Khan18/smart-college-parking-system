@@ -1,8 +1,9 @@
-import React from 'react'
-import { XIcon, CheckIcon, ShieldIcon, CarIcon, BikeIcon, EvIcon } from './Icons'
+import { XIcon, ShieldIcon } from './Icons'
 
 export default function PassModal({ pass, onClose }) {
   if (!pass) return null
+
+  const displayPassId = pass.passId || `SMP-${(pass.slotId || '00').replace(/[^a-zA-Z0-9]/g, '')}-PERMIT`
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -12,7 +13,7 @@ export default function PassModal({ pass, onClose }) {
             <ShieldIcon className="w-5 h-5 text-emerald" />
             <h3 className="modal-title">Official Campus Parking Pass</h3>
           </div>
-          <button type="button" className="close-btn" onClick={onClose}>
+          <button type="button" className="close-btn" onClick={onClose} aria-label="Close pass modal">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
@@ -21,7 +22,7 @@ export default function PassModal({ pass, onClose }) {
           <div className="ticket-top">
             <div className="college-header">
               <h4>SMART CAMPUS PARKING AUTHORITY</h4>
-              <span className="ticket-id">PASS #{pass.passId || 'SMP-' + Math.floor(100000 + Math.random() * 900000)}</span>
+              <span className="ticket-id">PASS #{displayPassId}</span>
             </div>
             <div className="status-ribbon">
               <span className="pulse-indicator"></span> ACTIVE PERMIT
@@ -32,17 +33,17 @@ export default function PassModal({ pass, onClose }) {
             <div className="slot-hero-badge">
               <span className="slot-hero-label">ASSIGNED SLOT</span>
               <span className="slot-hero-id">{pass.slotId}</span>
-              <span className="slot-hero-zone">{pass.zone || 'Central Campus Lot'}</span>
+              <span className="slot-hero-zone">{pass.zone || pass.section || 'Campus Parking Area'}</span>
             </div>
 
             <div className="ticket-details-grid">
               <div className="detail-item">
                 <span className="detail-label">Vehicle Plate</span>
-                <span className="detail-val plate-styled">{pass.plate}</span>
+                <span className="detail-val plate-styled">{pass.plate || 'REGISTERED'}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Owner / Holder</span>
-                <span className="detail-val">{pass.owner}</span>
+                <span className="detail-val">{pass.owner || 'Campus User'}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Category</span>
@@ -71,7 +72,7 @@ export default function PassModal({ pass, onClose }) {
                   <rect x="5" y="69" width="26" height="26" fill="#000" rx="3" />
                   <rect x="9" y="73" width="18" height="18" fill="#fff" />
                   <rect x="13" y="77" width="10" height="10" fill="#000" />
-                  {/* Random simulated QR data grid */}
+                  {/* Simulated QR data grid */}
                   <rect x="36" y="8" width="6" height="6" fill="#000" />
                   <rect x="46" y="8" width="6" height="6" fill="#000" />
                   <rect x="56" y="8" width="6" height="6" fill="#000" />
