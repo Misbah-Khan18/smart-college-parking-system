@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
@@ -87,17 +87,22 @@ export default function App() {
     localStorage.setItem('demo_user_session', JSON.stringify(demoData))
     setUser(demoData)
     setUserProfile(demoData)
+    showToast('Demo Access Granted', `Signed in as ${demoData.displayName} (${demoData.role}).`, 'success')
   }
 
   // Handle Logout
   const handleLogout = async () => {
-    localStorage.removeItem('demo_user_session')
-    setUser(null)
-    setUserProfile(null)
     try {
+      localStorage.removeItem('demo_user_session')
+      setUser(null)
+      setUserProfile(null)
+      setActiveTab('map')
       await logout()
-    } catch {
-      // Ignored
+    } catch (err) {
+      console.warn('Logout notice:', err)
+      localStorage.removeItem('demo_user_session')
+      setUser(null)
+      setUserProfile(null)
     }
   }
 
@@ -158,9 +163,9 @@ export default function App() {
 
   const currentRole = userProfile?.role || 'Security Admin'
 
-  const showToast = useCallback((title, message, type = 'info') => {
+  const showToast = (title, message, type = 'info') => {
     setToast({ title, message, type })
-  }, [])
+  }
 
   const availableSlots = useMemo(() => {
     return slots.filter((s) => s.status === 'available')

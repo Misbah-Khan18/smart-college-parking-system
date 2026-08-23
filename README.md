@@ -1,492 +1,270 @@
-# 🚗 Smart College Parking System (SmartPark.Campus)
+# 🛵 Smart College Parking Management System (SmartPark.Campus)
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
   <img src="https://img.shields.io/badge/Vite-8.2-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
   <img src="https://img.shields.io/badge/CSS3-Glassmorphism-1572B6?style=for-the-badge&logo=css3&logoColor=white" alt="CSS3" />
-  <img src="https://img.shields.io/badge/Status-Active%20%26%20Ready-10B981?style=for-the-badge" alt="Status" />
+  <img src="https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase" />
+  <img src="https://img.shields.io/badge/Status-Production%20Ready-10B981?style=for-the-badge" alt="Status" />
 </p>
 
-A smart web-based College Parking Management System designed to efficiently manage, monitor, and organize campus parking facilities.
+An intelligent, real-time **IoT Campus Parking Management & Reservation System** designed for educational institutions. It streamlines campus two-wheeler traffic, eliminates parking congestion, visualizes live bay occupancy across academic zones, maintains a centralized student vehicle registry, simulates automated ANPR boom barrier gates, and issues verifiable digital parking permits with QR codes.
 
-SmartPark.Campus provides a centralized interface for managing parking slots across different campus floors, registering students and vehicles, monitoring slot availability, and improving the overall parking experience for students, faculty, and security administrators.
+---
 
-The system is designed as a foundation for future integration with IoT sensors, ANPR cameras, automated barriers, and real-time cloud-based parking management.
+## 🌟 Project Overview
 
-🌟 Project Overview
+Campus parking facilities frequently face operational challenges:
+- Difficulty locating open parking bays during morning lecture rush hours.
+- Disorganized vehicle placement causing corridor and gate bottlenecks.
+- Manual paper logs for vehicle registrations and permit checks.
+- Lack of real-time visibility into floor-wise capacity and utilization rates.
+- Absence of centralized security records for vehicle movements.
 
-College parking areas often face problems such as:
+**SmartPark.Campus** solves these challenges through an interactive, responsive web application combining live IoT sensor simulation, automated bay allocations, multi-floor visualization, and instant digital pass generation.
 
-Difficulty finding available parking spaces
-Unorganized vehicle parking
-Lack of centralized parking information
-Manual vehicle and student record management
-Difficulty monitoring occupied and available slots
-Congestion during peak college hours
-Lack of proper parking records and analytics
+---
 
-SmartPark.Campus addresses these problems through an interactive web application that provides a visual representation of campus parking areas and centralized parking management.
+## ✨ Key Features & Modules
 
-✨ Key Features
-1. 🗺️ Interactive Parking Map
+### 1. 🗺️ Multi-Floor Interactive Parking Map
+Visualizes the campus parking facility with real-time slot telemetry:
+- **Ground Floor (80 Bays)**: Dedicated **Girls' Scooty Parking** across Accounts Dept (Front/Opposite) and Exam IT Dept (Front/Opposite) wings.
+- **Basement (80 Bays)**: Dedicated **Boys' Two-Wheeler / Bike Parking** across Rows 1 through 4.
+- **Total Campus Capacity**: **160 Active Bays**.
+- **Live Status Indicators**:
+  - 🟢 **Available**: Bay is open and ready for parking or online reservation.
+  - 🔴 **Occupied**: Vehicle is currently parked with license plate, owner, and entry timestamp.
+  - 🟡 **Reserved**: Bay is pre-booked with an active reservation permit.
+  - ⚡ **Electric EV Badge**: Highlights electric scooty/bike models.
+- **Quick Filters & Search**: Instant filter by floor, academic section, occupancy status, or search by bay ID (e.g. `G-05`, `B-41`), license plate, or student name.
 
-The system provides an interactive visualization of the college parking facility.
+---
 
-Multi-Floor Parking
+### 2. 📝 Student & Vehicle Registration Module
+A centralized institutional registry for managing student authorizations and vehicle permits:
+- **Registration Form Fields**:
+  - **Student Name**: Full student/driver name.
+  - **Roll Number / Student ID**: Formatted institutional ID (e.g. `CS22B044`).
+  - **Stream / Class**: Selectable engineering/campus branches (CSE, IT, AI/DS, Mechanical, Civil, MBA, etc.) or custom department.
+  - **Contact Phone Number**: Mobile contact (e.g. `+91 98765 43210`).
+  - **Two-Wheeler Type**: 🛵 **Scooty** (Ground Floor) or 🏍️ **Bike / Motorcycle** (Basement).
+  - **Power Engine Sub-Toggle**: ⛽ **Normal Petrol** vs ⚡ **Electric EV**.
+  - **Vehicle License Plate**: License plate format (e.g. `MH-04-AB-1234`).
+- **✨ Sample Data Button**: 1-click test button to populate realistic sample student profiles instantly.
+- **Searchable Directory Table**: Search by student name, roll ID, stream, or plate with filter pills (`All`, `🛵 Scooties`, `🏍️ Bikes`, `⚡ EV Models`).
+- **Integrated Actions**:
+  - 🎫 **View Pass**: Generates an official digital QR parking pass for the student.
+  - 🅿️ **Book**: Pre-fills the reservation modal with the student's credentials for instant bay booking.
+  - 🗑️ **De-register**: Removes vehicle from active registry with confirmation.
 
-The current system supports multiple parking floors:
+---
 
-🅿️ Basement Parking
-🏫 Ground Floor Parking
+### 3. 🚧 Simulated ANPR Boom Barrier Gate Terminal
+Simulates automated gate entry and exit workflows:
+- **Inbound Terminal (ANPR Scanner)**:
+  - Scans incoming license plates and matches pre-reservations or auto-assigns open bays according to floor rules (Scooty &rarr; Ground Floor, Bike &rarr; Basement).
+  - **Quick Select Registered Student**: 1-click dropdown to test any registered student vehicle immediately.
+  - Animated boom barrier with dynamic status lights (`Closed`, `Opening`, `Open`, `Closing`).
+  - Automatic digital pass preview upon barrier clearance.
+- **Outbound Terminal (Checkout)**:
+  - Validates exit, calculates session duration, frees the parking bay in real time, and logs checkout telemetry.
 
-Each floor contains a large number of parking spaces represented visually through an interactive parking layout.
+---
 
-Current Parking Capacity
-Basement: 80 parking slots
-Ground Floor: 80 parking slots
-Total: 160 parking slots
+### 4. 📊 Real-Time Analytics & Telemetry Dashboard
+- **Live Capacity Metrics**: Available bays count, occupancy load percentage, and active campus utilization progress bars.
+- **Section-by-Section Breakdown**: Live open bay chips and utilization meters for all 8 campus sections.
+- **Hourly Occupancy Bar Chart**: Visualizes traffic trends from 07:00 AM to 05:00 PM to forecast morning peak arrival waves.
 
-The architecture can be extended to support additional floors and parking zones in the future.
+---
 
-2. 🟢 Live Parking Slot Status
+### 5. 📜 Gate Telemetry & Security Audit Logs
+- Comprehensive chronological access records capturing:
+  - Timestamp (e.g. `09:40 AM`)
+  - Action (`ENTRY` / `EXIT`)
+  - License Plate Number
+  - Assigned Parking Slot
+  - User Role / Category
+  - Two-Wheeler Type (`Scooty`, `Bike`, `EV`)
+  - Terminal / Gate ID
 
-Each parking slot displays its current status.
+---
 
-Status Indicators
+### 6. 🔐 Authentication & Role Management
+- **Google OAuth Sign-In**: 1-click Google sign-in available on both Sign In and Register screens.
+- **Campus Email Authentication**: Full registration and login with email verification and password reset.
+- **⚡ 1-Click Quick Demo Access**: Instant evaluation modes for:
+  - 🛡️ **Security Admin**: Full administrative control and audit logs.
+  - 🎓 **Student**: Bay booking, vehicle registration, and digital QR passes.
+  - 👨‍🏫 **Professor / Faculty**: Priority academic bays.
+- **Reliable Sign Out**: Prominent sign out button in the navigation header that clears sessions and returns cleanly to the landing page.
 
-🟢 Available
-The slot is currently free and can be used.
+---
 
-🔴 Occupied
-A vehicle is currently parked in the slot.
+## 🖥️ User Interface Preview
 
-🟡 Reserved
-The slot has been reserved for a registered user.
+```text
++---------------------------------------------------------------------------------------------------------+
+| [P] SmartPark.Campus    [🅿️ Parking Map] [📝 Vehicle Registry] [🚧 Gate Terminal] [📊 Live Analytics] [Sign Out] |
++---------------------------------------------------------------------------------------------------------+
+|  [Available: 82/160]   [Ground Floor: 44/80 Open]   [Basement: 38/80 Open]   [Campus Load: 48% Occupied] |
++---------------------------------------------------------------------------------------------------------+
+|  🔍 Search bay ID / plate...   [Ground Floor (Girls Scooty)] [Basement (Boys Bikes)]   [+ Reserve Bay]  |
+|                                                                                                         |
+|  +--------------------+  +--------------------+  +--------------------+  +--------------------+         |
+|  | Bay G-01  [OCCUPIED|  | Bay G-02 [AVAILABLE|  | Bay G-03   [⚡ EV] |  | Bay G-04 [RESERVED]|         |
+|  | MH-04-AB-1234      |  | Ready to park      |  | MH-04-CD-5678 (Occ)|  | Reserved for Exam  |         |
+|  | Ananya Deshmukh    |  | Open Scooty Bay    |  | Pooja Iyer         |  | Sneha Patil        |         |
+|  +--------------------+  +--------------------+  +--------------------+  +--------------------+         |
++---------------------------------------------------------------------------------------------------------+
+```
 
-The visual parking map allows administrators and users to quickly understand the current parking situation.
+---
 
-3. 🏢 Floor Selection
+## 🛠️ Technology Stack
 
-Since the college parking facility consists of multiple levels, users can switch between parking floors.
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend Framework** | React 19 (`react`, `react-dom`) | Declarative, component-based UI architecture |
+| **Build & Dev Tooling** | Vite 8 | Ultra-fast Hot Module Replacement (HMR) & bundling |
+| **Styling & Design** | Pure Modern CSS3 | Glassmorphism, CSS Grid, Flexbox, custom design tokens |
+| **Authentication** | Firebase Auth + Google OAuth | Cloud authentication with local demo fallback |
+| **Database & Sync** | Cloud Firestore + `localStorage` | Real-time persistence and offline state caching |
+| **Typography** | Google Fonts (*Outfit*, *Plus Jakarta Sans*, *JetBrains Mono*) | Premium readability & monospace plate badges |
+| **Code Quality** | ESLint 9 | Strict syntax and React 19 linting |
 
-The interface provides an easy way to select:
+---
 
-Basement Parking
-Ground Floor Parking
+## 📁 Project Directory Structure
 
-This prevents the interface from becoming overcrowded while still providing complete visibility of the parking facility.
-
-4. 👨‍🎓 Student & Vehicle Registration
-
-The system provides a centralized registration module for maintaining student and vehicle information.
-
-Administrators can register:
-
-Student Name
-Roll Number
-Stream / Class
-Phone Number
-Vehicle Number
-Vehicle Type
-Supported Vehicle Types
-🏍️ Two-Wheeler
-🚗 Four-Wheeler
-
-This registration information can be used to associate vehicles with students and parking records.
-
-5. 🎟️ Parking Slot Management
-
-The system allows parking slots to be monitored and managed through the dashboard.
-
-Administrators can identify:
-
-Available slots
-Occupied slots
-Reserved slots
-Slot numbers
-Vehicle information
-Parking floor
-
-This provides a centralized overview of the campus parking facility.
-
-6. 🔍 Search & Filtering
-
-The parking interface supports searching and filtering parking information.
-
-Users can search using available parking information such as:
-
-Slot ID
-Vehicle Number
-Student / Driver information
-
-Parking data can also be filtered according to parking floor and other available categories.
-
-7. 📊 Parking Dashboard & Analytics
-
-The dashboard provides important parking statistics to help administrators understand parking utilization.
-
-Key Performance Indicators
-Total Parking Capacity
-Available Slots
-Occupied Slots
-Reserved Slots
-Parking Occupancy Percentage
-Registered Vehicles
-Registered Students
-
-The analytics section can be used to identify parking usage patterns and support better campus parking management.
-
-8. 📝 Parking Activity & Records
-
-The system is designed to maintain parking-related activity records.
-
-Important information can include:
-
-Vehicle Number
-Student / User
-Parking Slot
-Entry Information
-Exit Information
-Parking Duration
-Parking Status
-
-These records can help administrators monitor parking activity and maintain a history of vehicle usage.
-
-👥 User Roles
-
-The system is designed around role-based parking management.
-
-👨‍🎓 Student
-
-Students can:
-
-View parking availability
-Check available parking slots
-View parking floor layouts
-Register vehicle information
-Identify suitable parking spaces
-👨‍🏫 Faculty / Staff
-
-Faculty and staff can:
-
-View parking availability
-Access designated parking areas
-Register vehicle information
-Monitor parking availability
-🛡️ Security / Administrator
-
-Administrators have access to parking management functionality including:
-
-Student registration
-Vehicle registration
-Parking slot management
-Parking status monitoring
-Parking records
-Activity monitoring
-Parking analytics
-🖥️ Current User Interface
-
-The application is organized into a modern dashboard interface.
-
-+--------------------------------------------------------------------------------+
-|  🚗 SmartPark.Campus     Dashboard   Parking Map   Registration   Analytics   |
-+--------------------------------------------------------------------------------+
-|                                                                                |
-|  Total Slots      Available       Occupied       Registered Vehicles          |
-|     160              82              78                  96                    |
-|                                                                                |
-+--------------------------------------------------------------------------------+
-|                                                                                |
-|  Parking Floor                                                                 |
-|                                                                                |
-|       [ Basement Parking ]     [ Ground Floor Parking ]                       |
-|                                                                                |
-+--------------------------------------------------------------------------------+
-|                                                                                |
-|  🔍 Search Slot / Vehicle Number                                               |
-|                                                                                |
-|  🟢 Available     🔴 Occupied     🟡 Reserved                                  |
-|                                                                                |
-|  +----------+  +----------+  +----------+  +----------+                       |
-|  |  A-01    |  |  A-02    |  |  A-03    |  |  A-04    |                       |
-|  | AVAILABLE|  | OCCUPIED |  | AVAILABLE|  | RESERVED |                       |
-|  +----------+  +----------+  +----------+  +----------+                       |
-|                                                                                |
-+--------------------------------------------------------------------------------+
-🛠️ Technology Stack
-Frontend
-React 19
-JavaScript (ES6+)
-HTML5
-CSS3
-Development Environment
-Vite
-Node.js
-npm
-UI Technologies
-CSS Grid
-Flexbox
-CSS Variables
-Responsive Design
-Custom SVG Icons
-Modern Dashboard UI
-📁 Project Structure
+```text
 smart-college-parking-system/
-│
-├── README.md
-│
-└── frontend/
-    │
-    ├── package.json
-    ├── vite.config.js
-    ├── eslint.config.js
-    ├── index.html
-    │
-    ├── public/
-    │   ├── favicon.svg
-    │   └── icons.svg
-    │
-    └── src/
-        │
-        ├── main.jsx
-        ├── App.jsx
-        ├── index.css
-        ├── App.css
-        │
-        ├── components/
-        │   ├── Icons.jsx
-        │   ├── Navbar.jsx
-        │   ├── StatsOverview.jsx
-        │   ├── ParkingLotMap.jsx
-        │   ├── SlotBookingModal.jsx
-        │   ├── GateSimulator.jsx
-        │   ├── LiveVehicleLog.jsx
-        │   ├── AnalyticsView.jsx
-        │   ├── PassModal.jsx
-        │   └── NotificationToast.jsx
-        │
-        └── data/
-            └── initialSlots.js
+├── README.md                      # Comprehensive Project Documentation
+└── frontend/                      # React + Vite Frontend Application
+    ├── package.json               # Project metadata, scripts, and dependencies
+    ├── vite.config.js             # Vite build and plugin configuration
+    ├── eslint.config.js           # ESLint configuration
+    ├── index.html                 # HTML5 entry template with Google Fonts
+    ├── src/
+    │   ├── main.jsx               # React DOM root entrypoint
+    │   ├── App.jsx                # Application orchestration, routing & state
+    │   ├── index.css              # Global tokens, reset & base typography
+    │   ├── App.css                # Component styles, glassmorphism & layout
+    │   ├── components/
+    │   │   ├── Icons.jsx          # Custom SVG Icon library
+    │   │   ├── Navbar.jsx         # Header with live clock, tabs & sign out
+    │   │   ├── StatsOverview.jsx  # KPI metrics & floor capacity cards
+    │   │   ├── ParkingLotMap.jsx  # 160-slot multi-floor visualizer & filters
+    │   │   ├── StudentVehicleRegistration.jsx # Student & vehicle registration module
+    │   │   ├── GateSimulator.jsx  # Animated ANPR boom barrier terminal
+    │   │   ├── AnalyticsView.jsx  # Section telemetry & hourly occupancy chart
+    │   │   ├── LiveVehicleLog.jsx # Telemetry audit records table
+    │   │   ├── SlotBookingModal.jsx # Reservation modal with student auto-fill
+    │   │   ├── PassModal.jsx      # Digital QR parking permit modal
+    │   │   └── NotificationToast.jsx # Floating auto-dismiss alert toasts
+    │   ├── pages/
+    │   │   ├── Login.jsx          # Login, Registration & Google OAuth page
+    │   │   └── Login.css          # Authentication screen styling
+    │   ├── firebase/
+    │   │   ├── firebase.js        # Firebase app initialization
+    │   │   └── auth.js            # Authentication & Firestore helper methods
+    │   └── data/
+    │       └── initialSlots.js    # Initial 160 slots, logs & traffic trends
+```
 
-The exact component structure may evolve as new modules such as Student & Vehicle Registration are added.
+---
 
-🚀 How to Run the Project
-Prerequisites
+## 🚀 Getting Started (Step-by-Step)
 
-Make sure the following are installed:
+### 📋 Prerequisites
+Ensure the following are installed:
+- [Node.js](https://nodejs.org/) (Version **18.x** or higher)
+- `npm` (Bundled with Node.js)
 
-Node.js 18.x or higher
-npm
-
-You can verify the installation using:
-
+Verify installations:
+```bash
 node --version
 npm --version
-⚙️ Installation
+```
 
-Clone the repository:
+---
 
-git clone https://github.com/alzuni-shaikh/smart-college-parking-system.git
+### ⚙️ Installation & Launch
 
-Navigate into the project:
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/alzuni-shaikh/smart-college-parking-system.git
+   cd smart-college-parking-system
+   ```
 
-cd smart-college-parking-system
+2. **Navigate to the frontend directory**:
+   ```bash
+   cd frontend
+   ```
 
-Navigate to the frontend:
+3. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-cd frontend
+4. **Start the local development server**:
+   ```bash
+   npm run dev
+   ```
 
-Install dependencies:
+5. **Open in browser**:
+   Navigate to [http://localhost:5173/](http://localhost:5173/) to access the dashboard.
 
-npm install
+---
 
-Start the development server:
+### 📦 Available Scripts
 
-npm run dev
+Inside the `frontend` folder:
 
-The application will normally be available at:
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Starts the Vite development server with Hot Module Replacement at `http://localhost:5173`. |
+| `npm run build` | Compiles an optimized production bundle inside `frontend/dist/`. |
+| `npm run preview` | Previews the production build locally. |
+| `npm run lint` | Runs ESLint to verify code quality and compliance (0 errors). |
 
-http://localhost:5173/
-📦 Available Scripts
+---
 
-Inside the frontend directory:
+## 🔮 Future Roadmap & Hardware Architecture
 
-Command	Description
-npm run dev	Starts the Vite development server
-npm run build	Creates an optimized production build
-npm run preview	Previews the production build
-npm run lint	Runs ESLint for code quality checks
-🧪 Current System Status
-Module	Status
-React + Vite Application	✅ Implemented
-Parking Dashboard	✅ Implemented
-Basement Parking Layout	✅ Implemented
-Ground Floor Parking Layout	✅ Implemented
-80 Slots per Floor	✅ Implemented
-Parking Slot Visualization	✅ Implemented
-Available / Occupied Status	✅ Implemented
-Floor Selection	✅ Implemented
-Parking Search / Filtering	✅ Implemented
-Student Registration	🔄 In Development
-Vehicle Registration	🔄 In Development
-Parking Reservation	🔄 In Development
-Digital Parking Permit	🔄 In Development
-Parking Analytics	🔄 Improving
-Gate Management	🔮 Planned
-Real-Time IoT Sensors	🔮 Future
-ANPR Camera Integration	🔮 Future
-Cloud Database	🔮 Future
-🔮 Future Scope
+The platform provides a modular foundation for future hardware integrations:
 
-The current web application provides the foundation for a complete smart campus parking ecosystem.
+```text
+                  SMART CAMPUS PARKING ECOSYSTEM
+                               │
+            ┌──────────────────┼──────────────────┐
+            │                  │                  │
+       Web Platform       IoT Sensors        ANPR Camera
+     (React 19 / Vite)   (ESP32 / Ultrasonic) (OpenCV / Python)
+            │                  │                  │
+            └──────────────────┼──────────────────┘
+                               │
+                       Cloud / Database
+                    (Firebase / Firestore)
+                               │
+                 ┌─────────────┼─────────────┐
+                 │             │             │
+              Students     Security     Administration
+```
 
-Future versions can include:
+- [ ] **Physical IoT Sensors**: Connect ESP32 / Arduino microcontrollers with ultrasonic/IR sensors for real-time bay occupancy detection.
+- [ ] **Live ANPR Cameras**: Integrate OpenCV / Python OCR service for automated license plate scanning at physical campus gates.
+- [ ] **Automated Hardware Barriers**: Connect servo-controlled boom barriers triggered directly by permit verification.
+- [ ] **WhatsApp & SMS Notifications**: Automatic alerts for reservation expiration and unauthorized parking.
 
-📡 IoT-Based Parking Detection
+---
 
-Integration with:
+## 📄 License & Attribution
 
-ESP32
-Arduino
-Ultrasonic Sensors
-IR Sensors
+Developed for academic and institutional evaluation as a **Smart College Parking Management System**.
 
-Sensors can automatically detect whether a parking slot is occupied.
-
-📷 Automatic Number Plate Recognition
-
-A camera-based ANPR system can automatically detect vehicle registration numbers at campus entry and exit gates.
-
-Potential technologies:
-
-OpenCV
-Python
-OCR
-Computer Vision
-🚧 Automated Boom Barrier
-
-The system can be integrated with automated barriers to control vehicle entry and exit.
-
-Possible workflow:
-
-Vehicle Arrives
-      ↓
-Number Plate Detection
-      ↓
-Vehicle Verification
-      ↓
-Parking Availability Check
-      ↓
-Barrier Opens
-      ↓
-Parking Slot Assigned
-      ↓
-Vehicle Parks
-☁️ Cloud Database
-
-A future backend can synchronize parking information across multiple campus devices.
-
-Possible technologies:
-
-PostgreSQL
-Firebase
-Node.js
-Express.js
-
-This would allow administrators to access live parking information from different locations.
-
-📱 Notifications
-
-Future versions may provide:
-
-Parking reservation notifications
-Parking expiry reminders
-Vehicle entry alerts
-Vehicle exit notifications
-Administrative alerts
-
-Possible communication channels include:
-
-SMS
-WhatsApp
-Email
-Push Notifications
-🎯 Project Objectives
-
-The major objectives of SmartPark.Campus are:
-
-To provide an organized digital parking management system for colleges.
-To display parking slot availability through an interactive interface.
-To manage multiple college parking floors.
-To maintain student and vehicle registration records.
-To reduce the time required to find available parking spaces.
-To improve parking space utilization.
-To provide administrators with centralized parking information.
-To maintain parking activity and vehicle records.
-To provide a foundation for future IoT-based parking automation.
-To improve the overall efficiency and security of campus parking management.
-💡 Benefits
-For Students
-Quickly identify available parking spaces
-Reduce time spent searching for parking
-Register vehicle information
-View parking layouts easily
-For Faculty & Staff
-Better access to designated parking areas
-Improved parking organization
-Easier vehicle management
-For College Administration
-Centralized parking management
-Better utilization of available space
-Student and vehicle records
-Parking usage analytics
-Improved monitoring and security
-For Security Personnel
-Easier vehicle verification
-Parking activity monitoring
-Better control over campus vehicle movement
-Future integration with ANPR and automated gates
-📌 Project Scope
-
-SmartPark.Campus focuses on developing a web-based smart parking management solution for educational institutions.
-
-The system currently focuses on parking visualization, floor-wise slot management, parking status monitoring, and student/vehicle management.
-
-The architecture is designed so that future hardware and backend technologies can be integrated without redesigning the entire application.
-
-🚀 Future Vision
-                    SMART CAMPUS PARKING
-                            │
-            ┌───────────────┼───────────────┐
-            │               │               │
-        Web System       IoT Sensors      ANPR
-            │               │               │
-       React/Vite        ESP32/Arduino    Camera
-            │               │               │
-            └───────────────┼───────────────┘
-                            │
-                     Central Database
-                            │
-                ┌───────────┼───────────┐
-                │           │           │
-             Students    Security   Administration
-                │           │           │
-                └───────────┼───────────┘
-                            │
-                  Smart Campus Parking
-👩‍💻 Project Information
-
-Project: Smart College Parking Management System
-Application Name: SmartPark.Campus
-Platform: Web Application
-Frontend: React 19 + Vite
-Language: JavaScript
-Styling: CSS3
-Target Users: Students, Faculty, Staff & College Administration
-
-📄 License
-
-This project is developed for academic/educational purposes as a Smart College Parking Management System project.
-
-⭐ SmartPark.Campus — Making Campus Parking Smarter, Simpler & More Organized.
+<p align="center">
+  ⭐ <b>SmartPark.Campus</b> — Making Campus Parking Smarter, Simpler & Organized.
+</p>

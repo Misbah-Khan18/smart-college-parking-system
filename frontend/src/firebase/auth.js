@@ -16,6 +16,9 @@ import {
 import { auth, db } from './firebase'
 
 const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+})
 
 /**
  * Sign in using Google OAuth Popup
@@ -24,6 +27,25 @@ export const signInWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider)
     const user = result.user
+
+    const userProfileData = {
+      uid: user.uid,
+      displayName: user.displayName || 'Campus User',
+      email: user.email,
+      photoURL: user.photoURL || '',
+      role: 'Student',
+      lastLogin: new Date().toISOString(),
+    }
+
+    // Cache locally for offline/fast UI hydration
+    try {
+      const existing = localStorage.getItem(`user_profile_${user.uid}`)
+      if (!existing) {
+        localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(userProfileData))
+      }
+    } catch (e) {
+      console.warn('Local storage cache warning:', e)
+    }
 
     // Save/update user profile in Firestore
     try {
@@ -51,7 +73,7 @@ export const signInWithGoogle = async () => {
 
 /**
  * Register a new user with Email and Password
- * Supports campus metadata (Role, ID, License plate)
+ * Supports campus metadata (Role, ID, Phone, Vehicle type & plate)
  */
 export const registerWithEmail = async ({
   name,
@@ -59,6 +81,9 @@ export const registerWithEmail = async ({
   password,
   role = 'Student',
   campusId = '',
+  phoneNumber = '',
+  vehicleType = 'scooty',
+  isEv = false,
   defaultPlate = '',
 }) => {
   try {
@@ -72,27 +97,68 @@ export const registerWithEmail = async ({
       })
     }
 
+    const preferredFloor = vehicleType === 'scooty' ? 'Ground Floor' : 'Basement'
+
     const userProfileData = {
       uid: user.uid,
       displayName: name || 'Campus Member',
       email: user.email,
       role: role || 'Student',
       campusId: campusId || '',
+      phoneNumber: phoneNumber || '',
+      vehicleType: vehicleType || 'scooty',
+      isEv: Boolean(isEv),
       defaultPlate: defaultPlate || '',
-      createdAt: serverTimestamp(),
-      lastLogin: serverTimestamp(),
+      preferredFloor,
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
     }
 
     // Cache locally for offline/fast UI hydration
     try {
       localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(userProfileData))
+      localStorage.setItem('demo_user_session', JSON.stringify(userProfileData))
     } catch (e) {
       console.warn('Local storage cache error:', e)
     }
 
+    // If vehicle plate is provided, auto-register vehicle into registry list
+    if (defaultPlate.trim()) {
+      try {
+        const savedVehicles = localStorage.getItem('registered_vehicles_list')
+        const currentList = savedVehicles ? JSON.parse(savedVehicles) : []
+        const newVehicleRecord = {
+          id: `REG-2026-${String(currentList.length + 1).padStart(3, '0')}`,
+          studentName: name.trim(),
+          rollNumber: campusId.trim().toUpperCase() || `ID-${user.uid.slice(0, 6).toUpperCase()}`,
+          stream: role === 'Student' ? 'Registered Student' : `${role} Member`,
+          phoneNumber: phoneNumber.trim(),
+          vehicleNumber: defaultPlate.trim().toUpperCase(),
+          vehicleType: vehicleType || 'scooty',
+          isEv: Boolean(isEv),
+          category: role || 'Student',
+          preferredFloor,
+          registeredAt: new Date().toISOString().split('T')[0],
+          status: 'Active',
+          passId: `SMP-${campusId.trim().toUpperCase() || 'PASS'}-${String(currentList.length + 1).padStart(2, '0')}`
+        }
+
+        // Avoid duplicate vehicle plate
+        if (!currentList.some(v => v.vehicleNumber === newVehicleRecord.vehicleNumber)) {
+          localStorage.setItem('registered_vehicles_list', JSON.stringify([newVehicleRecord, ...currentList]))
+        }
+      } catch (regErr) {
+        console.warn('Auto vehicle registration cache warning:', regErr)
+      }
+    }
+
     // Sync to Firestore
     try {
-      await setDoc(doc(db, 'users', user.uid), userProfileData, { merge: true })
+      await setDoc(doc(db, 'users', user.uid), {
+        ...userProfileData,
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp(),
+      }, { merge: true })
     } catch (fsErr) {
       console.warn('Firestore profile save warning:', fsErr)
     }
@@ -130,7 +196,7 @@ export const resetPassword = async (email) => {
 }
 
 /**
- * Retrieve user custom profile (role, campusId, plate) from Firestore or Local Cache
+ * Retrieve user custom profile (role, campusId, plate, phone) from Firestore or Local Cache
  */
 export const getUserProfile = async (uid) => {
   if (!uid) return null
@@ -139,8 +205,7 @@ export const getUserProfile = async (uid) => {
   try {
     const local = localStorage.getItem(`user_profile_${uid}`)
     if (local) {
-      const parsed = JSON.parse(local)
-      return parsed
+      return JSON.parse(local)
     }
   } catch {
     // Ignore cache error
@@ -166,9 +231,12 @@ export const getUserProfile = async (uid) => {
  */
 export const logout = async () => {
   try {
+    localStorage.removeItem('demo_user_session')
     await signOut(auth)
   } catch (error) {
     console.error('Logout Error:', error)
+    // Even if Firebase signOut throws, ensure local session is cleared
+    localStorage.removeItem('demo_user_session')
     throw error
   }
 }

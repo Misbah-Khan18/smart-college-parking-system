@@ -17,6 +17,7 @@ export default function Navbar({
   const [time, setTime] = useState(new Date())
   const [imgError, setImgError] = useState(false)
   const [showNotifMenu, setShowNotifMenu] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -24,6 +25,8 @@ export default function Navbar({
   }, [])
 
   const handleLogout = async () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
     try {
       if (onLogout) {
         await onLogout()
@@ -32,6 +35,7 @@ export default function Navbar({
       }
     } catch (err) {
       console.error('Failed to logout:', err)
+      setIsLoggingOut(false)
     }
   }
 
@@ -223,11 +227,14 @@ export default function Navbar({
               type="button"
               className="user-logout-btn"
               onClick={handleLogout}
+              disabled={isLoggingOut}
               title="Sign Out"
               aria-label="Sign Out"
             >
               <LogOutIcon className="w-4 h-4 logout-icon" />
-              <span className="logout-btn-text">Sign Out</span>
+              <span className="logout-btn-text">
+                {isLoggingOut ? 'Signing out...' : 'Sign Out'}
+              </span>
             </button>
           </div>
         )}
