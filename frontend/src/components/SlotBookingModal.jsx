@@ -6,6 +6,8 @@ export default function SlotBookingModal({
   onClose,
   initialSlot,
   availableSlots = [],
+  registeredVehicles = [],
+  prefilledData = null,
   onConfirmBooking,
   currentRole = 'Student',
   user,
@@ -15,10 +17,12 @@ export default function SlotBookingModal({
 
   return (
     <SlotBookingContent
-      key={initialSlot?.id || 'default-booking'}
+      key={initialSlot?.id || prefilledData?.vehicleNumber || 'default-booking'}
       onClose={onClose}
       initialSlot={initialSlot}
       availableSlots={availableSlots}
+      registeredVehicles={registeredVehicles}
+      prefilledData={prefilledData}
       onConfirmBooking={onConfirmBooking}
       currentRole={currentRole}
       user={user}
@@ -31,6 +35,8 @@ function SlotBookingContent({
   onClose,
   initialSlot,
   availableSlots = [],
+  registeredVehicles = [],
+  prefilledData = null,
   onConfirmBooking,
   currentRole,
   user,
@@ -40,12 +46,39 @@ function SlotBookingContent({
   const defaultSlot = initialSlot || availableSlots.find((s) => s.id === defaultSlotId)
 
   const [slotId, setSlotId] = useState(defaultSlotId)
-  const [vehicleNumber, setVehicleNumber] = useState(userProfile?.defaultPlate || '')
-  const [ownerName, setOwnerName] = useState(userProfile?.displayName || user?.displayName || '')
-  const [category, setCategory] = useState(userProfile?.role || (currentRole === 'Faculty' ? 'Faculty' : 'Student'))
+  const [vehicleNumber, setVehicleNumber] = useState(
+    prefilledData?.vehicleNumber || userProfile?.defaultPlate || ''
+  )
+  const [ownerName, setOwnerName] = useState(
+    prefilledData?.ownerName || userProfile?.displayName || user?.displayName || ''
+  )
+  const [category, setCategory] = useState(
+    prefilledData?.category || userProfile?.role || (currentRole === 'Faculty' ? 'Faculty' : 'Student')
+  )
   const [durationHours, setDurationHours] = useState('2')
-  const [vehicleType, setVehicleType] = useState(defaultSlot?.type || 'bike')
+  const [vehicleType, setVehicleType] = useState(
+    prefilledData?.vehicleType || defaultSlot?.type || 'scooty'
+  )
   const [errorMsg, setErrorMsg] = useState('')
+
+  const handleSelectRegistered = (regId) => {
+    if (!regId) return
+    const found = registeredVehicles.find((v) => v.id === regId)
+    if (found) {
+      setOwnerName(found.studentName)
+      setVehicleNumber(found.vehicleNumber)
+      setVehicleType(found.vehicleType || 'scooty')
+      setCategory(found.category || 'Student')
+
+      // Auto pick suitable slot
+      const preferred = availableSlots.find(
+        (s) => s.floor === found.preferredFloor
+      )
+      if (preferred) {
+        setSlotId(preferred.id)
+      }
+    }
+  }
 
   const handleSlotSelect = (selectedId) => {
     setSlotId(selectedId)
@@ -93,7 +126,7 @@ function SlotBookingContent({
         <div className="modal-header">
           <div className="modal-title-wrap">
             <QrIcon className="w-5 h-5 text-cyan" />
-            <h3 className="modal-title">Reserve Parking Slot</h3>
+            <h3 className="modal-title">Reserve Parking Bay</h3>
           </div>
           <button type="button" className="close-btn" onClick={onClose} aria-label="Close booking modal">
             <XIcon className="w-5 h-5" />
@@ -103,9 +136,28 @@ function SlotBookingContent({
         <form onSubmit={handleSubmit} className="booking-form">
           {errorMsg && <div className="error-banner">{errorMsg}</div>}
 
+          {/* Quick Select from Registered Students */}
+          {registeredVehicles.length > 0 && !prefilledData && (
+            <div className="form-group">
+              <label>Auto-fill from Registered Student Directory</label>
+              <select
+                className="form-control"
+                onChange={(e) => handleSelectRegistered(e.target.value)}
+                defaultValue=""
+              >
+                <option value="">-- Choose Registered Student (Optional) --</option>
+                {registeredVehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.studentName} ({v.rollNumber}) &bull; {v.vehicleNumber} [{v.vehicleType.toUpperCase()}]
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Select Slot */}
           <div className="form-group">
-            <label htmlFor="slot-select">Select Available Slot</label>
+            <label htmlFor="slot-select">Select Available Bay *</label>
             <select
               id="slot-select"
               value={slotId}
@@ -114,11 +166,11 @@ function SlotBookingContent({
               required
             >
               {availableSlots.length === 0 ? (
-                <option value="">No slots currently available</option>
+                <option value="">No bays currently available</option>
               ) : (
                 availableSlots.map((s) => (
                   <option key={s.id} value={s.id}>
-                    Slot {s.id} &bull; {s.floor} ({s.section}) [{s.type.toUpperCase()}]
+                    Bay {s.id} &bull; {s.floor} ({s.section}) [{s.type.toUpperCase()}]
                   </option>
                 ))
               )}
@@ -128,7 +180,7 @@ function SlotBookingContent({
           <div className="form-row">
             {/* Owner Name */}
             <div className="form-group">
-              <label htmlFor="owner-name">Full Name</label>
+              <label htmlFor="owner-name">Student / Driver Name *</label>
               <input
                 id="owner-name"
                 type="text"
@@ -142,14 +194,14 @@ function SlotBookingContent({
 
             {/* Vehicle Number */}
             <div className="form-group">
-              <label htmlFor="vehicle-plate">Vehicle Plate</label>
+              <label htmlFor="vehicle-plate">Vehicle Plate *</label>
               <input
                 id="vehicle-plate"
                 type="text"
                 placeholder="MH-04-AB-1234"
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value)}
-                className="form-control uppercase-input"
+                className="form-control uppercase-input font-mono font-bold"
                 required
               />
             </div>
@@ -173,9 +225,25 @@ function SlotBookingContent({
               </select>
             </div>
 
+            {/* Vehicle Model */}
+            <div className="form-group">
+              <label htmlFor="vehicle-model">Two-Wheeler Type</label>
+              <select
+                id="vehicle-model"
+                value={vehicleType}
+                onChange={(e) => setVehicleType(e.target.value)}
+                className="form-control"
+              >
+                <option value="scooty">🛵 Scooty (Normal Petrol)</option>
+                <option value="scooty-ev">⚡ EV Scooty (Electric)</option>
+                <option value="bike">🏍️ Bike / Motorcycle (Normal)</option>
+                <option value="bike-ev">⚡ EV Bike (Electric)</option>
+              </select>
+            </div>
+
             {/* Duration */}
             <div className="form-group">
-              <label htmlFor="duration-select">Reservation Duration</label>
+              <label htmlFor="duration-select">Duration</label>
               <select
                 id="duration-select"
                 value={durationHours}

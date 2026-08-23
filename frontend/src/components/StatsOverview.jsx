@@ -1,4 +1,4 @@
-import { BikeIcon, CheckIcon, CarIcon, ShieldIcon } from './Icons'
+import { BikeIcon, CheckIcon, ShieldIcon } from './Icons'
 
 export default function StatsOverview({ slots = [] }) {
   const total = slots.length || 160
@@ -22,10 +22,10 @@ export default function StatsOverview({ slots = [] }) {
           <CheckIcon className="w-5 h-5 text-emerald" />
         </div>
         <div className="stat-details">
-          <span className="stat-label">Total Available</span>
+          <span className="stat-label">Available Bays</span>
           <div className="stat-value-group">
             <span className="stat-number text-emerald">{available}</span>
-            <span className="stat-total">/ {total} Bays</span>
+            <span className="stat-total">/ {total} Total</span>
           </div>
           <span className="stat-sub-info">{100 - occupancyRate}% capacity free</span>
         </div>
@@ -34,7 +34,7 @@ export default function StatsOverview({ slots = [] }) {
       {/* 2. Ground Floor (Girls Scooty) */}
       <div className="stat-card stat-ground">
         <div className="stat-icon-box bg-cyan-glow">
-          <BikeIcon className="w-5 h-5 text-cyan" />
+          <span className="emoji-icon">🛵</span>
         </div>
         <div className="stat-details">
           <span className="stat-label">Ground Floor &bull; Girls Scooty</span>
@@ -46,13 +46,13 @@ export default function StatsOverview({ slots = [] }) {
         </div>
       </div>
 
-      {/* 3. Basement (Boys Parking) */}
+      {/* 3. Basement (Boys Bike Parking) */}
       <div className="stat-card stat-basement">
         <div className="stat-icon-box bg-indigo-glow">
-          <CarIcon className="w-5 h-5 text-indigo" />
+          <BikeIcon className="w-5 h-5 text-indigo" />
         </div>
         <div className="stat-details">
-          <span className="stat-label">Basement &bull; Boys Parking</span>
+          <span className="stat-label">Basement &bull; Boys Bikes</span>
           <div className="stat-value-group">
             <span className="stat-number text-indigo">{basementAvail}</span>
             <span className="stat-total">/ {basementSlots.length || 80} Open</span>

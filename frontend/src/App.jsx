@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
-import { INITIAL_SLOTS, INITIAL_LOGS } from './data/initialSlots'
+import { INITIAL_SLOTS, INITIAL_LOGS, INITIAL_REGISTERED_VEHICLES } from './data/initialSlots'
 
 import Navbar from './components/Navbar'
 import StatsOverview from './components/StatsOverview'
 import ParkingLotMap from './components/ParkingLotMap'
+import StudentVehicleRegistration from './components/StudentVehicleRegistration'
 import AnalyticsView from './components/AnalyticsView'
 import GateSimulator from './components/GateSimulator'
 import LiveVehicleLog from './components/LiveVehicleLog'
@@ -69,7 +70,6 @@ export default function App() {
           console.warn('Profile fetch warning:', err)
         }
       } else {
-        // Only clear if not in an active demo session
         const activeDemo = localStorage.getItem('demo_user_session')
         if (!activeDemo) {
           setUser(null)
@@ -106,7 +106,28 @@ export default function App() {
   // ==========================================
   const [slots, setSlots] = useState(INITIAL_SLOTS)
   const [logs, setLogs] = useState(INITIAL_LOGS)
-  const [activeTab, setActiveTab] = useState('map') // 'map' | 'analytics' | 'gate' | 'logs'
+  const [activeTab, setActiveTab] = useState('map') // 'map' | 'registry' | 'gate' | 'analytics' | 'logs'
+
+  // Registered Student Vehicles State
+  const [registeredVehicles, setRegisteredVehicles] = useState(() => {
+    const saved = localStorage.getItem('registered_vehicles_list')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_REGISTERED_VEHICLES
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('registered_vehicles_list', JSON.stringify(registeredVehicles))
+    } catch {
+      // ignore
+    }
+  }, [registeredVehicles])
 
   // Map Filter States
   const [selectedZone, setSelectedZone] = useState('All Sections')
@@ -116,6 +137,7 @@ export default function App() {
   // Modals & Notifications State
   const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [bookingSlotTarget, setBookingSlotTarget] = useState(null)
+  const [bookingPrefilledData, setBookingPrefilledData] = useState(null)
   const [activePass, setActivePass] = useState(null)
   const [toast, setToast] = useState(null)
   const [notifications, setNotifications] = useState([
@@ -126,9 +148,9 @@ export default function App() {
       type: 'info'
     },
     {
-      title: 'Morning Shift Commenced',
-      message: 'Ground Floor & Basement parking monitoring enabled.',
-      time: '08:30 AM',
+      title: 'Student Registry Online',
+      message: 'Vehicle permit verification and smart barrier recognition enabled.',
+      time: '08:45 AM',
       type: 'info'
     }
   ])
@@ -143,6 +165,87 @@ export default function App() {
   const availableSlots = useMemo(() => {
     return slots.filter((s) => s.status === 'available')
   }, [slots])
+
+  // ==========================================
+  // STUDENT VEHICLE REGISTRATION HANDLERS
+  // ==========================================
+  const handleRegisterVehicle = ({
+    studentName,
+    rollNumber,
+    stream,
+    phoneNumber,
+    vehicleNumber,
+    vehicleType,
+    preferredFloor
+  }) => {
+    const newId = `REG-2026-${String(registeredVehicles.length + 1).padStart(3, '0')}`
+    const passId = `SMP-${rollNumber}-${String(registeredVehicles.length + 1).padStart(2, '0')}`
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    const newRecord = {
+      id: newId,
+      studentName,
+      rollNumber,
+      stream,
+      phoneNumber,
+      vehicleNumber,
+      vehicleType,
+      category: 'Student',
+      preferredFloor: preferredFloor || (vehicleType === 'scooty' ? 'Ground Floor' : 'Basement'),
+      registeredAt: new Date().toISOString().split('T')[0],
+      status: 'Active',
+      passId
+    }
+
+    setRegisteredVehicles((prev) => [newRecord, ...prev])
+
+    // Log the registration
+    const newLog = {
+      id: `LOG-${Date.now().toString().slice(-4)}`,
+      timestamp: nowTime,
+      action: 'ENTRY',
+      plate: vehicleNumber,
+      slot: preferredFloor === 'Ground Floor' ? 'G-AUTH' : 'B-AUTH',
+      category: 'Student Reg',
+      vehicleType: vehicleType,
+      gate: 'Admin Registry'
+    }
+    setLogs((prev) => [newLog, ...prev])
+
+    // Push notification
+    const newNotif = {
+      title: `Vehicle Registered: ${vehicleNumber}`,
+      message: `${studentName} (${rollNumber}, ${stream}) issued ${vehicleType.toUpperCase()} permit.`,
+      time: nowTime,
+      type: 'success'
+    }
+    setNotifications((prev) => [newNotif, ...prev])
+    setUnreadCount((c) => c + 1)
+
+    showToast(
+      'Vehicle Registered Successfully',
+      `Permit ${passId} issued for ${studentName} (${vehicleNumber}).`,
+      'success'
+    )
+  }
+
+  const handleDeleteRegisteredVehicle = (regId) => {
+    setRegisteredVehicles((prev) => prev.filter((item) => item.id !== regId))
+    showToast('Permit Removed', 'Vehicle registration has been de-registered.', 'info')
+  }
+
+  const handleQuickBookFromRegistry = (studentData) => {
+    setBookingSlotTarget(null)
+    setBookingPrefilledData(studentData)
+    setIsBookingOpen(true)
+  }
+
+  const handleViewPassFromRegistry = (passData) => {
+    setActivePass(passData)
+  }
 
   // ==========================================
   // BOOKING HANDLER
@@ -283,7 +386,6 @@ export default function App() {
     category,
     preferredFloor
   }) => {
-    // 1. Check if vehicle has an existing reservation
     let targetSlot = slots.find(
       (s) =>
         s.status === 'reserved' &&
@@ -291,19 +393,16 @@ export default function App() {
         s.plate.toLowerCase() === plate.toLowerCase()
     )
 
-    // 2. If no reservation, allocate based on preferred floor or vehicle type
     if (!targetSlot) {
       if (preferredFloor) {
         targetSlot = slots.find(
           (s) => s.status === 'available' && s.floor === preferredFloor
         )
-      } else if (type === 'scooty') {
-        // Scooty preferred on Ground Floor (Girls Scooty)
+      } else if (type === 'scooty' || type === 'scooty-ev') {
         targetSlot =
           slots.find((s) => s.status === 'available' && s.floor === 'Ground Floor') ||
           slots.find((s) => s.status === 'available')
       } else {
-        // Two-wheelers / Bikes preferred on Basement
         targetSlot =
           slots.find((s) => s.status === 'available' && s.floor === 'Basement') ||
           slots.find((s) => s.status === 'available')
@@ -316,6 +415,8 @@ export default function App() {
         message: `No available parking bay found on campus for ${type.toUpperCase()}.`
       }
     }
+
+    const isEv = Boolean(type.includes('ev'))
 
     const nowTime = new Date().toLocaleTimeString([], {
       hour: '2-digit',
@@ -331,6 +432,7 @@ export default function App() {
               plate,
               owner: owner || s.owner || 'Campus User',
               category: category || s.category || 'Student',
+              isEv: isEv || s.isEv,
               entryTime: nowTime,
               reservedUntil: null
             }
@@ -516,6 +618,7 @@ export default function App() {
               onSelectSlot={(slot) => {
                 if (slot.status === 'available') {
                   setBookingSlotTarget(slot)
+                  setBookingPrefilledData(null)
                   setIsBookingOpen(true)
                 } else if (slot.plate) {
                   setActivePass({
@@ -533,6 +636,7 @@ export default function App() {
               }}
               onOpenBooking={(slot) => {
                 setBookingSlotTarget(slot)
+                setBookingPrefilledData(null)
                 setIsBookingOpen(true)
               }}
               onReleaseSlot={handleReleaseSlot}
@@ -540,20 +644,32 @@ export default function App() {
             />
           )}
 
-          {/* TAB 2: LIVE ANALYTICS */}
-          {activeTab === 'analytics' && <AnalyticsView slots={slots} />}
+          {/* TAB 2: STUDENT & VEHICLE REGISTRY */}
+          {activeTab === 'registry' && (
+            <StudentVehicleRegistration
+              registeredVehicles={registeredVehicles}
+              onRegisterVehicle={handleRegisterVehicle}
+              onDeleteVehicle={handleDeleteRegisteredVehicle}
+              onViewPass={handleViewPassFromRegistry}
+              onQuickBook={handleQuickBookFromRegistry}
+            />
+          )}
 
           {/* TAB 3: GATE TERMINAL */}
           {activeTab === 'gate' && (
             <GateSimulator
               slots={slots}
+              registeredVehicles={registeredVehicles}
               onVehicleEntry={handleVehicleEntry}
               onVehicleExit={handleVehicleExit}
               onShowPass={(passData) => setActivePass(passData)}
             />
           )}
 
-          {/* TAB 4: ACTIVITY LOG */}
+          {/* TAB 4: LIVE ANALYTICS */}
+          {activeTab === 'analytics' && <AnalyticsView slots={slots} />}
+
+          {/* TAB 5: ACTIVITY LOG */}
           {activeTab === 'logs' && <LiveVehicleLog logs={logs} />}
         </section>
       </main>
@@ -564,9 +680,12 @@ export default function App() {
         onClose={() => {
           setIsBookingOpen(false)
           setBookingSlotTarget(null)
+          setBookingPrefilledData(null)
         }}
         initialSlot={bookingSlotTarget}
         availableSlots={availableSlots}
+        registeredVehicles={registeredVehicles}
+        prefilledData={bookingPrefilledData}
         onConfirmBooking={handleConfirmBooking}
         currentRole={currentRole}
         user={user}
@@ -581,7 +700,7 @@ export default function App() {
       <footer className="app-footer">
         <div className="footer-content">
           <span>
-            Smart College Parking System &bull; Real-Time IoT Telemetry &amp; ANPR Gate Control
+            Smart College Parking System &bull; Real-Time IoT Telemetry &amp; Student Vehicle Registration
           </span>
           <span className="footer-tag">
             Ground Floor (Girls Scooty) &bull; Basement (Boys Parking) &bull; 160 Total Bays

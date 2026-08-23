@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
-  CarIcon,
   BikeIcon,
-  EvIcon,
   SearchIcon,
   PlusCircleIcon,
   ShieldIcon
@@ -27,7 +25,7 @@ export default function ParkingLotMap({
   const [selectedFloor, setSelectedFloor] = useState('Ground Floor')
 
   // ==========================================
-  // GROUND FLOOR SECTIONS
+  // GROUND FLOOR SECTIONS (GIRLS' SCOOTY PARKING)
   // ==========================================
   const groundFloorSections = [
     {
@@ -57,7 +55,7 @@ export default function ParkingLotMap({
   ]
 
   // ==========================================
-  // BASEMENT SECTIONS
+  // BASEMENT SECTIONS (BOYS' BIKE PARKING)
   // ==========================================
   const basementSections = [
     {
@@ -120,21 +118,6 @@ export default function ParkingLotMap({
   }, [slots, selectedFloor, selectedZone, filterStatus, searchQuery])
 
   // ==========================================
-  // VEHICLE ICON HELPER
-  // ==========================================
-  const getVehicleIcon = (type) => {
-    switch (type) {
-      case 'bike':
-      case 'scooty':
-        return <BikeIcon className="w-4 h-4" />
-      case 'ev':
-        return <EvIcon className="w-4 h-4 text-amber" />
-      default:
-        return <CarIcon className="w-4 h-4" />
-    }
-  }
-
-  // ==========================================
   // FLOOR COUNTS
   // ==========================================
   const floorSlots = slots.filter((slot) => slot.floor === selectedFloor)
@@ -149,21 +132,29 @@ export default function ParkingLotMap({
     const isAvailable = slot.status === 'available'
     const isOccupied = slot.status === 'occupied'
     const isReserved = slot.status === 'reserved'
+    const isEvSlot = Boolean(slot.isEv || slot.type === 'ev')
+    const isGround = slot.floor === 'Ground Floor'
 
     return (
       <div
         key={slot.id}
-        className={`slot-card ${slot.status} ${slot.type === 'ev' ? 'is-ev' : ''}`}
+        className={`slot-card ${slot.status} ${isEvSlot ? 'is-ev' : ''}`}
         onClick={() => onSelectSlot && onSelectSlot(slot)}
       >
         {/* Slot Top Row */}
         <div className="slot-top-row">
           <div className="slot-id-badge">
             <span className="slot-id-text">{slot.id}</span>
-            {slot.type === 'ev' && <span className="ev-tag">⚡ EV</span>}
+            {isEvSlot && <span className="ev-tag">⚡ EV</span>}
           </div>
 
-          <div className="slot-type-icon">{getVehicleIcon(slot.type)}</div>
+          <div className="slot-type-icon">
+            {isGround ? (
+              <span className="two-wheeler-emoji" title="Scooty">🛵</span>
+            ) : (
+              <BikeIcon className="w-4 h-4 text-indigo" />
+            )}
+          </div>
         </div>
 
         {/* Slot Body */}
@@ -197,7 +188,9 @@ export default function ParkingLotMap({
           {/* AVAILABLE */}
           {isAvailable && (
             <div className="slot-info available-info">
-              <span className="ready-text">Ready to park</span>
+              <span className="ready-text">
+                {isGround ? 'Open Scooty Bay' : 'Open Bike Bay'}
+              </span>
               <span className="section-hint-text">{slot.section ? slot.section.split('-')[0] : ''}</span>
             </div>
           )}
@@ -251,10 +244,10 @@ export default function ParkingLotMap({
             setFilterStatus('all')
           }}
         >
-          <span className="floor-icon">🅿️</span>
+          <span className="floor-icon">🛵</span>
           <span>
             <strong>Ground Floor</strong>
-            <small>Girls Scooty &bull; 80 Slots</small>
+            <small>Girls' Scooty Parking &bull; 80 Bays</small>
           </span>
         </button>
 
@@ -267,10 +260,10 @@ export default function ParkingLotMap({
             setFilterStatus('all')
           }}
         >
-          <span className="floor-icon">🅿️</span>
+          <span className="floor-icon">🏍️</span>
           <span>
             <strong>Basement</strong>
-            <small>Boys Two-Wheeler &bull; 80 Slots</small>
+            <small>Boys' Bike Parking &bull; 80 Bays</small>
           </span>
         </button>
       </div>
@@ -278,12 +271,12 @@ export default function ParkingLotMap({
       {/* Floor Info Banner */}
       <div className="parking-floor-header glass-card">
         <div>
-          <span className="floor-label">ACTIVE CAMPUS PARKING ZONE</span>
+          <span className="floor-label">TWO-WHEELER PARKING ZONE</span>
           <h2>{selectedFloor}</h2>
           <p>
             {selectedFloor === 'Ground Floor'
-              ? "Girls' Scooty Parking • Accounts Dept & Exam IT Dept Wings"
-              : "Boys' Two-Wheeler Parking • Rows 1 through 4 Grid"}
+              ? "Girls' Scooty Parking (Normal & EV) • Accounts Dept & Exam IT Dept Wings"
+              : "Boys' Two-Wheeler & Bike Parking (Normal & EV) • Rows 1 through 4 Grid"}
           </p>
         </div>
 
@@ -405,7 +398,7 @@ export default function ParkingLotMap({
 
         <div className="legend-item">
           <span className="legend-dot status-ev" />
-          <span>⚡ EV Charger Ready</span>
+          <span>⚡ Electric (EV) Model</span>
         </div>
       </div>
 
@@ -417,7 +410,7 @@ export default function ParkingLotMap({
       ) : (
         <div className="empty-state glass-card">
           <ShieldIcon className="w-10 h-10 text-muted" />
-          <p>No parking slots match the selected filters on {selectedFloor}.</p>
+          <p>No parking bays match the selected filters on {selectedFloor}.</p>
           <button
             type="button"
             className="btn btn-secondary mt-2"

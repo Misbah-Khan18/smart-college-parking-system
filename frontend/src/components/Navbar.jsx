@@ -87,10 +87,10 @@ export default function Navbar({
         </button>
         <button
           type="button"
-          className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('analytics')}
+          className={`nav-tab-btn ${activeTab === 'registry' ? 'active' : ''}`}
+          onClick={() => setActiveTab('registry')}
         >
-          📊 Live Analytics
+          📝 Vehicle Registry
         </button>
         <button
           type="button"
@@ -98,6 +98,13 @@ export default function Navbar({
           onClick={() => setActiveTab('gate')}
         >
           🚧 Gate Terminal
+        </button>
+        <button
+          type="button"
+          className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('analytics')}
+        >
+          📊 Live Analytics
         </button>
         <button
           type="button"

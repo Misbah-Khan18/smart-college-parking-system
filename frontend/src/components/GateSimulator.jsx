@@ -3,6 +3,7 @@ import { GateIcon } from './Icons'
 
 export default function GateSimulator({
   slots = [],
+  registeredVehicles = [],
   onVehicleEntry,
   onVehicleExit,
   onShowPass
@@ -17,6 +18,24 @@ export default function GateSimulator({
 
   const [gateStatus, setGateStatus] = useState('closed') // 'closed' | 'opening' | 'open' | 'closing'
   const [lastActionMsg, setLastActionMsg] = useState(null)
+
+  const handleSelectRegisteredVehicle = (regId) => {
+    if (!regId) return
+    const reg = registeredVehicles.find((v) => v.id === regId)
+    if (reg) {
+      setEntryPlate(reg.vehicleNumber)
+      setEntryDriver(reg.studentName)
+      const mappedType =
+        reg.vehicleType === 'bike'
+          ? reg.isEv ? 'bike-ev' : 'bike'
+          : reg.isEv ? 'scooty-ev' : 'scooty'
+      setEntryType(mappedType)
+      setEntryCategory(reg.category || 'Student')
+      setEntryFloorTarget(
+        reg.preferredFloor || (reg.vehicleType === 'scooty' ? 'Ground Floor' : 'Basement')
+      )
+    }
+  }
 
   const handleSimulateEntry = (e) => {
     e.preventDefault()
@@ -169,6 +188,24 @@ export default function GateSimulator({
           </div>
 
           <form onSubmit={handleSimulateEntry} className="terminal-form">
+            {registeredVehicles.length > 0 && (
+              <div className="form-group">
+                <label>Quick Select Registered Student Vehicle</label>
+                <select
+                  className="form-control"
+                  onChange={(e) => handleSelectRegisteredVehicle(e.target.value)}
+                  defaultValue=""
+                >
+                  <option value="">-- Choose from Registered Students --</option>
+                  {registeredVehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.studentName} ({v.rollNumber}) &bull; {v.vehicleNumber} [{v.vehicleType.toUpperCase()}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="form-group">
               <label>License Plate Number *</label>
               <input
@@ -194,16 +231,16 @@ export default function GateSimulator({
 
             <div className="form-row">
               <div className="form-group">
-                <label>Vehicle Type</label>
+                <label>Two-Wheeler Model</label>
                 <select
                   value={entryType}
                   onChange={(e) => setEntryType(e.target.value)}
                   className="form-control"
                 >
-                  <option value="bike">🏍️ Two-Wheeler / Bike</option>
-                  <option value="scooty">🛵 Scooty (Girls Ground Floor)</option>
-                  <option value="ev">⚡ EV Two-Wheeler</option>
-                  <option value="car">🚗 4-Wheeler Car</option>
+                  <option value="scooty">🛵 Scooty (Normal Petrol) - Ground Floor</option>
+                  <option value="scooty-ev">⚡ EV Scooty (Electric) - Ground Floor</option>
+                  <option value="bike">🏍️ Bike / Motorcycle (Normal) - Basement</option>
+                  <option value="bike-ev">⚡ EV Bike (Electric) - Basement</option>
                 </select>
               </div>
 
