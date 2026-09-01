@@ -1,272 +1,187 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  ClockIcon,
   SearchIcon,
-  BikeIcon,
-  ShieldIcon,
-  CheckIcon,
-  ActivityIcon
+  PlusCircleIcon
 } from './Icons'
-import {
-  formatLiveDurationStandard,
-  formatLiveDurationDetailed,
-  formatLiveDurationCompact,
-  getStayDurationCategory
-} from '../utils/timerUtils'
+import { formatLiveDurationCompact, formatLiveDurationStandard } from '../utils/timerUtils'
 
 export default function LiveParkingTimerView({
   slots = [],
   onReleaseSlot,
-  onNavigateToMap
+  onOpenBooking
 }) {
-  // Live ticking state (1 second re-render)
+  // 1-second live ticking state
   const [, setTick] = useState(0)
-  const [search, setSearch] = useState('')
   const [floorFilter, setFloorFilter] = useState('all') // 'all' | 'Ground Floor' | 'Basement'
-  const [sortBy, setSortBy] = useState('longest') // 'longest' | 'newest' | 'slot'
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTick((t) => t + 1)
-    }, 1000)
+    const timer = setInterval(() => setTick((t) => t + 1), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  // All currently parked / occupied vehicles
-  const parkedSlots = useMemo(() => {
-    return slots.filter((s) => s.status === 'occupied' || (s.status === 'reserved' && s.plate))
-  }, [slots])
+  // Filter all active vehicles (occupied or reserved with vehicle)
+  const activeVehicles = useMemo(() => {
+    return slots
+      .filter((s) => s.status === 'occupied' || s.status === 'reserved')
+      .filter((s) => floorFilter === 'all' || s.floor === floorFilter)
+      .filter((s) => {
+        if (!searchTerm.trim()) return true
+        const q = searchTerm.toLowerCase().trim()
+        return (
+          s.id.toLowerCase().includes(q) ||
+          (s.plate && s.plate.toLowerCase().includes(q)) ||
+          (s.owner && s.owner.toLowerCase().includes(q)) ||
+          (s.rollNumber && s.rollNumber.toLowerCase().includes(q))
+        )
+      })
+  }, [slots, floorFilter, searchTerm])
 
-  // Filter & sort parked vehicles
-  const filteredVehicles = useMemo(() => {
-    let list = parkedSlots.filter((s) => {
-      const matchFloor = floorFilter === 'all' || s.floor === floorFilter
-      const q = search.toLowerCase().trim()
-      const matchSearch =
-        !q ||
-        s.id.toLowerCase().includes(q) ||
-        (s.plate && s.plate.toLowerCase().includes(q)) ||
-        (s.owner && s.owner.toLowerCase().includes(q)) ||
-        (s.rollNumber && s.rollNumber.toLowerCase().includes(q)) ||
-        (s.stream && s.stream.toLowerCase().includes(q))
-      return matchFloor && matchSearch
-    })
-
-    if (sortBy === 'longest') {
-      list.sort((a, b) => (a.entryTimestamp || 0) - (b.entryTimestamp || 0))
-    } else if (sortBy === 'newest') {
-      list.sort((a, b) => (b.entryTimestamp || 0) - (a.entryTimestamp || 0))
-    } else if (sortBy === 'slot') {
-      list.sort((a, b) => a.id.localeCompare(b.id))
-    }
-
-    return list
-  }, [parkedSlots, floorFilter, search, sortBy])
-
-  // Aggregate stats
-  const totalParked = parkedSlots.length
-  const groundParked = parkedSlots.filter((s) => s.floor === 'Ground Floor').length
-  const basementParked = parkedSlots.filter((s) => s.floor === 'Basement').length
+  const groundActive = slots.filter((s) => s.floor === 'Ground Floor' && s.status !== 'available').length
+  const basementActive = slots.filter((s) => s.floor === 'Basement' && s.status !== 'available').length
 
   return (
-    <div className="live-timer-module-container">
-      {/* Module 7 Header */}
-      <div className="timer-header-card glass-card">
-        <div className="timer-header-left">
-          <div className="timer-live-indicator">
-            <span className="live-pulse-dot"></span>
-            <span>MODULE 7 &bull; LIVE JAVASCRIPT PARKING DURATION TIMER</span>
-          </div>
-          <h2>Live Vehicle Parking Duration Monitor</h2>
-          <p>
-            Real-time duration tracking for every parked student two-wheeler. Durations update automatically every second via client-side JavaScript.
-          </p>
+    <div className="live-parking-view">
+      {/* Top Header Card */}
+      <div className="live-header glass-card">
+        <div>
+          <h2>Real-Time Live Parking</h2>
+          <p>Live per-second duration timers and instant checkout management</p>
         </div>
-
-        <div className="timer-header-stats">
-          <div className="t-stat-box">
-            <span className="t-stat-label">Active Parked Vehicles</span>
-            <strong className="t-stat-val text-cyan">{totalParked}</strong>
+        <div className="live-stats-chips">
+          <div className="stat-chip">
+            <span className="chip-label">Total Active:</span>
+            <strong className="chip-val text-cyan">{activeVehicles.length}</strong>
           </div>
-          <div className="t-stat-box">
-            <span className="t-stat-label">Ground Floor (Scooties)</span>
-            <strong className="t-stat-val text-emerald">{groundParked}</strong>
+          <div className="stat-chip">
+            <span className="chip-label">🛵 Ground:</span>
+            <strong className="chip-val text-emerald">{groundActive}</strong>
           </div>
-          <div className="t-stat-box">
-            <span className="t-stat-label">Basement (Bikes)</span>
-            <strong className="t-stat-val text-indigo">{basementParked}</strong>
+          <div className="stat-chip">
+            <span className="chip-label">🏍️ Basement:</span>
+            <strong className="chip-val text-indigo">{basementActive}</strong>
           </div>
         </div>
       </div>
 
-      {/* Filter & Controls Toolbar */}
-      <div className="timer-toolbar glass-card">
-        {/* Search */}
-        <div className="search-box">
-          <SearchIcon className="w-4 h-4 text-muted" />
+      {/* Filter & Search Bar */}
+      <div className="map-toolbar glass-card">
+        <div className="search-bar-wrap">
+          <SearchIcon className="search-icon" />
           <input
             type="text"
-            placeholder="Search bay ID (e.g. B-01, G-03), student name, roll no, or plate..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="search-input"
+            placeholder="Search vehicle plate, owner, or slot..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-bar-input"
           />
-          {search && (
+          {searchTerm && (
             <button
               type="button"
               className="clear-search-btn"
-              onClick={() => setSearch('')}
+              onClick={() => setSearchTerm('')}
             >
-              ×
+              &times;
             </button>
           )}
         </div>
 
-        {/* Floor Filter */}
-        <div className="action-filter-pills">
+        <div className="status-filter-group">
           <button
             type="button"
-            className={`pill-btn ${floorFilter === 'all' ? 'active' : ''}`}
+            className={`filter-pill ${floorFilter === 'all' ? 'active' : ''}`}
             onClick={() => setFloorFilter('all')}
           >
-            All Two-Wheelers ({totalParked})
+            All Floors ({slots.filter(s => s.status !== 'available').length})
           </button>
           <button
             type="button"
-            className={`pill-btn ${floorFilter === 'Ground Floor' ? 'active' : ''}`}
+            className={`filter-pill ${floorFilter === 'Ground Floor' ? 'active' : ''}`}
             onClick={() => setFloorFilter('Ground Floor')}
           >
-            🛵 Ground Floor Scooties ({groundParked})
+            🛵 Ground ({groundActive})
           </button>
           <button
             type="button"
-            className={`pill-btn ${floorFilter === 'Basement' ? 'active' : ''}`}
+            className={`filter-pill ${floorFilter === 'Basement' ? 'active' : ''}`}
             onClick={() => setFloorFilter('Basement')}
           >
-            🏍️ Basement Bikes ({basementParked})
+            🏍️ Basement ({basementActive})
           </button>
         </div>
 
-        {/* Sort */}
-        <div className="sort-group">
-          <label className="sort-label">Sort by:</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="sort-select"
-          >
-            <option value="longest">⏱️ Longest Parked First</option>
-            <option value="newest">⚡ Most Recent Entry</option>
-            <option value="slot">🅿️ Slot ID (Ascending)</option>
-          </select>
-        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => onOpenBooking && onOpenBooking(null)}
+        >
+          <PlusCircleIcon className="w-4 h-4" />
+          <span>Park Vehicle</span>
+        </button>
       </div>
 
-      {/* Grid of Live Vehicle Timer Cards */}
-      {filteredVehicles.length === 0 ? (
-        <div className="empty-timer-state glass-card">
-          <span className="empty-icon">⏱️</span>
-          <h3>No Parked Vehicles Found</h3>
-          <p>There are currently no active vehicles parked in the selected category.</p>
+      {/* Active Vehicles Display */}
+      {activeVehicles.length === 0 ? (
+        <div className="empty-state glass-card">
+          <span className="empty-icon">🚗</span>
+          <h3>No Active Parked Vehicles</h3>
+          <p>There are no vehicles matching the filter or currently parked in this section.</p>
         </div>
       ) : (
-        <div className="live-timer-cards-grid">
-          {filteredVehicles.map((slot) => {
-            const isScooty = slot.floor === 'Ground Floor' || slot.type === 'scooty'
-            const stayCategory = getStayDurationCategory(slot.entryTimestamp)
-
+        <div className="active-vehicle-grid">
+          {activeVehicles.map((vehicle) => {
+            const isScooty = vehicle.floor === 'Ground Floor' || vehicle.type === 'scooty'
             return (
-              <div key={slot.id} className="timer-vehicle-card glass-card">
-                {/* Top Badge: Slot ID & Floor */}
-                <div className="timer-card-top">
-                  <div className="slot-badge-lead">
-                    <span className="slot-id-lead">{slot.id}</span>
-                    <span className={`floor-tag-sm ${isScooty ? 'ground' : 'basement'}`}>
-                      {isScooty ? '🛵 Ground (Scooty)' : '🏍️ Basement (Bike)'}
-                    </span>
+              <div key={vehicle.id} className="vehicle-live-card glass-card">
+                <div className="vehicle-card-top">
+                  <div className="bay-badge font-mono">
+                    <span>{vehicle.id}</span>
                   </div>
-
-                  <span className={`stay-status-badge ${stayCategory.color}`}>
-                    {stayCategory.label}
+                  <span className="vehicle-type-pill">
+                    {isScooty ? '🛵 Ground Floor' : '🏍️ Basement'}
                   </span>
                 </div>
 
-                {/* Primary Requirement Display e.g. B12 — Parked for 02 Hours 15 Minutes */}
-                <div className="primary-timer-banner">
-                  <div className="timer-headline">
-                    <span className="timer-slot-prefix font-mono font-bold text-cyan">{slot.id}</span>
-                    <span className="timer-sep">—</span>
-                    <span className="timer-duration-text font-bold text-emerald">
-                      {formatLiveDurationStandard(slot.entryTimestamp)}
+                <div className="vehicle-card-body">
+                  <div className="vehicle-plate-row">
+                    <span className="plate-box font-mono">{vehicle.plate || 'REGISTERED'}</span>
+                    <span className={`status-badge-mini ${vehicle.status}`}>
+                      {vehicle.status === 'occupied' ? 'Parked' : 'Reserved'}
                     </span>
                   </div>
 
-                  <div className="live-seconds-counter">
-                    <span className="live-pulse-dot-sm"></span>
-                    <span className="font-mono text-muted text-xs">
-                      Live Precision: {formatLiveDurationDetailed(slot.entryTimestamp)}
-                    </span>
+                  <div className="vehicle-meta-grid">
+                    <div className="meta-item">
+                      <span className="meta-label">Owner</span>
+                      <strong className="meta-val">{vehicle.owner || 'Student Member'}</strong>
+                    </div>
+                    <div className="meta-item">
+                      <span className="meta-label">Entry Time</span>
+                      <strong className="meta-val font-mono">{vehicle.entryTime || 'Active'}</strong>
+                    </div>
+                  </div>
+
+                  {/* Real-time Ticking Timer */}
+                  <div className="live-timer-container">
+                    <div className="timer-header">
+                      <span className="live-indicator-dot"></span>
+                      <span>PARKED DURATION</span>
+                    </div>
+                    <div className="timer-display-value font-mono">
+                      {formatLiveDurationStandard(vehicle.entryTimestamp)}
+                    </div>
                   </div>
                 </div>
 
-                {/* Student & Vehicle Info */}
-                <div className="timer-card-body">
-                  <div className="info-row-item">
-                    <span className="item-label">Student Owner:</span>
-                    <strong className="item-val">{slot.owner || 'Registered Student'}</strong>
-                  </div>
-
-                  {slot.rollNumber && (
-                    <div className="info-row-item">
-                      <span className="item-label">Roll Number / ID:</span>
-                      <span className="item-val font-mono roll-badge-sm">{slot.rollNumber}</span>
-                    </div>
-                  )}
-
-                  {slot.stream && (
-                    <div className="info-row-item">
-                      <span className="item-label">Stream / Class:</span>
-                      <span className="item-val text-muted text-xs">{slot.stream}</span>
-                    </div>
-                  )}
-
-                  <div className="info-row-item">
-                    <span className="item-label">Vehicle Plate:</span>
-                    <span className="item-val font-mono font-bold text-cyan">{slot.plate}</span>
-                  </div>
-
-                  <div className="info-row-item">
-                    <span className="item-label">Entry Timestamp:</span>
-                    <span className="item-val font-mono text-muted">{slot.entryTime || 'Active'}</span>
-                  </div>
-
-                  <div className="info-row-item">
-                    <span className="item-label">Section Bay:</span>
-                    <span className="item-val text-muted text-xs">{slot.section}</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="timer-card-footer">
-                  {onNavigateToMap && (
-                    <button
-                      type="button"
-                      className="btn-locate-slot"
-                      onClick={onNavigateToMap}
-                    >
-                      📍 Locate on Map
-                    </button>
-                  )}
-
-                  {onReleaseSlot && (
-                    <button
-                      type="button"
-                      className="btn-checkout-timer"
-                      onClick={() => onReleaseSlot(slot.id)}
-                    >
-                      Check Out ↲
-                    </button>
-                  )}
+                <div className="vehicle-card-footer">
+                  <button
+                    type="button"
+                    className="btn-checkout-full"
+                    onClick={() => onReleaseSlot && onReleaseSlot(vehicle.id)}
+                  >
+                    <span>Check Out &amp; Release Bay</span>
+                    <span>↲</span>
+                  </button>
                 </div>
               </div>
             )

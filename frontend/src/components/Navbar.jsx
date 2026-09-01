@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LogOutIcon, BellIcon, RefreshCwIcon } from './Icons'
+import { LogOutIcon, PlusCircleIcon } from './Icons'
 import { logout } from '../firebase/auth'
 
 export default function Navbar({
@@ -8,15 +8,9 @@ export default function Navbar({
   onLogout,
   activeTab,
   setActiveTab,
-  currentRole,
-  notifications = [],
-  unreadCount = 0,
-  onRefresh,
-  onClearNotifications
+  onOpenQuickPark
 }) {
   const [time, setTime] = useState(new Date())
-  const [imgError, setImgError] = useState(false)
-  const [showNotifMenu, setShowNotifMenu] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
@@ -34,224 +28,101 @@ export default function Navbar({
         await logout()
       }
     } catch (err) {
-      console.error('Failed to logout:', err)
+      console.error('Logout error:', err)
       setIsLoggingOut(false)
     }
   }
 
-  const getInitials = () => {
-    const name = userProfile?.displayName || user?.displayName
-    if (name) {
-      const parts = name.trim().split(/\s+/)
-      if (parts.length >= 2) {
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-      }
-      return name.slice(0, 2).toUpperCase()
-    }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase()
-    }
-    return 'CP'
-  }
-
-  const displayRole = userProfile?.role || currentRole || 'Student'
-  const displayName = userProfile?.displayName || user?.displayName || 'Campus User'
-  const displayEmail = userProfile?.email || user?.email || ''
+  const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'
+  const displayRole = userProfile?.role || 'Student'
 
   return (
-    <header className="navbar-container">
-      {/* Left: Brand Logo & Campus Badge */}
-      <div className="navbar-left">
-        <div className="brand-logo">
-          <div className="logo-icon-wrap">
-            <span className="logo-p-badge">P</span>
-          </div>
-          <div className="brand-info">
-            <h1 className="brand-title">
-              SmartPark<span className="accent-dot">.</span>Campus
+    <header className="site-navbar">
+      <div className="navbar-inner">
+        {/* Left: Brand Identity */}
+        <div className="nav-brand" onClick={() => setActiveTab('dashboard')}>
+          <div className="nav-logo-icon">P</div>
+          <div className="nav-brand-text">
+            <h1 className="nav-title">
+              SmartPark<span className="accent">.</span>College
             </h1>
-            <span className="brand-subtitle">IoT Parking Management System</span>
+            <span className="nav-sub">Smart Parking System</span>
           </div>
         </div>
 
-        <div className="location-pill hidden-mobile">
-          <span className="live-status-dot"></span>
-          <span>Main Campus Central</span>
-        </div>
-      </div>
-
-      {/* Center: Navigation Tabs for all Modules */}
-      <nav className="nav-tabs">
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          📊 Dashboard
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'map' ? 'active' : ''}`}
-          onClick={() => setActiveTab('map')}
-        >
-          🅿️ Live Parking Map
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'registry' ? 'active' : ''}`}
-          onClick={() => setActiveTab('registry')}
-        >
-          📝 Student Registration
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'gate' || activeTab === 'entry' ? 'active' : ''}`}
-          onClick={() => setActiveTab('gate')}
-        >
-          🚧 Vehicle Entry &amp; Exit
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'timer' ? 'active' : ''}`}
-          onClick={() => setActiveTab('timer')}
-        >
-          ⏱️ Live Parking Timer
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
-          📜 Parking History
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('analytics')}
-        >
-          📈 Analytics
-        </button>
-      </nav>
-
-      {/* Right: Live Clock, Telemetry Refresh, Notifications & Profile */}
-      <div className="navbar-right">
-        {/* Live Timing Clock */}
-        <div className="live-clock hidden-mobile">
-          <span className="clock-time">
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </span>
-          <span className="clock-date">
-            {time.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-          </span>
-        </div>
-
-        {/* Refresh Sensor Data Button */}
-        {onRefresh && (
+        {/* Center: Clean 3-Tab Navigation */}
+        <nav className="nav-menu">
           <button
             type="button"
-            className="icon-btn refresh-btn"
-            onClick={onRefresh}
-            title="Refresh Telemetry Data"
-            aria-label="Refresh Telemetry Data"
+            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
           >
-            <RefreshCwIcon className="w-4 h-4" />
+            <span className="nav-icon">📊</span>
+            <span>Dashboard</span>
           </button>
-        )}
 
-        {/* Notifications Bell & Dropdown */}
-        <div className="notifications-wrapper">
           <button
             type="button"
-            className="icon-btn notif-toggle-btn"
-            onClick={() => setShowNotifMenu(!showNotifMenu)}
-            title="Campus Alerts"
-            aria-label="Campus Alerts"
+            className={`nav-link ${activeTab === 'map' ? 'active' : ''}`}
+            onClick={() => setActiveTab('map')}
           >
-            <BellIcon className="w-4 h-4" />
-            {unreadCount > 0 && <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            <span className="nav-icon">🅿️</span>
+            <span>Parking Layout</span>
           </button>
 
-          {showNotifMenu && (
-            <div className="notifications-dropdown glass-card">
-              <div className="notif-dropdown-header">
-                <h4>Recent Parking Events</h4>
-                {notifications.length > 0 && onClearNotifications && (
-                  <button
-                    type="button"
-                    className="clear-notif-btn"
-                    onClick={() => {
-                      onClearNotifications()
-                      setShowNotifMenu(false)
-                    }}
-                  >
-                    Clear all
-                  </button>
-                )}
-              </div>
-              <div className="notif-dropdown-list">
-                {notifications.length === 0 ? (
-                  <div className="notif-empty">No new parking events or alerts.</div>
-                ) : (
-                  notifications.slice(0, 6).map((item, idx) => (
-                    <div key={idx} className={`notif-item ${item.type || 'info'}`}>
-                      <div className="notif-item-header">
-                        <strong>{item.title}</strong>
-                        <span className="notif-time">{item.time || 'Just now'}</span>
-                      </div>
-                      <p>{item.message}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+          <button
+            type="button"
+            className={`nav-link ${activeTab === 'timer' ? 'active' : ''}`}
+            onClick={() => setActiveTab('timer')}
+          >
+            <span className="nav-icon">⏱️</span>
+            <span>Live Parking</span>
+          </button>
+        </nav>
 
-        {/* User Profile Badge & Logout */}
-        {user && (
-          <div className="user-profile-badge">
-            <div className="user-avatar-wrap">
-              {user.photoURL && !imgError ? (
-                <img
-                  key={user.photoURL}
-                  src={user.photoURL}
-                  alt={displayName}
-                  className="user-avatar-img"
-                  referrerPolicy="no-referrer"
-                  onError={() => setImgError(true)}
-                />
-              ) : (
-                <div className="user-avatar-fallback">{getInitials()}</div>
-              )}
-            </div>
-
-            <div className="user-info-stack hidden-mobile">
-              <div className="user-name-row">
-                <span className="user-name" title={displayName}>
-                  {displayName}
-                </span>
-                <span className="user-role-pill">{displayRole}</span>
-              </div>
-              <span className="user-email" title={displayEmail}>
-                {displayEmail}
-              </span>
-            </div>
-
+        {/* Right: Quick Action, Clock, Profile & Logout */}
+        <div className="nav-actions">
+          {/* Quick Park / Reserve Action */}
+          {onOpenQuickPark && (
             <button
               type="button"
-              className="user-logout-btn"
+              className="quick-park-btn"
+              onClick={onOpenQuickPark}
+              title="Park or Reserve a Slot"
+            >
+              <PlusCircleIcon className="w-4 h-4" />
+              <span>Park Vehicle</span>
+            </button>
+          )}
+
+          {/* Live Campus Clock */}
+          <div className="nav-clock hide-mobile">
+            <span className="clock-time">
+              {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
+          </div>
+
+          {/* User Profile & Sign Out */}
+          <div className="user-profile-chip">
+            <div className="user-avatar">
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="user-details hide-mobile">
+              <span className="user-name">{displayName}</span>
+              <span className="user-role">{displayRole}</span>
+            </div>
+            <button
+              type="button"
+              className="logout-btn"
               onClick={handleLogout}
               disabled={isLoggingOut}
               title="Sign Out"
               aria-label="Sign Out"
             >
-              <LogOutIcon className="w-4 h-4 logout-icon" />
-              <span className="logout-btn-text">
-                {isLoggingOut ? 'Signing out...' : 'Sign Out'}
-              </span>
+              <LogOutIcon className="w-4 h-4" />
             </button>
           </div>
-        )}
+        </div>
       </div>
     </header>
   )
