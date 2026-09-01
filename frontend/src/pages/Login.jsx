@@ -231,26 +231,40 @@ export default function Login({ onDemoLogin }) {
       <div className="login-card">
         {/* Brand Header */}
         <div className="login-brand">
+          <div className="module-tag-badge">
+            <span>MODULE 1 &bull; SECURE ADMINISTRATOR LOGIN</span>
+          </div>
           <div className="login-logo">
             <span className="login-logo-icon">P</span>
           </div>
           <h1>SmartPark<span className="accent-dot">.</span>Campus</h1>
-          <p className="login-subtitle">IoT Campus Parking Management &amp; Gate Automation</p>
+          <p className="login-subtitle">Smart College Parking Management System</p>
+        </div>
+
+        {/* Module 1: Admin Google Auth Banner */}
+        <div className="admin-auth-notice-card glass-card">
+          <div className="notice-icon-box">
+            <ShieldIcon className="w-5 h-5 text-cyan" />
+          </div>
+          <div className="notice-text">
+            <strong>Authorized Administrator Access</strong>
+            <p>Access the parking management system securely using authorized Google Authentication.</p>
+          </div>
         </div>
 
         {/* Quick Demo Access Bar */}
         <div className="demo-access-banner glass-card">
           <div className="demo-header">
             <ShieldIcon className="w-4 h-4 text-cyan" />
-            <span>⚡ 1-Click Quick Demo Access</span>
+            <span>⚡ 1-Click Authorized Administrator Access (Demo)</span>
           </div>
           <div className="demo-btn-group">
             <button
               type="button"
-              className="demo-pill-btn admin"
+              className="demo-pill-btn admin font-bold"
               onClick={() => triggerDemo('Security Admin')}
             >
-              🛡️ Security Admin
+              🛡️ Authorized Security Admin
             </button>
             <button
               type="button"

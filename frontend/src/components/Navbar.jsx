@@ -80,42 +80,56 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* Center: Navigation Tabs */}
+      {/* Center: Navigation Tabs for all Modules */}
       <nav className="nav-tabs">
+        <button
+          type="button"
+          className={`nav-tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+        >
+          📊 Dashboard
+        </button>
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'map' ? 'active' : ''}`}
           onClick={() => setActiveTab('map')}
         >
-          🅿️ Parking Map
+          🅿️ Live Parking Map
         </button>
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'registry' ? 'active' : ''}`}
           onClick={() => setActiveTab('registry')}
         >
-          📝 Vehicle Registry
+          📝 Student Registration
         </button>
         <button
           type="button"
-          className={`nav-tab-btn ${activeTab === 'gate' ? 'active' : ''}`}
+          className={`nav-tab-btn ${activeTab === 'gate' || activeTab === 'entry' ? 'active' : ''}`}
           onClick={() => setActiveTab('gate')}
         >
-          🚧 Gate Terminal
+          🚧 Vehicle Entry &amp; Exit
+        </button>
+        <button
+          type="button"
+          className={`nav-tab-btn ${activeTab === 'timer' ? 'active' : ''}`}
+          onClick={() => setActiveTab('timer')}
+        >
+          ⏱️ Live Parking Timer
+        </button>
+        <button
+          type="button"
+          className={`nav-tab-btn ${activeTab === 'history' ? 'active' : ''}`}
+          onClick={() => setActiveTab('history')}
+        >
+          📜 Parking History
         </button>
         <button
           type="button"
           className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
-          📊 Live Analytics
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'logs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('logs')}
-        >
-          📜 Activity Log
+          📈 Analytics
         </button>
       </nav>
 

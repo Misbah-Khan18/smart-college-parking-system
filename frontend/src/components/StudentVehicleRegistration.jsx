@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   SearchIcon,
   PlusCircleIcon,
@@ -36,9 +36,8 @@ export default function StudentVehicleRegistration({
   const [phoneNumber, setPhoneNumber] = useState('')
   const [vehicleNumber, setVehicleNumber] = useState('')
   
-  // Primary vehicle choice: 'scooty' | 'bike'
+  // Vehicle Type: 'scooty' | 'bike'
   const [vehicleType, setVehicleType] = useState('scooty')
-  // Subtype: is it Electric (EV) or Normal Petrol?
   const [isEv, setIsEv] = useState(false)
 
   const [formError, setFormError] = useState('')
@@ -47,6 +46,9 @@ export default function StudentVehicleRegistration({
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all') // 'all' | 'scooty' | 'bike' | 'ev'
+
+  // Owner Identification Helper State
+  const [ownerSearchQuery, setOwnerSearchQuery] = useState('')
 
   // Sample data presets for quick testing
   const samplePresets = [
@@ -150,8 +152,7 @@ export default function StudentVehicleRegistration({
       onRegisterVehicle(newVehicleData)
     }
 
-    const modelDesc = isEv ? `Electric EV ${vehicleType}` : `Normal ${vehicleType}`
-    setFormSuccess(`🎉 Successfully registered ${studentName.trim()} (${vehicleNumber.trim().toUpperCase()} - ${modelDesc})!`)
+    setFormSuccess(`🎉 Successfully registered ${studentName.trim()} (${vehicleNumber.trim().toUpperCase()} - ${vehicleType.toUpperCase()})!`)
 
     // Reset Form
     setStudentName('')
@@ -166,6 +167,18 @@ export default function StudentVehicleRegistration({
       setFormSuccess('')
     }, 4500)
   }
+
+  // Owner search lookup matches
+  const ownerSearchResults = useMemo(() => {
+    if (!ownerSearchQuery.trim()) return []
+    const q = ownerSearchQuery.toLowerCase().trim()
+    return registeredVehicles.filter(
+      (item) =>
+        item.vehicleNumber.toLowerCase().includes(q) ||
+        item.studentName.toLowerCase().includes(q) ||
+        item.rollNumber.toLowerCase().includes(q)
+    )
+  }, [ownerSearchQuery, registeredVehicles])
 
   // Filtered List
   const filteredList = registeredVehicles.filter((item) => {
@@ -205,9 +218,9 @@ export default function StudentVehicleRegistration({
             <UserPlusIcon className="w-5 h-5 text-cyan" />
           </div>
           <div className="stat-details">
-            <span className="stat-label">Total Two-Wheelers</span>
+            <span className="stat-label">Registered Students</span>
             <strong className="stat-number text-cyan">{totalCount}</strong>
-            <span className="stat-sub-info">Active Campus Authorizations</span>
+            <span className="stat-sub-info">Active Two-Wheeler Permits</span>
           </div>
         </div>
 
@@ -216,9 +229,9 @@ export default function StudentVehicleRegistration({
             <span className="emoji-icon">🛵</span>
           </div>
           <div className="stat-details">
-            <span className="stat-label">Girls' Scooties</span>
+            <span className="stat-label">Scooties (Ground Floor)</span>
             <strong className="stat-number text-emerald">{scootyCount}</strong>
-            <span className="stat-sub-info">Ground Floor (80 Bays)</span>
+            <span className="stat-sub-info">Reserved Ground Wing</span>
           </div>
         </div>
 
@@ -227,9 +240,9 @@ export default function StudentVehicleRegistration({
             <span className="emoji-icon">🏍️</span>
           </div>
           <div className="stat-details">
-            <span className="stat-label">Boys' Bikes</span>
+            <span className="stat-label">Bikes (Basement)</span>
             <strong className="stat-number text-indigo">{bikeCount}</strong>
-            <span className="stat-sub-info">Basement (80 Bays)</span>
+            <span className="stat-sub-info">Reserved Basement Grid</span>
           </div>
         </div>
 
@@ -238,16 +251,97 @@ export default function StudentVehicleRegistration({
             <span className="emoji-icon">⚡</span>
           </div>
           <div className="stat-details">
-            <span className="stat-label">Electric (EV) Models</span>
+            <span className="stat-label">Electric (EV) Two-Wheelers</span>
             <strong className="stat-number text-amber">{evCount}</strong>
-            <span className="stat-sub-info">Eco-Friendly Two-Wheelers</span>
+            <span className="stat-sub-info">Eco-Friendly Permits</span>
           </div>
         </div>
       </div>
 
+      {/* Owner Identification Quick Lookup Tool (Module 3 Highlight) */}
+      <div className="owner-lookup-banner glass-card">
+        <div className="lookup-header">
+          <div className="lookup-title">
+            <ShieldIcon className="w-5 h-5 text-cyan" />
+            <div>
+              <h4>Administrator Vehicle Owner Identification Tool</h4>
+              <p>Quickly identify student vehicle owners by entering license plate, roll number, or name</p>
+            </div>
+          </div>
+
+          <div className="search-box lookup-search-input">
+            <SearchIcon className="w-4 h-4 text-muted" />
+            <input
+              type="text"
+              placeholder="Enter Vehicle Plate (e.g. MH-04-AB-1234) or Roll No..."
+              value={ownerSearchQuery}
+              onChange={(e) => setOwnerSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            {ownerSearchQuery && (
+              <button
+                type="button"
+                className="clear-search-btn"
+                onClick={() => setOwnerSearchQuery('')}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+
+        {ownerSearchQuery && (
+          <div className="lookup-results-tray">
+            {ownerSearchResults.length === 0 ? (
+              <p className="no-lookup-match text-rose">
+                ⚠️ No registered student found with license plate / ID matching "{ownerSearchQuery}".
+              </p>
+            ) : (
+              <div className="lookup-cards-grid">
+                {ownerSearchResults.map((st) => (
+                  <div key={st.id} className="owner-match-card glass-card">
+                    <div className="owner-match-header">
+                      <strong>{st.studentName}</strong>
+                      <span className="roll-badge">{st.rollNumber}</span>
+                    </div>
+                    <div className="owner-match-body">
+                      <p><strong>Stream:</strong> {st.stream}</p>
+                      <p><strong>Phone:</strong> <span className="font-mono text-cyan">{st.phoneNumber}</span></p>
+                      <p><strong>Vehicle:</strong> <span className="font-mono font-bold">{st.vehicleNumber}</span> ({st.vehicleType === 'scooty' ? '🛵 Scooty' : '🏍️ Bike'})</p>
+                      <p><strong>Assigned Floor:</strong> {st.preferredFloor || (st.vehicleType === 'scooty' ? 'Ground Floor' : 'Basement')}</p>
+                    </div>
+                    {onViewPass && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm mt-2"
+                        onClick={() =>
+                          onViewPass({
+                            passId: st.passId || `SMP-${st.rollNumber}`,
+                            slotId: st.vehicleType === 'scooty' ? 'G-AUTH' : 'B-AUTH',
+                            plate: st.vehicleNumber,
+                            owner: `${st.studentName} (${st.rollNumber})`,
+                            category: 'Student',
+                            reservedUntil: 'Annual Campus Permit',
+                            floor: st.preferredFloor || (st.vehicleType === 'scooty' ? 'Ground Floor' : 'Basement'),
+                            section: st.stream,
+                            zone: `${st.preferredFloor || (st.vehicleType === 'scooty' ? 'Ground Floor' : 'Basement')} - ${st.stream}`
+                          })
+                        }
+                      >
+                        🎫 View Official Permit Pass
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Main 2-Column Section: Form on Left, Directory on Right */}
       <div className="registration-main-grid">
-        {/* LEFT: Add New Vehicle Form */}
+        {/* LEFT: Add New Student Vehicle Form */}
         <div className="registration-form-panel glass-card">
           <div className="panel-header">
             <div className="panel-title-wrap">
@@ -255,8 +349,8 @@ export default function StudentVehicleRegistration({
                 <PlusCircleIcon className="w-5 h-5 text-cyan" />
               </div>
               <div>
-                <h3>Add New Vehicle</h3>
-                <p>Register student two-wheeler &amp; issue parking permit</p>
+                <h3>Student &amp; Vehicle Registration</h3>
+                <p>Register student two-wheeler details for campus access</p>
               </div>
             </div>
 
@@ -284,7 +378,7 @@ export default function StudentVehicleRegistration({
           )}
 
           <form onSubmit={handleFormSubmit} className="student-reg-form">
-            {/* Student Name */}
+            {/* 1. Student Name */}
             <div className="form-group">
               <label htmlFor="reg-student-name">Student Name *</label>
               <div className="input-with-icon">
@@ -301,10 +395,10 @@ export default function StudentVehicleRegistration({
               </div>
             </div>
 
-            {/* Roll Number & Phone */}
+            {/* 2. Roll Number & 4. Phone Number */}
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="reg-roll-no">Roll Number / Student ID *</label>
+                <label htmlFor="reg-roll-no">Roll Number *</label>
                 <div className="input-with-icon">
                   <IdCardIcon className="input-icon" />
                   <input
@@ -333,9 +427,9 @@ export default function StudentVehicleRegistration({
               </div>
             </div>
 
-            {/* Stream / Class */}
+            {/* 3. Stream */}
             <div className="form-group">
-              <label htmlFor="reg-stream">Stream / Class *</label>
+              <label htmlFor="reg-stream">Stream / Department *</label>
               <select
                 id="reg-stream"
                 value={stream}
@@ -352,7 +446,7 @@ export default function StudentVehicleRegistration({
 
             {stream === 'Other Campus Department' && (
               <div className="form-group">
-                <label htmlFor="reg-custom-stream">Specify Department / Class</label>
+                <label htmlFor="reg-custom-stream">Specify Stream / Department</label>
                 <input
                   id="reg-custom-stream"
                   type="text"
@@ -364,7 +458,7 @@ export default function StudentVehicleRegistration({
               </div>
             )}
 
-            {/* Vehicle Number */}
+            {/* 5. Vehicle Number */}
             <div className="form-group">
               <label htmlFor="reg-vehicle-plate">Vehicle Number (License Plate) *</label>
               <input
@@ -378,7 +472,7 @@ export default function StudentVehicleRegistration({
               />
             </div>
 
-            {/* Vehicle Type Selection (Scooty vs Bike) */}
+            {/* 6. Vehicle Type (Scooty vs Bike) */}
             <div className="form-group">
               <label>Vehicle Type *</label>
               <div className="vehicle-type-selector-grid two-cols">
@@ -392,7 +486,7 @@ export default function StudentVehicleRegistration({
                   />
                   <span className="choice-emoji">🛵</span>
                   <span className="choice-title">Scooty</span>
-                  <span className="choice-tag ground-tag">Ground Floor (Girls' Wing)</span>
+                  <span className="choice-tag ground-tag">Ground Floor Reserved</span>
                 </label>
 
                 <label className={`type-choice-card ${vehicleType === 'bike' ? 'active' : ''}`}>
@@ -405,15 +499,15 @@ export default function StudentVehicleRegistration({
                   />
                   <span className="choice-emoji">🏍️</span>
                   <span className="choice-title">Bike / Motorcycle</span>
-                  <span className="choice-tag basement-tag">Basement (Boys' Wing)</span>
+                  <span className="choice-tag basement-tag">Basement Reserved</span>
                 </label>
               </div>
             </div>
 
-            {/* EV vs Normal Petrol Sub-Toggle */}
+            {/* EV Power Toggle */}
             <div className="form-group ev-toggle-group">
               <label className="ev-toggle-label">
-                <span>Power Engine Type for {vehicleType === 'scooty' ? 'Scooty' : 'Bike'}:</span>
+                <span>Engine / Power Type:</span>
               </label>
               <div className="fuel-toggle-box">
                 <button
@@ -421,44 +515,33 @@ export default function StudentVehicleRegistration({
                   className={`fuel-toggle-btn ${!isEv ? 'active' : ''}`}
                   onClick={() => setIsEv(false)}
                 >
-                  ⛽ Normal Petrol {vehicleType === 'scooty' ? 'Scooty' : 'Bike'}
+                  ⛽ Petrol Engine
                 </button>
                 <button
                   type="button"
                   className={`fuel-toggle-btn ev-btn ${isEv ? 'active' : ''}`}
                   onClick={() => setIsEv(true)}
                 >
-                  ⚡ Electric EV {vehicleType === 'scooty' ? 'Scooty' : 'Bike'}
+                  ⚡ Electric EV
                 </button>
-              </div>
-            </div>
-
-            {/* Floor Recommendation Box */}
-            <div className="floor-recommendation-box">
-              <div className="rec-icon">🅿️</div>
-              <div className="rec-text">
-                <strong>Assigned Parking Zone:</strong>{' '}
-                {vehicleType === 'scooty'
-                  ? `Ground Floor Girls' Scooty Parking (Accounts & Exam IT Wings) ${isEv ? '• EV Model' : ''}`
-                  : `Basement Boys' Two-Wheeler Parking (Rows 1 to 4 Grid) ${isEv ? '• EV Model' : ''}`}
               </div>
             </div>
 
             <button type="submit" className="btn btn-primary w-full register-submit-btn">
               <PlusCircleIcon className="w-5 h-5" />
-              <span>Register Vehicle &amp; Authorize Permit</span>
+              <span>Save Student &amp; Vehicle Registration</span>
             </button>
           </form>
         </div>
 
-        {/* RIGHT: Registered Vehicles Directory */}
+        {/* RIGHT: Registered Students Directory */}
         <div className="registration-directory-panel glass-card">
           <div className="directory-header">
             <div className="directory-title-wrap">
               <ShieldIcon className="w-5 h-5 text-emerald" />
               <div>
-                <h3>Registered Student Two-Wheelers</h3>
-                <p>Search, issue parking passes and manage active permits</p>
+                <h3>Student Vehicle Directory</h3>
+                <p>All registered students, vehicles, streams, and active parking permits</p>
               </div>
             </div>
 
@@ -521,17 +604,18 @@ export default function StudentVehicleRegistration({
             {filteredList.length === 0 ? (
               <div className="empty-directory glass-card">
                 <UserIcon className="w-10 h-10 text-muted" />
-                <p>No registered vehicles found matching your criteria.</p>
+                <p>No registered vehicles found matching your search criteria.</p>
               </div>
             ) : (
               <table className="directory-table">
                 <thead>
                   <tr>
-                    <th>Student &amp; Roll ID</th>
-                    <th>Stream / Class</th>
-                    <th>Contact</th>
-                    <th>Vehicle Plate &amp; Type</th>
-                    <th>Designated Floor</th>
+                    <th>Student Name</th>
+                    <th>Roll Number</th>
+                    <th>Stream</th>
+                    <th>Phone Number</th>
+                    <th>Vehicle Number &amp; Type</th>
+                    <th>Reserved Floor</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -542,42 +626,40 @@ export default function StudentVehicleRegistration({
 
                     return (
                       <tr key={item.id} className="directory-row">
-                        {/* Student info */}
+                        {/* 1. Student Name */}
                         <td>
-                          <div className="student-cell">
-                            <strong className="student-name-text">{item.studentName}</strong>
-                            <span className="roll-pill">{item.rollNumber}</span>
-                          </div>
+                          <strong className="student-name-text">{item.studentName}</strong>
                         </td>
 
-                        {/* Stream */}
+                        {/* 2. Roll Number */}
+                        <td>
+                          <span className="roll-pill">{item.rollNumber}</span>
+                        </td>
+
+                        {/* 3. Stream */}
                         <td>
                           <span className="stream-badge" title={item.stream}>
                             {item.stream}
                           </span>
                         </td>
 
-                        {/* Phone */}
+                        {/* 4. Phone Number */}
                         <td>
                           <span className="phone-text font-mono">{item.phoneNumber || 'N/A'}</span>
                         </td>
 
-                        {/* Plate & Type */}
+                        {/* 5. Vehicle Number & 6. Vehicle Type */}
                         <td>
                           <div className="plate-type-cell">
                             <span className="plate-badge-mono font-mono">{item.vehicleNumber}</span>
                             <span className="vehicle-type-tag">
                               {baseType === 'scooty' ? '🛵 Scooty' : '🏍️ Bike'}
-                              {itemIsEv ? (
-                                <span className="ev-badge-chip">⚡ EV</span>
-                              ) : (
-                                <span className="petrol-badge-chip">Petrol</span>
-                              )}
+                              {itemIsEv && <span className="ev-badge-chip">⚡ EV</span>}
                             </span>
                           </div>
                         </td>
 
-                        {/* Designated floor */}
+                        {/* Reserved floor */}
                         <td>
                           <span
                             className={`floor-tag-pill ${
@@ -587,8 +669,8 @@ export default function StudentVehicleRegistration({
                             }`}
                           >
                             {item.preferredFloor === 'Ground Floor' || baseType === 'scooty'
-                              ? '🅿️ Ground (Girls)'
-                              : '🅿️ Basement (Boys)'}
+                              ? '🅿️ Ground Floor (Scooties)'
+                              : '🅿️ Basement (Bikes)'}
                           </span>
                         </td>
 
@@ -620,7 +702,7 @@ export default function StudentVehicleRegistration({
                                     } - ${item.stream}`
                                   })
                                 }
-                                title="View Official QR Pass"
+                                title="View Official QR Permit Pass"
                               >
                                 🎫 Pass
                               </button>
@@ -633,6 +715,9 @@ export default function StudentVehicleRegistration({
                                 onClick={() =>
                                   onQuickBook({
                                     ownerName: item.studentName,
+                                    rollNumber: item.rollNumber,
+                                    stream: item.stream,
+                                    phoneNumber: item.phoneNumber,
                                     vehicleNumber: item.vehicleNumber,
                                     category: 'Student',
                                     vehicleType: baseType,
@@ -642,7 +727,7 @@ export default function StudentVehicleRegistration({
                                       (baseType === 'scooty' ? 'Ground Floor' : 'Basement')
                                   })
                                 }
-                                title="Quick Reserve Bay for Student"
+                                title="Quick Reserve Slot"
                               >
                                 🅿️ Book
                               </button>

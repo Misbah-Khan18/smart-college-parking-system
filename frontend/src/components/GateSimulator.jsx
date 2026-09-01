@@ -4,7 +4,8 @@ import {
   SearchIcon,
   UserIcon,
   CheckIcon,
-  AlertCircleIcon
+  AlertCircleIcon,
+  ActivityIcon
 } from './Icons'
 
 export default function GateSimulator({
@@ -13,26 +14,30 @@ export default function GateSimulator({
   onVehicleEntry,
   onVehicleExit,
   onShowPass,
-  onNavigateToMap
+  onNavigateToMap,
+  onNavigateToHistory
 }) {
-  // Search & Student Selection State
+  // Search & Student Selection State (Module 5)
   const [studentSearchQuery, setStudentSearchQuery] = useState('')
   const [selectedStudent, setSelectedStudent] = useState(null)
 
   // Manual / Override State
   const [entryPlate, setEntryPlate] = useState('')
   const [entryDriver, setEntryDriver] = useState('')
+  const [entryRoll, setEntryRoll] = useState('')
+  const [entryStream, setEntryStream] = useState('')
+  const [entryPhone, setEntryPhone] = useState('')
   const [entryType, setEntryType] = useState('scooty') // 'scooty' | 'scooty-ev' | 'bike' | 'bike-ev'
   const [entryCategory, setEntryCategory] = useState('Student')
 
-  // Exit State
+  // Exit State (Module 6)
   const [exitPlate, setExitPlate] = useState('')
 
   // Gate Animation & Results
   const [gateStatus, setGateStatus] = useState('closed') // 'closed' | 'opening' | 'open' | 'closing'
   const [lastActionMsg, setLastActionMsg] = useState(null)
 
-  // Filter registered vehicles for search autocomplete
+  // Filter registered vehicles for autocomplete search
   const matchingRegisteredStudents = useMemo(() => {
     if (!studentSearchQuery.trim()) return []
     const q = studentSearchQuery.toLowerCase().trim()
@@ -52,6 +57,9 @@ export default function GateSimulator({
     setStudentSearchQuery('')
     setEntryPlate(student.vehicleNumber)
     setEntryDriver(student.studentName)
+    setEntryRoll(student.rollNumber)
+    setEntryStream(student.stream)
+    setEntryPhone(student.phoneNumber)
     const mappedType =
       student.vehicleType === 'bike'
         ? student.isEv ? 'bike-ev' : 'bike'
@@ -64,16 +72,21 @@ export default function GateSimulator({
     setSelectedStudent(null)
     setEntryPlate('')
     setEntryDriver('')
+    setEntryRoll('')
+    setEntryStream('')
+    setEntryPhone('')
     setEntryType('scooty')
     setEntryCategory('Student')
   }
 
-  // Automatic Slot Allocation Engine Calculation
+  // ==========================================
+  // MODULE 5: AUTOMATIC NEAREST SLOT ALLOCATION ENGINE
+  // ==========================================
   const autoAllocatedTarget = useMemo(() => {
     const isScooty = entryType.startsWith('scooty')
     const targetFloor = isScooty ? 'Ground Floor' : 'Basement'
 
-    // Check if plate has a pre-reservation
+    // 1. Check if plate has a pre-reservation
     if (entryPlate.trim()) {
       const reservedSlot = slots.find(
         (s) =>
@@ -86,12 +99,14 @@ export default function GateSimulator({
           slot: reservedSlot,
           floor: reservedSlot.floor,
           section: reservedSlot.section,
-          isReservedMatch: true
+          isReservedMatch: true,
+          reason: `Matching Pre-Reservation on ${reservedSlot.floor}`
         }
       }
     }
 
-    // Find the first/nearest available slot on designated floor
+    // 2. Find nearest available slot on designated floor
+    // (Ground Floor for Scooties, Basement for Bikes)
     const nearestAvailable = slots.find(
       (s) => s.status === 'available' && s.floor === targetFloor
     )
@@ -101,32 +116,37 @@ export default function GateSimulator({
         slot: nearestAvailable,
         floor: targetFloor,
         section: nearestAvailable.section,
-        isReservedMatch: false
+        isReservedMatch: false,
+        reason: isScooty
+          ? `Nearest Ground Floor Bay (Reserved for Scooties)`
+          : `Nearest Basement Bay (Reserved for Bikes)`
       }
     }
 
-    // If target floor is full, check overall available slots
+    // 3. Fallback to any available slot if designated floor is full
     const fallbackAvailable = slots.find((s) => s.status === 'available')
     if (fallbackAvailable) {
       return {
         slot: fallbackAvailable,
         floor: fallbackAvailable.floor,
         section: fallbackAvailable.section,
-        isFallback: true
+        isFallback: true,
+        reason: `Designated floor full — Allocated overflow bay on ${fallbackAvailable.floor}`
       }
     }
 
     return null
   }, [slots, entryType, entryPlate])
 
-  // Execute Vehicle Entry & Auto Allocation
+  // ==========================================
+  // MODULE 5: EXECUTE VEHICLE ENTRY
+  // ==========================================
   const handleSimulateEntry = (e) => {
     e.preventDefault()
     if (!entryPlate.trim()) return
 
     const plateFormatted = entryPlate.toUpperCase().trim()
 
-    // Trigger barrier open animation
     setGateStatus('opening')
     setTimeout(() => {
       setGateStatus('open')
@@ -136,7 +156,10 @@ export default function GateSimulator({
 
       const result = onVehicleEntry({
         plate: plateFormatted,
-        owner: entryDriver.trim() || selectedStudent?.studentName || 'Campus Member',
+        owner: entryDriver.trim() || selectedStudent?.studentName || 'Registered Student',
+        rollNumber: entryRoll.trim() || selectedStudent?.rollNumber || '',
+        stream: entryStream.trim() || selectedStudent?.stream || '',
+        phoneNumber: entryPhone.trim() || selectedStudent?.phoneNumber || '',
         type: entryType,
         category: entryCategory || selectedStudent?.category || 'Student',
         preferredFloor
@@ -145,13 +168,13 @@ export default function GateSimulator({
       if (result.success) {
         setLastActionMsg({
           type: 'success',
-          title: '🚗 Inbound Vehicle Admitted • Slot Allocated',
-          detail: `Vehicle ${plateFormatted} automatically assigned to Bay ${result.slotId} (${result.floor} • ${result.section}). Barrier Raised.`,
+          title: '🚗 Vehicle Admitted • Nearest Slot Automatically Assigned',
+          detail: `Vehicle ${plateFormatted} (${entryDriver.trim() || selectedStudent?.studentName}) assigned to Bay ${result.slotId} (${result.floor} • ${result.section}). Entry timestamp recorded. Map updated immediately.`,
           slotId: result.slotId,
           floor: result.floor,
           section: result.section,
           plate: plateFormatted,
-          owner: entryDriver.trim() || selectedStudent?.studentName || 'Campus Member',
+          owner: entryDriver.trim() || selectedStudent?.studentName || 'Student',
           passData: result.passData
         })
 
@@ -159,15 +182,17 @@ export default function GateSimulator({
         setSelectedStudent(null)
         setEntryPlate('')
         setEntryDriver('')
+        setEntryRoll('')
+        setEntryStream('')
+        setEntryPhone('')
       } else {
         setLastActionMsg({
           type: 'error',
-          title: 'Entry Denied • Lot Full',
+          title: 'Entry Denied • No Available Slots',
           detail: result.message
         })
       }
 
-      // Auto close barrier after 4.5s
       setTimeout(() => {
         setGateStatus('closing')
         setTimeout(() => setGateStatus('closed'), 600)
@@ -175,7 +200,9 @@ export default function GateSimulator({
     }, 600)
   }
 
-  // Execute Vehicle Exit & Release
+  // ==========================================
+  // MODULE 6: EXECUTE VEHICLE EXIT
+  // ==========================================
   const handleSimulateExit = (e) => {
     e.preventDefault()
     if (!exitPlate.trim()) return
@@ -191,14 +218,14 @@ export default function GateSimulator({
       if (result.success) {
         setLastActionMsg({
           type: 'success',
-          title: 'Exit Approved • Slot Freed',
-          detail: `Vehicle ${plateFormatted} cleared Bay ${result.slotId}. Parking status reset to Available.`
+          title: '🚙 Vehicle Checked Out • Slot Freed & History Saved',
+          detail: `Vehicle ${plateFormatted} exited. Bay ${result.slotId} is now Available on the Live Map. Duration (${result.duration || 'Session'}) saved to Parking History.`
         })
         setExitPlate('')
       } else {
         setLastActionMsg({
           type: 'error',
-          title: 'Exit Clearance Failed',
+          title: 'Exit Failed',
           detail: result.message
         })
       }
@@ -219,7 +246,7 @@ export default function GateSimulator({
         <div className="barrier-header">
           <div className="gate-title-tag">
             <GateIcon className="w-5 h-5 text-cyan" />
-            <span>Campus Main Security Boom Barrier &bull; ANPR Station #1</span>
+            <span>Campus Security Boom Barrier &bull; ANPR Station #1</span>
           </div>
           <div className={`gate-status-pill ${gateStatus}`}>
             <span className="gate-led"></span>
@@ -233,7 +260,7 @@ export default function GateSimulator({
             <div className="road-line"></div>
             <div className="road-line"></div>
             <div className="road-line"></div>
-            <div className="road-text-marker">CAMPUS TWO-WHEELER INBOUND / OUTBOUND</div>
+            <div className="road-text-marker">CAMPUS TWO-WHEELER ACCESS STATION</div>
           </div>
 
           {/* Boom Barrier Structure */}
@@ -268,28 +295,35 @@ export default function GateSimulator({
               </div>
               <p>{lastActionMsg.detail}</p>
 
-              {lastActionMsg.passData && (
-                <div className="alert-action-buttons">
-                  {onShowPass && (
-                    <button
-                      type="button"
-                      className="view-pass-btn"
-                      onClick={() => onShowPass(lastActionMsg.passData)}
-                    >
-                      🎫 View Digital Entry Pass
-                    </button>
-                  )}
-                  {onNavigateToMap && (
-                    <button
-                      type="button"
-                      className="view-map-jump-btn"
-                      onClick={onNavigateToMap}
-                    >
-                      📍 View on Parking Map
-                    </button>
-                  )}
-                </div>
-              )}
+              <div className="alert-action-buttons">
+                {lastActionMsg.passData && onShowPass && (
+                  <button
+                    type="button"
+                    className="view-pass-btn"
+                    onClick={() => onShowPass(lastActionMsg.passData)}
+                  >
+                    🎫 View Digital Pass
+                  </button>
+                )}
+                {onNavigateToMap && (
+                  <button
+                    type="button"
+                    className="view-map-jump-btn"
+                    onClick={onNavigateToMap}
+                  >
+                    📍 View on Live Map
+                  </button>
+                )}
+                {onNavigateToHistory && (
+                  <button
+                    type="button"
+                    className="view-map-jump-btn"
+                    onClick={onNavigateToHistory}
+                  >
+                    📜 View Saved History
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -298,17 +332,17 @@ export default function GateSimulator({
       {/* Terminals Grid */}
       <div className="gate-terminals-grid">
         {/* =========================================================
-            INBOUND TERMINAL: VEHICLE ENTRY & AUTO ALLOCATION
+            MODULE 5: VEHICLE ENTRY TERMINAL
             ========================================================= */}
         <div className="terminal-card glass-card">
           <div className="terminal-header">
-            <span className="terminal-badge entry">INBOUND TERMINAL #1</span>
-            <h4>Vehicle Entry &amp; Automatic Slot Allocation</h4>
+            <span className="terminal-badge entry">MODULE 5 &bull; VEHICLE ENTRY</span>
+            <h4>Vehicle Entry &amp; Nearest Slot Assignment</h4>
           </div>
 
           {/* 1. Student Search & Select Bar */}
           <div className="student-lookup-wrap">
-            <label>🔍 Select / Search Registered Student</label>
+            <label>🔍 Select / Search Registered Student (Module 3)</label>
             <div className="search-box gate-student-search">
               <SearchIcon className="w-4 h-4 text-muted" />
               <input
@@ -387,21 +421,20 @@ export default function GateSimulator({
 
               <div className="student-vehicle-summary-row">
                 <div className="vehicle-plate-box">
-                  <span className="box-sub">Registered Plate:</span>
+                  <span className="box-sub">Vehicle Plate:</span>
                   <span className="plate-badge-mono font-mono">{selectedStudent.vehicleNumber}</span>
                 </div>
                 <div className="vehicle-type-box">
-                  <span className="box-sub">Vehicle Model:</span>
+                  <span className="box-sub">Assigned Zone:</span>
                   <span className="model-chip">
-                    {selectedStudent.vehicleType === 'scooty' ? '🛵 Scooty' : '🏍️ Bike'}
-                    {selectedStudent.isEv ? ' (⚡ EV)' : ' (Petrol)'}
+                    {selectedStudent.vehicleType === 'scooty' ? '🛵 Ground Floor (Scooty)' : '🏍️ Basement (Bike)'}
                   </span>
                 </div>
               </div>
             </div>
           ) : (
             <div className="quick-select-dropdown-box">
-              <label>Or Choose Directly from List</label>
+              <label>Or Quick Select Registered Student</label>
               <select
                 className="form-control"
                 onChange={(e) => {
@@ -410,7 +443,7 @@ export default function GateSimulator({
                 }}
                 defaultValue=""
               >
-                <option value="">-- Choose Registered Student Vehicle --</option>
+                <option value="">-- Choose Student from Directory ({registeredVehicles.length}) --</option>
                 {registeredVehicles.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.studentName} ({v.rollNumber}) &bull; {v.vehicleNumber} [
@@ -421,32 +454,30 @@ export default function GateSimulator({
             </div>
           )}
 
-          {/* 3. Automatic Nearest Slot Allocation Engine Preview */}
+          {/* 3. Automatic Nearest Slot Allocation Preview (Module 5) */}
           <div className="allocation-engine-preview-card">
             <div className="engine-title-row">
               <span className="engine-icon">🤖</span>
-              <strong>Smart Allocation Engine:</strong>
+              <strong>Module 5 Nearest Available Slot Engine:</strong>
             </div>
 
             {autoAllocatedTarget ? (
               <div className="allocation-target-details">
                 <div className="target-slot-badge">
-                  <span className="target-label">Next Available Bay</span>
+                  <span className="target-label">Nearest Slot Found</span>
                   <strong className="target-slot-id text-emerald">{autoAllocatedTarget.slot.id}</strong>
                 </div>
                 <div className="target-zone-info">
                   <span className="target-floor-text font-bold text-cyan">{autoAllocatedTarget.floor}</span>
                   <span className="target-section-text">{autoAllocatedTarget.section}</span>
                   <span className="allocation-rule-hint">
-                    {entryType.startsWith('scooty')
-                      ? '🛵 Scooty Rule: Assigned to Ground Floor (Girls Wing)'
-                      : '🏍️ Bike Rule: Assigned to Basement (Boys Grid)'}
+                    ✓ {autoAllocatedTarget.reason}
                   </span>
                 </div>
               </div>
             ) : (
               <div className="allocation-target-full text-rose">
-                ⚠️ All parking bays are currently occupied on the designated floor.
+                ⚠️ No available parking slots found in this section.
               </div>
             )}
           </div>
@@ -455,7 +486,7 @@ export default function GateSimulator({
           <form onSubmit={handleSimulateEntry} className="terminal-form">
             <div className="form-row">
               <div className="form-group flex-1">
-                <label>License Plate Number *</label>
+                <label>Vehicle Number (License Plate) *</label>
                 <input
                   type="text"
                   placeholder="e.g. MH-04-AB-1234"
@@ -467,7 +498,7 @@ export default function GateSimulator({
               </div>
 
               <div className="form-group flex-1">
-                <label>Driver / Student Name *</label>
+                <label>Student Name *</label>
                 <input
                   type="text"
                   placeholder="e.g. Ananya Deshmukh"
@@ -481,31 +512,28 @@ export default function GateSimulator({
 
             <div className="form-row">
               <div className="form-group flex-1">
-                <label>Two-Wheeler Model</label>
+                <label>Vehicle Type *</label>
                 <select
                   value={entryType}
                   onChange={(e) => setEntryType(e.target.value)}
                   className="form-control"
                 >
-                  <option value="scooty">🛵 Scooty (Normal Petrol) &rarr; Ground Floor</option>
+                  <option value="scooty">🛵 Scooty (Petrol) &rarr; Ground Floor</option>
                   <option value="scooty-ev">⚡ EV Scooty (Electric) &rarr; Ground Floor</option>
-                  <option value="bike">🏍️ Bike / Motorcycle (Normal) &rarr; Basement</option>
+                  <option value="bike">🏍️ Bike / Motorcycle &rarr; Basement</option>
                   <option value="bike-ev">⚡ EV Bike (Electric) &rarr; Basement</option>
                 </select>
               </div>
 
               <div className="form-group flex-1">
-                <label>Campus Category</label>
-                <select
-                  value={entryCategory}
-                  onChange={(e) => setEntryCategory(e.target.value)}
-                  className="form-control"
-                >
-                  <option value="Student">Student</option>
-                  <option value="Faculty">Faculty / Professor</option>
-                  <option value="Staff">College Staff</option>
-                  <option value="Visitor">Visitor</option>
-                </select>
+                <label>Roll Number (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. CS21B044"
+                  value={entryRoll}
+                  onChange={(e) => setEntryRoll(e.target.value)}
+                  className="form-control uppercase-input"
+                />
               </div>
             </div>
 
@@ -515,39 +543,39 @@ export default function GateSimulator({
               className="btn btn-primary w-full gate-btn allocate-entry-btn"
             >
               <GateIcon className="w-5 h-5" />
-              <span>Admit Vehicle &amp; Allocate Nearest Slot</span>
+              <span>Admit Vehicle &bull; Record Entry &bull; Update Map</span>
             </button>
           </form>
         </div>
 
         {/* =========================================================
-            OUTBOUND TERMINAL: VEHICLE EXIT & SLOT RELEASE
+            MODULE 6: VEHICLE EXIT TERMINAL
             ========================================================= */}
         <div className="terminal-card glass-card">
           <div className="terminal-header">
-            <span className="terminal-badge exit">OUTBOUND TERMINAL #2</span>
-            <h4>Outbound Checkout &amp; Slot Clearance</h4>
+            <span className="terminal-badge exit">MODULE 6 &bull; VEHICLE EXIT</span>
+            <h4>Vehicle Exit &amp; Slot Release</h4>
           </div>
 
           <form onSubmit={handleSimulateExit} className="terminal-form">
             <div className="form-group">
-              <label>Select Parked Vehicle to Exit</label>
+              <label>Select Parked Vehicle to Exit ({occupiedSlots.length} Active)</label>
               <select
                 value={exitPlate}
                 onChange={(e) => setExitPlate(e.target.value)}
                 className="form-control"
               >
-                <option value="">-- Choose Parked Vehicle from Lot ({occupiedSlots.length}) --</option>
+                <option value="">-- Choose Parked Vehicle from Lot --</option>
                 {occupiedSlots.map((s) => (
                   <option key={s.id} value={s.plate}>
-                    Slot {s.id} ({s.floor}) : {s.plate} [{s.owner || 'Driver'}] &bull; Entry {s.entryTime || 'Active'}
+                    Slot {s.id} ({s.floor}) : {s.plate} [{s.owner || 'Student'}] &bull; Entry: {s.entryTime || 'Active'}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="form-group">
-              <label>Or Enter License Plate Manually</label>
+              <label>Or Enter Vehicle Plate Manually</label>
               <input
                 type="text"
                 placeholder="e.g. MH-04-AB-1234"
@@ -559,16 +587,16 @@ export default function GateSimulator({
 
             <div className="exit-summary-box">
               <div className="info-row">
-                <span>Access Permission:</span>
-                <span className="text-emerald">Institutional Permit Verified</span>
+                <span>Module 6 Action 1:</span>
+                <span className="text-emerald">Records Exit Timestamp</span>
               </div>
               <div className="info-row">
-                <span>Parking Fee:</span>
-                <span className="fee-badge">₹0.00 (Campus Covered)</span>
+                <span>Module 6 Action 2:</span>
+                <span className="text-cyan">Releases Occupied Slot &rarr; Available on Map</span>
               </div>
               <div className="info-row">
-                <span>Automatic Action:</span>
-                <span className="text-cyan">Clears Slot &rarr; Available in Map</span>
+                <span>Module 6 Action 3:</span>
+                <span className="text-amber">Saves Complete Record to Parking History</span>
               </div>
             </div>
 
@@ -577,20 +605,20 @@ export default function GateSimulator({
               disabled={gateStatus === 'opening' || gateStatus === 'open' || !exitPlate.trim()}
               className="btn btn-secondary w-full gate-btn exit-btn"
             >
-              Simulate Outbound Vehicle Exit &amp; Clear Slot
+              Simulate Exit &bull; Release Slot &bull; Save History
             </button>
           </form>
 
           {/* Quick Real-Time Capacity Status */}
           <div className="terminal-quick-stats glass-card">
             <div className="quick-stat-item">
-              <span className="quick-stat-label">Ground Floor (Girls)</span>
+              <span className="quick-stat-label">Ground Floor (Scooties)</span>
               <strong className="quick-stat-val text-cyan">
                 {slots.filter((s) => s.floor === 'Ground Floor' && s.status === 'available').length} / 80 Open
               </strong>
             </div>
             <div className="quick-stat-item">
-              <span className="quick-stat-label">Basement (Boys)</span>
+              <span className="quick-stat-label">Basement (Bikes)</span>
               <strong className="quick-stat-val text-indigo">
                 {slots.filter((s) => s.floor === 'Basement' && s.status === 'available').length} / 80 Open
               </strong>

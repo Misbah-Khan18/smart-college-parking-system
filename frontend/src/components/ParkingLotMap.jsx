@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   BikeIcon,
   SearchIcon,
   PlusCircleIcon,
   ShieldIcon
 } from './Icons'
+import {
+  formatLiveDurationCompact,
+  formatLiveDurationStandard,
+  getStayDurationCategory
+} from '../utils/timerUtils'
 
 export default function ParkingLotMap({
   slots = [],
@@ -19,13 +24,22 @@ export default function ParkingLotMap({
   onReleaseSlot,
   currentRole
 }) {
+  // Live ticking state (updates every second for Module 7 Live Parking Timer)
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((t) => t + 1)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   // ==========================================
   // FLOOR SELECTION
   // ==========================================
   const [selectedFloor, setSelectedFloor] = useState('Ground Floor')
 
   // ==========================================
-  // GROUND FLOOR SECTIONS (GIRLS' SCOOTY PARKING)
+  // GROUND FLOOR SECTIONS (SCOOTIES ONLY)
   // ==========================================
   const groundFloorSections = [
     {
@@ -55,7 +69,7 @@ export default function ParkingLotMap({
   ]
 
   // ==========================================
-  // BASEMENT SECTIONS (BOYS' BIKE PARKING)
+  // BASEMENT SECTIONS (BIKES ONLY)
   // ==========================================
   const basementSections = [
     {
@@ -111,6 +125,8 @@ export default function ParkingLotMap({
         slot.id.toLowerCase().includes(query) ||
         (slot.plate && slot.plate.toLowerCase().includes(query)) ||
         (slot.owner && slot.owner.toLowerCase().includes(query)) ||
+        (slot.rollNumber && slot.rollNumber.toLowerCase().includes(query)) ||
+        (slot.stream && slot.stream.toLowerCase().includes(query)) ||
         (slot.section && slot.section.toLowerCase().includes(query))
 
       return matchFloor && matchSection && matchStatus && matchSearch
@@ -126,7 +142,7 @@ export default function ParkingLotMap({
   const reservedCount = floorSlots.filter((slot) => slot.status === 'reserved').length
 
   // ==========================================
-  // RENDER SINGLE SLOT CARD
+  // RENDER SINGLE SLOT CARD WITH MODULE 7 LIVE TIMER
   // ==========================================
   const renderSlot = (slot) => {
     const isAvailable = slot.status === 'available'
@@ -144,15 +160,15 @@ export default function ParkingLotMap({
         {/* Slot Top Row */}
         <div className="slot-top-row">
           <div className="slot-id-badge">
-            <span className="slot-id-text">{slot.id}</span>
+            <span className="slot-id-text font-mono font-bold">{slot.id}</span>
             {isEvSlot && <span className="ev-tag">⚡ EV</span>}
           </div>
 
           <div className="slot-type-icon">
             {isGround ? (
-              <span className="two-wheeler-emoji" title="Scooty">🛵</span>
+              <span className="two-wheeler-emoji" title="Ground Floor: Reserved for Scooties">🛵</span>
             ) : (
-              <BikeIcon className="w-4 h-4 text-indigo" />
+              <BikeIcon className="w-4 h-4 text-indigo" title="Basement: Reserved for Bikes" />
             )}
           </div>
         </div>
@@ -163,21 +179,32 @@ export default function ParkingLotMap({
             <span className={`status-pill ${slot.status}`}>{slot.status}</span>
           </div>
 
-          {/* OCCUPIED */}
+          {/* OCCUPIED (With Module 7 Live Parking Timer) */}
           {isOccupied && (
             <div className="slot-info">
-              <span className="plate-num font-mono">{slot.plate || 'Parked Vehicle'}</span>
-              <span className="owner-name" title={slot.owner}>{slot.owner || 'Occupied'}</span>
-              {slot.entryTime && (
-                <span className="time-tag">Entry {slot.entryTime}</span>
+              <span className="plate-num font-mono font-bold text-cyan">{slot.plate || 'Parked Vehicle'}</span>
+              <span className="owner-name" title={slot.owner}>
+                {slot.owner || 'Student'}
+              </span>
+
+              {slot.rollNumber && (
+                <span className="roll-micro-text font-mono text-muted">{slot.rollNumber}</span>
               )}
+
+              {/* Module 7 Live Parking Timer Component */}
+              <div className="slot-live-timer-wrap">
+                <span className="timer-live-dot-pulse"></span>
+                <span className="live-duration-text font-mono">
+                  {formatLiveDurationCompact(slot.entryTimestamp)}
+                </span>
+              </div>
             </div>
           )}
 
           {/* RESERVED */}
           {isReserved && (
             <div className="slot-info">
-              <span className="plate-num font-mono">{slot.plate || 'Reserved'}</span>
+              <span className="plate-num font-mono font-bold">{slot.plate || 'Reserved'}</span>
               <span className="owner-name" title={slot.owner}>{slot.owner || 'Reserved'}</span>
               {slot.reservedUntil && (
                 <span className="time-tag">Until {slot.reservedUntil}</span>
@@ -188,10 +215,12 @@ export default function ParkingLotMap({
           {/* AVAILABLE */}
           {isAvailable && (
             <div className="slot-info available-info">
-              <span className="ready-text">
+              <span className="ready-text font-bold text-emerald">
                 {isGround ? 'Open Scooty Bay' : 'Open Bike Bay'}
               </span>
-              <span className="section-hint-text">{slot.section ? slot.section.split('-')[0] : ''}</span>
+              <span className="section-hint-text text-muted text-xs">
+                {slot.section ? slot.section.split('-')[0] : ''}
+              </span>
             </div>
           )}
         </div>
@@ -208,14 +237,14 @@ export default function ParkingLotMap({
             </button>
           ) : (
             <div className="occupied-actions">
-              {(currentRole === 'Security Admin' || currentRole === 'Faculty') && onReleaseSlot && (
+              {onReleaseSlot && (
                 <button
                   type="button"
                   className="btn-slot-action btn-release"
                   onClick={() => onReleaseSlot(slot.id)}
-                  title="Checkout vehicle"
+                  title="Checkout vehicle & free slot"
                 >
-                  Checkout
+                  Checkout ↲
                 </button>
               )}
             </div>
@@ -247,7 +276,7 @@ export default function ParkingLotMap({
           <span className="floor-icon">🛵</span>
           <span>
             <strong>Ground Floor</strong>
-            <small>Girls' Scooty Parking &bull; 80 Bays</small>
+            <small>Reserved for Scooties &bull; 80 Bays (G-01 to G-80)</small>
           </span>
         </button>
 
@@ -263,7 +292,7 @@ export default function ParkingLotMap({
           <span className="floor-icon">🏍️</span>
           <span>
             <strong>Basement</strong>
-            <small>Boys' Bike Parking &bull; 80 Bays</small>
+            <small>Reserved for Bikes &bull; 80 Bays (B-01 to B-80)</small>
           </span>
         </button>
       </div>
@@ -271,18 +300,18 @@ export default function ParkingLotMap({
       {/* Floor Info Banner */}
       <div className="parking-floor-header glass-card">
         <div>
-          <span className="floor-label">TWO-WHEELER PARKING ZONE</span>
-          <h2>{selectedFloor}</h2>
+          <span className="floor-label">MODULE 4 &bull; LIVE DIGITAL PARKING LAYOUT</span>
+          <h2>{selectedFloor} Parking Area</h2>
           <p>
             {selectedFloor === 'Ground Floor'
-              ? "Girls' Scooty Parking (Normal & EV) • Accounts Dept & Exam IT Dept Wings"
-              : "Boys' Two-Wheeler & Bike Parking (Normal & EV) • Rows 1 through 4 Grid"}
+              ? 'Ground Floor: Strictly Reserved for Scooties (Accounts Dept & Exam IT Dept Wings). Real-time status updates.'
+              : 'Basement: Strictly Reserved for Bikes & Motorcycles (Rows 1 to 4 Grid). Real-time status updates.'}
           </p>
         </div>
 
         <div className="floor-capacity">
-          <strong>{availableCount}</strong>
-          <span>Bays Available of {floorSlots.length || 80}</span>
+          <strong className="text-emerald font-mono">{availableCount}</strong>
+          <span>Available Bays of {floorSlots.length || 80} Total</span>
         </div>
       </div>
 
@@ -293,7 +322,7 @@ export default function ParkingLotMap({
           <SearchIcon className="w-4 h-4 text-muted" />
           <input
             type="text"
-            placeholder="Search bay ID (e.g. G-05), plate, or student..."
+            placeholder="Search bay ID (e.g. G-01, B-03), plate, student name, or roll no..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -348,7 +377,7 @@ export default function ParkingLotMap({
               className={`status-btn available ${filterStatus === 'available' ? 'active' : ''}`}
               onClick={() => setFilterStatus('available')}
             >
-              Open ({availableCount})
+              🟢 Open ({availableCount})
             </button>
 
             <button
@@ -356,7 +385,7 @@ export default function ParkingLotMap({
               className={`status-btn occupied ${filterStatus === 'occupied' ? 'active' : ''}`}
               onClick={() => setFilterStatus('occupied')}
             >
-              Occ ({occupiedCount})
+              🔴 Occ ({occupiedCount})
             </button>
 
             <button
@@ -364,7 +393,7 @@ export default function ParkingLotMap({
               className={`status-btn reserved ${filterStatus === 'reserved' ? 'active' : ''}`}
               onClick={() => setFilterStatus('reserved')}
             >
-              Res ({reservedCount})
+              🟡 Res ({reservedCount})
             </button>
           </div>
 
@@ -379,30 +408,35 @@ export default function ParkingLotMap({
         </div>
       </div>
 
-      {/* Legend */}
+      {/* Legend with Color Coding Specification */}
       <div className="map-legend simple-legend">
         <div className="legend-item">
           <span className="legend-dot status-available" />
-          <span>Available ({availableCount})</span>
+          <span>Available ({availableCount}) &bull; Emerald Green</span>
         </div>
 
         <div className="legend-item">
           <span className="legend-dot status-occupied" />
-          <span>Occupied ({occupiedCount})</span>
+          <span>Occupied ({occupiedCount}) &bull; Crimson Red</span>
         </div>
 
         <div className="legend-item">
           <span className="legend-dot status-reserved" />
-          <span>Reserved ({reservedCount})</span>
+          <span>Reserved ({reservedCount}) &bull; Amber Yellow</span>
         </div>
 
         <div className="legend-item">
           <span className="legend-dot status-ev" />
           <span>⚡ Electric (EV) Model</span>
         </div>
+
+        <div className="legend-item">
+          <span className="timer-live-dot-pulse" />
+          <span>⏱️ Live Parking Timer (Module 7 Active)</span>
+        </div>
       </div>
 
-      {/* Parking 80-Slot Grid */}
+      {/* Parking 80-Slot Digital Layout Grid */}
       {filteredSlots.length > 0 ? (
         <div className="parking-layout">
           {filteredSlots.map(renderSlot)}

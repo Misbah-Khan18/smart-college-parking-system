@@ -2,14 +2,22 @@ import { useState, useEffect, useMemo } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
-import { INITIAL_SLOTS, INITIAL_LOGS, INITIAL_REGISTERED_VEHICLES } from './data/initialSlots'
+import {
+  INITIAL_SLOTS,
+  INITIAL_LOGS,
+  INITIAL_REGISTERED_VEHICLES,
+  INITIAL_PARKING_HISTORY
+} from './data/initialSlots'
+import { formatLiveDurationStandard } from './utils/timerUtils'
 
 import Navbar from './components/Navbar'
-import StatsOverview from './components/StatsOverview'
+import DashboardView from './components/DashboardView'
 import ParkingLotMap from './components/ParkingLotMap'
 import StudentVehicleRegistration from './components/StudentVehicleRegistration'
-import AnalyticsView from './components/AnalyticsView'
 import GateSimulator from './components/GateSimulator'
+import LiveParkingTimerView from './components/LiveParkingTimerView'
+import ParkingHistoryView from './components/ParkingHistoryView'
+import AnalyticsView from './components/AnalyticsView'
 import LiveVehicleLog from './components/LiveVehicleLog'
 import SlotBookingModal from './components/SlotBookingModal'
 import PassModal from './components/PassModal'
@@ -19,7 +27,7 @@ import './App.css'
 
 export default function App() {
   // ==========================================
-  // AUTHENTICATION & USER PROFILE
+  // AUTHENTICATION & USER PROFILE (MODULE 1)
   // ==========================================
   const [user, setUser] = useState(() => {
     const savedDemo = localStorage.getItem('demo_user_session')
@@ -60,9 +68,9 @@ export default function App() {
             setUserProfile(profile)
           } else {
             setUserProfile({
-              displayName: currentUser.displayName || 'Campus Member',
+              displayName: currentUser.displayName || 'Authorized Admin',
               email: currentUser.email,
-              role: 'Student',
+              role: 'Security Admin',
               photoURL: currentUser.photoURL || ''
             })
           }
@@ -87,7 +95,7 @@ export default function App() {
     localStorage.setItem('demo_user_session', JSON.stringify(demoData))
     setUser(demoData)
     setUserProfile(demoData)
-    showToast('Demo Access Granted', `Signed in as ${demoData.displayName} (${demoData.role}).`, 'success')
+    showToast('Administrator Access Granted', `Signed in as ${demoData.displayName} (${demoData.role}).`, 'success')
   }
 
   // Handle Logout
@@ -96,7 +104,7 @@ export default function App() {
       localStorage.removeItem('demo_user_session')
       setUser(null)
       setUserProfile(null)
-      setActiveTab('map')
+      setActiveTab('dashboard')
       await logout()
     } catch (err) {
       console.warn('Logout notice:', err)
@@ -107,13 +115,13 @@ export default function App() {
   }
 
   // ==========================================
-  // APPLICATION STATE
+  // APPLICATION STATE (MODULES 2 TO 7)
   // ==========================================
   const [slots, setSlots] = useState(INITIAL_SLOTS)
   const [logs, setLogs] = useState(INITIAL_LOGS)
-  const [activeTab, setActiveTab] = useState('map') // 'map' | 'registry' | 'gate' | 'analytics' | 'logs'
+  const [activeTab, setActiveTab] = useState('dashboard') // 'dashboard' | 'map' | 'registry' | 'gate' | 'timer' | 'history' | 'analytics' | 'logs'
 
-  // Registered Student Vehicles State
+  // Registered Student Vehicles State (Module 3)
   const [registeredVehicles, setRegisteredVehicles] = useState(() => {
     const saved = localStorage.getItem('registered_vehicles_list')
     if (saved) {
@@ -134,6 +142,27 @@ export default function App() {
     }
   }, [registeredVehicles])
 
+  // Saved Parking History State (Module 6)
+  const [parkingHistory, setParkingHistory] = useState(() => {
+    const saved = localStorage.getItem('parking_history_list')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_PARKING_HISTORY
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('parking_history_list', JSON.stringify(parkingHistory))
+    } catch {
+      // ignore
+    }
+  }, [parkingHistory])
+
   // Map Filter States
   const [selectedZone, setSelectedZone] = useState('All Sections')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -148,15 +177,15 @@ export default function App() {
   const [notifications, setNotifications] = useState([
     {
       title: 'ANPR System Active',
-      message: 'Main barrier sensors and real-time bay telemetry online.',
+      message: 'Campus boom barrier sensors & real-time telemetry online.',
       time: '09:00 AM',
       type: 'info'
     },
     {
-      title: 'Student Registry Online',
-      message: 'Vehicle permit verification and smart barrier recognition enabled.',
+      title: 'Live Parking Timer Online',
+      message: 'Module 7 real-time per-second parking duration active.',
       time: '08:45 AM',
-      type: 'info'
+      type: 'success'
     }
   ])
   const [unreadCount, setUnreadCount] = useState(2)
@@ -172,7 +201,7 @@ export default function App() {
   }, [slots])
 
   // ==========================================
-  // STUDENT VEHICLE REGISTRATION HANDLERS
+  // MODULE 3: STUDENT VEHICLE REGISTRATION HANDLERS
   // ==========================================
   const handleRegisterVehicle = ({
     studentName,
@@ -181,7 +210,8 @@ export default function App() {
     phoneNumber,
     vehicleNumber,
     vehicleType,
-    preferredFloor
+    preferredFloor,
+    isEv
   }) => {
     const newId = `REG-2026-${String(registeredVehicles.length + 1).padStart(3, '0')}`
     const passId = `SMP-${rollNumber}-${String(registeredVehicles.length + 1).padStart(2, '0')}`
@@ -198,6 +228,7 @@ export default function App() {
       phoneNumber,
       vehicleNumber,
       vehicleType,
+      isEv: Boolean(isEv),
       category: 'Student',
       preferredFloor: preferredFloor || (vehicleType === 'scooty' ? 'Ground Floor' : 'Basement'),
       registeredAt: new Date().toISOString().split('T')[0],
@@ -215,6 +246,8 @@ export default function App() {
       plate: vehicleNumber,
       slot: preferredFloor === 'Ground Floor' ? 'G-AUTH' : 'B-AUTH',
       category: 'Student Reg',
+      owner: studentName,
+      rollNumber,
       vehicleType: vehicleType,
       gate: 'Admin Registry'
     }
@@ -231,7 +264,7 @@ export default function App() {
     setUnreadCount((c) => c + 1)
 
     showToast(
-      'Vehicle Registered Successfully',
+      'Student Registered Successfully',
       `Permit ${passId} issued for ${studentName} (${vehicleNumber}).`,
       'success'
     )
@@ -239,7 +272,7 @@ export default function App() {
 
   const handleDeleteRegisteredVehicle = (regId) => {
     setRegisteredVehicles((prev) => prev.filter((item) => item.id !== regId))
-    showToast('Permit Removed', 'Vehicle registration has been de-registered.', 'info')
+    showToast('Permit Removed', 'Vehicle registration has been deleted.', 'info')
   }
 
   const handleQuickBookFromRegistry = (studentData) => {
@@ -259,6 +292,9 @@ export default function App() {
     slotId,
     vehicleNumber,
     ownerName,
+    rollNumber,
+    stream,
+    phoneNumber,
     category,
     vehicleType,
     reservedUntil
@@ -280,10 +316,14 @@ export default function App() {
             status: 'reserved',
             plate: vehicleNumber,
             owner: ownerName,
+            rollNumber: rollNumber || s.rollNumber || '',
+            stream: stream || s.stream || '',
+            phoneNumber: phoneNumber || s.phoneNumber || '',
             category: category || 'Student',
             type: vehicleType || s.type,
             reservedUntil: reservedUntil || 'Full Day',
-            entryTime: null
+            entryTime: null,
+            entryTimestamp: null
           }
         }
         return s
@@ -297,6 +337,8 @@ export default function App() {
       action: 'ENTRY',
       plate: vehicleNumber,
       slot: slotId,
+      owner: ownerName,
+      rollNumber: rollNumber || '',
       category: category || 'Student',
       vehicleType: vehicleType || 'Scooty',
       gate: 'App Pre-Reservation'
@@ -329,64 +371,20 @@ export default function App() {
 
     showToast(
       'Slot Reserved Successfully',
-      `Bay ${slotId} on ${slotFloor} reserved. Digital Pass is ready to scan.`,
+      `Bay ${slotId} on ${slotFloor} reserved. Digital Pass is ready.`,
       'success'
     )
   }
 
   // ==========================================
-  // RELEASE / CHECKOUT HANDLER
-  // ==========================================
-  const handleReleaseSlot = (slotId) => {
-    const target = slots.find((s) => s.id === slotId)
-    if (!target) return
-
-    setSlots((prev) =>
-      prev.map((s) =>
-        s.id === slotId
-          ? {
-              ...s,
-              status: 'available',
-              plate: '',
-              owner: '',
-              category: '',
-              reservedUntil: null,
-              entryTime: null
-            }
-          : s
-      )
-    )
-
-    const nowTime = new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-
-    const newLog = {
-      id: `LOG-${Date.now().toString().slice(-4)}`,
-      timestamp: nowTime,
-      action: 'EXIT',
-      plate: target.plate || 'N/A',
-      slot: slotId,
-      duration: 'Manual Checkout',
-      fee: 'Free',
-      gate: 'Admin Console'
-    }
-    setLogs((prev) => [newLog, ...prev])
-
-    showToast(
-      'Bay Freed & Checked Out',
-      `Slot ${slotId} on ${target.floor} is now available for other students.`,
-      'info'
-    )
-  }
-
-  // ==========================================
-  // GATE SIMULATOR INBOUND ENTRY HANDLER
+  // MODULE 5: VEHICLE ENTRY HANDLER
   // ==========================================
   const handleVehicleEntry = ({
     plate,
     owner,
+    rollNumber = '',
+    stream = '',
+    phoneNumber = '',
     type,
     category,
     preferredFloor
@@ -417,17 +415,18 @@ export default function App() {
     if (!targetSlot) {
       return {
         success: false,
-        message: `No available parking bay found on campus for ${type.toUpperCase()}.`
+        message: `No available parking slots found for ${type.toUpperCase()}.`
       }
     }
 
     const isEv = Boolean(type.includes('ev'))
-
+    const nowTimestamp = Date.now()
     const nowTime = new Date().toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit'
     })
 
+    // Update slots in real-time
     setSlots((prev) =>
       prev.map((s) =>
         s.id === targetSlot.id
@@ -435,10 +434,14 @@ export default function App() {
               ...s,
               status: 'occupied',
               plate,
-              owner: owner || s.owner || 'Campus User',
+              owner: owner || s.owner || 'Student',
+              rollNumber: rollNumber || s.rollNumber || '',
+              stream: stream || s.stream || '',
+              phoneNumber: phoneNumber || s.phoneNumber || '',
               category: category || s.category || 'Student',
               isEv: isEv || s.isEv,
               entryTime: nowTime,
+              entryTimestamp: nowTimestamp,
               reservedUntil: null
             }
           : s
@@ -451,6 +454,8 @@ export default function App() {
       action: 'ENTRY',
       plate,
       slot: targetSlot.id,
+      owner: owner || 'Student',
+      rollNumber: rollNumber || '',
       category: category || 'Student',
       vehicleType: type,
       gate: 'Main Gate 1 (ANPR Scanner)'
@@ -463,15 +468,15 @@ export default function App() {
       plate,
       owner: owner || 'Campus Member',
       category: category || 'Student',
-      reservedUntil: 'Active Session',
+      reservedUntil: 'Active Parking Session',
       floor: targetSlot.floor,
       section: targetSlot.section,
       zone: `${targetSlot.floor} - ${targetSlot.section}`
     }
 
     showToast(
-      'Vehicle Admitted at Barrier',
-      `${plate} assigned to Bay ${targetSlot.id} (${targetSlot.floor}). Barrier lifted.`,
+      'Vehicle Entry Recorded',
+      `${plate} assigned to Bay ${targetSlot.id} (${targetSlot.floor}). Map updated immediately.`,
       'success'
     )
 
@@ -485,7 +490,7 @@ export default function App() {
   }
 
   // ==========================================
-  // GATE SIMULATOR OUTBOUND EXIT HANDLER
+  // MODULE 6: VEHICLE EXIT & SAVE HISTORY HANDLER
   // ==========================================
   const handleVehicleExit = (plate) => {
     const targetSlot = slots.find(
@@ -507,6 +512,29 @@ export default function App() {
       minute: '2-digit'
     })
 
+    const calculatedDuration = formatLiveDurationStandard(targetSlot.entryTimestamp)
+
+    // Save completed parking history record (Module 6)
+    const newHistoryRecord = {
+      id: `HIST-${Date.now().toString().slice(-6)}`,
+      studentName: targetSlot.owner || 'Student',
+      rollNumber: targetSlot.rollNumber || '',
+      stream: targetSlot.stream || 'Registered Stream',
+      vehicleNumber: targetSlot.plate,
+      vehicleType: targetSlot.type || 'scooty',
+      slotId: targetSlot.id,
+      floor: targetSlot.floor,
+      entryTime: targetSlot.entryTime || '09:00 AM',
+      exitTime: nowTime,
+      duration: calculatedDuration.replace('Parked for ', ''),
+      date: new Date().toISOString().split('T')[0],
+      status: 'Completed',
+      fee: '₹0 (Campus Permit)'
+    }
+
+    setParkingHistory((prev) => [newHistoryRecord, ...prev])
+
+    // Release the slot on the map
     setSlots((prev) =>
       prev.map((s) =>
         s.id === targetSlot.id
@@ -515,9 +543,13 @@ export default function App() {
               status: 'available',
               plate: '',
               owner: '',
+              rollNumber: '',
+              stream: '',
+              phoneNumber: '',
               category: '',
               reservedUntil: null,
-              entryTime: null
+              entryTime: null,
+              entryTimestamp: null
             }
           : s
       )
@@ -529,7 +561,8 @@ export default function App() {
       action: 'EXIT',
       plate,
       slot: targetSlot.id,
-      duration: '1h 15m',
+      owner: targetSlot.owner || '',
+      duration: calculatedDuration.replace('Parked for ', ''),
       fee: 'Free (Campus Permit)',
       gate: 'Exit Barrier 2 (ANPR)'
     }
@@ -537,15 +570,44 @@ export default function App() {
 
     showToast(
       'Vehicle Checked Out',
-      `${plate} cleared Bay ${targetSlot.id} (${targetSlot.floor}). Outbound barrier raised.`,
+      `${plate} cleared Bay ${targetSlot.id}. Slot released and saved to Parking History.`,
       'info'
     )
 
     return {
       success: true,
       slotId: targetSlot.id,
-      duration: '1h 15m'
+      duration: calculatedDuration.replace('Parked for ', '')
     }
+  }
+
+  // Direct checkout by Slot ID (Used on Map / Timer / Dashboard)
+  const handleReleaseSlot = (slotId) => {
+    const target = slots.find((s) => s.id === slotId)
+    if (!target || !target.plate) {
+      setSlots((prev) =>
+        prev.map((s) =>
+          s.id === slotId
+            ? {
+                ...s,
+                status: 'available',
+                plate: '',
+                owner: '',
+                rollNumber: '',
+                stream: '',
+                phoneNumber: '',
+                category: '',
+                reservedUntil: null,
+                entryTime: null,
+                entryTimestamp: null
+              }
+            : s
+        )
+      )
+      return
+    }
+
+    handleVehicleExit(target.plate)
   }
 
   // Refresh Telemetry Trigger
@@ -575,14 +637,14 @@ export default function App() {
   }
 
   // ==========================================
-  // UNAUTHENTICATED: LOGIN VIEW
+  // UNAUTHENTICATED: MODULE 1 LOGIN VIEW
   // ==========================================
   if (!user) {
     return <Login onDemoLogin={handleDemoLogin} />
   }
 
   // ==========================================
-  // AUTHENTICATED: MAIN APP DASHBOARD
+  // AUTHENTICATED: MAIN APPLICATION INTERFACE
   // ==========================================
   return (
     <div className="app-layout">
@@ -603,14 +665,20 @@ export default function App() {
         }}
       />
 
-      {/* Main Dashboard Container */}
+      {/* Main Content Area */}
       <main className="main-content">
-        {/* KPI Stats Overview */}
-        <StatsOverview slots={slots} />
-
-        {/* Dynamic Tab Views */}
         <section className="tab-body">
-          {/* TAB 1: PARKING LOT MAP */}
+          {/* MODULE 2: DASHBOARD */}
+          {activeTab === 'dashboard' && (
+            <DashboardView
+              slots={slots}
+              logs={logs}
+              onNavigateTab={setActiveTab}
+              onReleaseSlot={handleReleaseSlot}
+            />
+          )}
+
+          {/* MODULE 4 & 7: LIVE PARKING MAP */}
           {activeTab === 'map' && (
             <ParkingLotMap
               slots={slots}
@@ -649,7 +717,7 @@ export default function App() {
             />
           )}
 
-          {/* TAB 2: STUDENT & VEHICLE REGISTRY */}
+          {/* MODULE 3: STUDENT & VEHICLE REGISTRATION */}
           {activeTab === 'registry' && (
             <StudentVehicleRegistration
               registeredVehicles={registeredVehicles}
@@ -660,7 +728,7 @@ export default function App() {
             />
           )}
 
-          {/* TAB 3: GATE TERMINAL */}
+          {/* MODULE 5 & 6: VEHICLE ENTRY & VEHICLE EXIT */}
           {activeTab === 'gate' && (
             <GateSimulator
               slots={slots}
@@ -669,13 +737,28 @@ export default function App() {
               onVehicleExit={handleVehicleExit}
               onShowPass={(passData) => setActivePass(passData)}
               onNavigateToMap={() => setActiveTab('map')}
+              onNavigateToHistory={() => setActiveTab('history')}
             />
           )}
 
-          {/* TAB 4: LIVE ANALYTICS */}
+          {/* MODULE 7: LIVE PARKING TIMER */}
+          {activeTab === 'timer' && (
+            <LiveParkingTimerView
+              slots={slots}
+              onReleaseSlot={handleReleaseSlot}
+              onNavigateToMap={() => setActiveTab('map')}
+            />
+          )}
+
+          {/* SAVED PARKING HISTORY */}
+          {activeTab === 'history' && (
+            <ParkingHistoryView history={parkingHistory} />
+          )}
+
+          {/* ANALYTICS & TELEMETRY */}
           {activeTab === 'analytics' && <AnalyticsView slots={slots} />}
 
-          {/* TAB 5: ACTIVITY LOG */}
+          {/* ACTIVITY LOGS */}
           {activeTab === 'logs' && <LiveVehicleLog logs={logs} />}
         </section>
       </main>
@@ -706,10 +789,10 @@ export default function App() {
       <footer className="app-footer">
         <div className="footer-content">
           <span>
-            Smart College Parking System &bull; Real-Time IoT Telemetry &amp; Student Vehicle Registration
+            Smart College Parking System &bull; Modules 1–7 Integrated Telemetry Architecture
           </span>
           <span className="footer-tag">
-            Ground Floor (Girls Scooty) &bull; Basement (Boys Parking) &bull; 160 Total Bays
+            Ground Floor (Scooties) &bull; Basement (Bikes) &bull; 160 Total Bays
           </span>
         </div>
       </footer>
