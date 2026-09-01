@@ -1,6 +1,6 @@
 # 🚗 Smart College Parking System - Frontend
 
-This is the React 19 + Vite frontend application for the **Smart College Parking System**, architected with real-time IoT sensor telemetry, live per-second duration timers, automatic nearest-slot allocation, and digital parking floor layouts.
+React 19 + Vite frontend application for the **Smart College Parking System**, architected with real-time slot telemetry, Google Sign-In authentication, user vehicle registration, live per-second duration timers, and interactive parking floor layouts.
 
 ---
 
@@ -35,68 +35,34 @@ Open **[http://localhost:5173/](http://localhost:5173/)** in your web browser.
 
 ---
 
-## 🌟 7 Core Modules Architecture
+## 🌟 Application Structure & Features
 
-### 1. 🔐 Module 1 – Login (Administrator Google Authentication)
-- Secure administrator access using authorized **Google Authentication**.
-- Direct Google OAuth popup and 1-Click Authorized Security Admin Demo mode for offline testing.
-- College staff, professor, and student credential support.
+### 1. 🔐 Authentication & Registration (`Login.jsx`)
+- **Google Sign-In**: Instant 1-click Google OAuth authentication.
+- **User Registration**: Register student/faculty accounts with Name, Email, Password, Vehicle Type (Scooty / Bike), and License Plate Number.
+- **Email/Password Sign-In**: Secure credentials with show/hide password and recovery link.
+- **1-Click Demo Preview**: "Student Demo" and "Admin Demo" buttons for instant testing.
 
-### 2. 📊 Module 2 – Dashboard
-Comprehensive real-time command center displaying:
-- **Total Parking Slots** (160 Bays: 80 Ground Floor + 80 Basement)
-- **Occupied Slots** (Live dynamic counter)
-- **Available Slots** (Live dynamic counter)
-- **Number of Parked Vehicles** (Active two-wheelers)
-- **Today's Parking Entries** (Daily inbound check-in counter)
-- **Live Parking Statistics** (Ground Scooties vs Basement Bikes & EV distribution)
-- **Real-Time Parking Data** (Live data table with student owner, roll number, stream, plate, vehicle type, bay ID, entry time, and live duration timer)
-- **Live Parking Status Updates** (Real-time IoT telemetry heartbeat & event feed)
+### 2. 🚪 Sign Out & Header Navigation (`Navbar.jsx`)
+- **Prominent Sign Out**: Instant 1-click **Sign Out** button in the top navbar.
+- **Session Reset**: Resets session tokens and navigates back to the Login view.
+- **Live Campus Clock**: Real-time per-second institutional clock.
+- **Quick Park Button**: Quick access to park or reserve a bay.
 
-### 3. 📝 Module 3 – Student Registration
-Stores complete records for students and their two-wheelers:
-- **Student Name**
-- **Roll Number / ID**
-- **Stream / Department** (CSE, IT, AI/DS, EXTC, Mechanical, Civil, BCA/MCA, MBA, etc.)
-- **Phone Number**
-- **Vehicle Number (License Plate)**
-- **Vehicle Type** (🛵 `Scooty` for Ground Floor / 🏍️ `Bike` for Basement)
-- **⚡ Engine Type** (Normal Petrol vs Electric EV)
-- **Administrator Vehicle Owner Identification Tool**: Instant search bar to identify vehicle owners, contact details, and streams by typing a license plate or roll number.
+### 3. 📊 Dashboard (`DashboardView.jsx`)
+- **4 Key KPI Cards**: Total Slots (160), Available Slots, Occupied Slots, and Active Vehicles.
+- **Capacity Progress Meters**: Ground Floor (Scooties) vs Basement (Bikes) with 1-click layout navigation.
+- **Active Vehicles Table**: Real-time table displaying vehicle plate, owner, bay ID, and live duration timer with 1-click checkout.
 
-### 4. 🅿️ Module 4 – Live Parking Map
-- Digital visual layout representing all 160 parking bays:
-  - **Ground Floor (80 Bays)**: Reserved for **Scooties** (G-01 to G-80 across Accounts Dept & Exam IT Dept wings).
-  - **Basement (80 Bays)**: Reserved for **Bikes & Motorcycles** (B-01 to B-80 across Rows 1 to 4).
-- **Color Coding**:
-  - 🟢 **Available** (Emerald Green)
-  - 🔴 **Occupied** (Crimson Red)
-  - 🟡 **Reserved** (Amber Yellow)
-  - ⚡ **EV Model** (Cyan Badge)
-- **Real-Time Updates**: Automatically reflects vehicle entries/exits instantly without webpage refresh.
-- **Module 7 Integration**: Every occupied slot card dynamically displays its live per-second parking timer.
+### 4. 🅿️ Parking Layout (`ParkingLotMap.jsx`)
+- **Floor Switcher**: Toggle between **Ground Floor (Scooties)** and **Basement (Bikes)**.
+- **Color-Coded Bays**: 🟢 Available, 🔴 Occupied, and 🟡 Reserved.
+- **Filters & Search**: Filter by status or search by bay ID/plate.
+- **Click-to-Park & Pass Generation**: Interactive booking modal generating digital permits with simulated QR code.
 
-### 5. 🚗 Module 5 – Vehicle Entry
-- Checks available parking slots in real time.
-- **Automatically assigns the nearest available slot**:
-  - Scooty &rarr; Nearest Ground Floor bay (G-01..G-80)
-  - Bike &rarr; Nearest Basement bay (B-01..B-80)
-- Records exact entry timestamp and formatted check-in time.
-- Updates the live parking map immediately.
-- Generates official digital permit pass with QR code.
-
-### 6. 🚙 Module 6 – Vehicle Exit
-- Records exit time upon vehicle departure.
-- Releases the occupied parking slot back to Available on the Live Map in real time.
-- **Saves complete parking history** (Student Name, Roll No, Stream, Plate, Slot, Entry Time, Exit Time, Total Duration) into persistent storage.
-
-### 7. ⏱️ Module 7 – Live Parking Timer
-- Displays live parking duration for every parked vehicle updating every second using JavaScript.
-- Standard format:
-  - `B12 — Parked for 02 Hours 15 Minutes`
-  - `G08 — Parked for 45 Minutes`
-- Live precision seconds ticker (`02h 15m 32s`).
-- Dedicated **Live Parking Timer Monitor** with floor filters and stay duration alerts.
+### 5. ⏱️ Live Parking Telemetry (`LiveParkingTimerView.jsx`)
+- **Per-Second Live Duration**: Precision ticking duration timers for every active vehicle.
+- **Instant Checkout**: One-click **Check Out & Release Bay** button to clear slots and refresh availability.
 
 ---
 
@@ -107,31 +73,29 @@ frontend/
 ├── package.json               # Dependencies & scripts
 ├── vite.config.js             # Vite configuration
 ├── eslint.config.js           # ESLint configuration
-├── index.html                 # HTML5 template
+├── index.html                 # HTML5 template with Google Fonts
 ├── src/
 │   ├── main.jsx               # React DOM root entry
-│   ├── App.jsx                # Core App controller & module state manager
-│   ├── App.css                # Glassmorphic component styles
-│   ├── index.css              # Global CSS design tokens & grid
+│   ├── App.jsx                # Application state & view router
+│   ├── App.css                # Modern, responsive CSS stylesheet
+│   ├── index.css              # Global tokens & typography
+│   ├── pages/
+│   │   ├── Login.jsx          # Google Sign-In & User Registration
+│   │   └── Login.css          # Auth styling
 │   ├── components/
-│   │   ├── DashboardView.jsx              # Module 2 – Dashboard
-│   │   ├── ParkingLotMap.jsx              # Module 4 – Live Parking Map
-│   │   ├── StudentVehicleRegistration.jsx # Module 3 – Student Registration
-│   │   ├── GateSimulator.jsx              # Module 5 & 6 – Vehicle Entry & Exit
-│   │   ├── LiveParkingTimerView.jsx       # Module 7 – Live Parking Timer
-│   │   ├── ParkingHistoryView.jsx         # Module 6 – Saved Parking History
-│   │   ├── AnalyticsView.jsx              # Capacity telemetry & traffic trends
-│   │   ├── LiveVehicleLog.jsx             # Activity access logs
-│   │   ├── Navbar.jsx                     # Top navigation header & live clock
-│   │   ├── PassModal.jsx                  # Digital QR permit modal
-│   │   ├── SlotBookingModal.jsx           # Bay pre-reservation modal
-│   │   ├── StatsOverview.jsx              # Top capacity summary strip
-│   │   └── Icons.jsx                      # SVG icon library
-│   ├── data/
-│   │   └── initialSlots.js                # Initial 160 slots & sample registry data
+│   │   ├── Navbar.jsx         # Top navbar with Sign Out button & clock
+│   │   ├── DashboardView.jsx  # KPI metrics & capacity overview
+│   │   ├── ParkingLotMap.jsx  # Ground & Basement visual map
+│   │   ├── LiveParkingTimerView.jsx # Live per-second timers
+│   │   ├── SlotBookingModal.jsx     # Bay reservation modal
+│   │   ├── PassModal.jsx            # Digital QR permit pass modal
+│   │   ├── NotificationToast.jsx    # Real-time toast notifications
+│   │   └── Icons.jsx                # SVG icon library
 │   ├── firebase/
-│   │   ├── firebase.js                    # Firebase app initialization
-│   │   └── auth.js                        # Google OAuth & email authentication
+│   │   ├── firebase.js        # Firebase initialization
+│   │   └── auth.js            # Auth handlers (Google + Email)
+│   ├── data/
+│   │   └── initialSlots.js    # 160 slot initial data (Scooty & Bike)
 │   └── utils/
-│       └── timerUtils.js                  # Module 7 JavaScript timer calculation helpers
+│       └── timerUtils.js      # Duration formatting utilities
 ```

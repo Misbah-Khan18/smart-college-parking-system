@@ -80,7 +80,7 @@ export default function Navbar({
           </button>
         </nav>
 
-        {/* Right: Quick Action, Clock, Profile & Logout */}
+        {/* Right: Quick Action, Clock, Profile & Explicit Sign Out */}
         <div className="nav-actions">
           {/* Quick Park / Reserve Action */}
           {onOpenQuickPark && (
@@ -102,26 +102,29 @@ export default function Navbar({
             </span>
           </div>
 
-          {/* User Profile & Sign Out */}
-          <div className="user-profile-chip">
+          {/* User Profile Info */}
+          <div className="user-profile-chip hide-mobile">
             <div className="user-avatar">
               {displayName.slice(0, 2).toUpperCase()}
             </div>
-            <div className="user-details hide-mobile">
+            <div className="user-details">
               <span className="user-name">{displayName}</span>
               <span className="user-role">{displayRole}</span>
             </div>
-            <button
-              type="button"
-              className="logout-btn"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              title="Sign Out"
-              aria-label="Sign Out"
-            >
-              <LogOutIcon className="w-4 h-4" />
-            </button>
           </div>
+
+          {/* Prominent Sign Out Button */}
+          <button
+            type="button"
+            className="sign-out-btn"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title="Sign Out of Session"
+            aria-label="Sign Out"
+          >
+            <LogOutIcon className="w-4 h-4" />
+            <span>{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
+          </button>
         </div>
       </div>
     </header>
