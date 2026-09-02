@@ -1,140 +1,94 @@
-# 🚗 Smart College Parking System (SmartPark.Campus)
+# 🛵 Smart College Parking Management System (SmartPark.College)
 
 <p align="center">
   <img src="https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
   <img src="https://img.shields.io/badge/Vite-8.2-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
-  <img src="https://img.shields.io/badge/CSS3-Glassmorphism-1572B6?style=for-the-badge&logo=css3&logoColor=white" alt="CSS3" />
-  <img src="https://img.shields.io/badge/Status-Active%20%26%20Ready-10B981?style=for-the-badge" alt="Status" />
+  <img src="https://img.shields.io/badge/CSS3-Modern%20Dark%20Theme-1572B6?style=for-the-badge&logo=css3&logoColor=white" alt="CSS3" />
+  <img src="https://img.shields.io/badge/Firebase-Auth%20%26%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase" />
+  <img src="https://img.shields.io/badge/Status-Production%20Ready-10B981?style=for-the-badge" alt="Status" />
 </p>
 
-An intelligent, real-time **IoT Campus Parking Management & Reservation System** designed for colleges and universities. It streamlines vehicle entry/exit, eliminates campus parking congestion, visualizes live slot status across academic zones, simulates automated ANPR boom barrier gates, and issues verifiable digital parking permits with QR codes.
+An intelligent, real-time **IoT Campus Parking Management System** designed for colleges and universities. The system streamlines campus two-wheeler traffic across dedicated zones (**Ground Floor for Scooties** and **Basement for Bikes**), monitors real-time parking occupancy with dynamic color coding, maintains user vehicle registration, calculates per-second parking duration timers, supports Google Sign-In and user registration, and provides instant 1-click sign out and bay checkout.
 
 ---
 
-## 🌟 Key Highlights & Features
+## 🌟 Core Architecture & Key Features
 
-### 1. 🗺️ Interactive Live Parking Bay Visualizer
-- **Multi-Zone Architecture**:
-  - **Zone A**: Student 4-Wheeler Parking
-  - **Zone B**: Faculty & Academic Staff Reserved Zone
-  - **Zone C**: EV Eco-Charging Stations (Fast Recharging Ports)
-  - **Zone D**: Two-Wheeler / Motorcycle & Scooter Bay
-- **Live Status Indicators**: Visual indicators showing **🟢 Available**, **🔴 Occupied**, and **🟡 Reserved** slots.
-- **Search & Filters**: Instant search by slot ID (`A-02`), vehicle plate number, or driver name with category & zone filtering.
+### 🔐 1. Authentication & User Registration (`Login.jsx`)
+- **Google Sign-In**: 1-Click fast sign-in using official Google OAuth.
+- **User Registration**: Register new students and staff with Name, College Email, Password, Vehicle Type (🛵 Scooty / 🏍️ Bike), and License Plate Number.
+- **Email/Password Login**: Secure credential authentication with password visibility toggle and recovery link flow.
+- **1-Click Demo Access**: Instant **Student Demo** and **Admin Demo** buttons to explore all features immediately without requiring external credentials.
 
-### 2. 🎟️ Instant Slot Reservation & Digital Permit Generator
-- Book parking slots in advance by specifying vehicle type, driver name, and student/faculty ID.
-- Dynamic duration calculator (1 hr, 2 hrs, 4 hrs, full day).
-- **Official Digital Campus Parking Pass**: Generates an institution-branded parking permit with a simulated QR code for contactless scanning at gate terminals, complete with a one-click print/PDF save option.
+### 🚪 2. Session Management & Sign Out (`Navbar.jsx`)
+- **Prominent Sign Out Option**: Dedicated, easy-to-access **Sign Out** button in the top navigation bar.
+- **Instant Session Clear**: Clears Firebase & local cache tokens and transitions cleanly back to the authentication screen.
+- **Live Clock & Status**: Displays real-time campus clock and user profile badge.
 
-### 3. 🚧 Simulated ANPR Boom Barrier Gate Terminal
-- **Automated Inbound Entry Terminal**: Simulates Automatic Number Plate Recognition (ANPR). Auto-allocates an open bay or matches existing reservations, with animated barrier opening and traffic lights.
-- **Automated Outbound Checkout**: Automatically calculates parking duration, processes institutional clearance, opens the exit barrier, and frees up the slot in real time.
+### 📊 3. Central Command Dashboard (`DashboardView.jsx`)
+- **4 Real-Time KPI Cards**:
+  - 🅿️ **Total Parking Bays**: 160 Total Bays (80 Ground Floor + 80 Basement)
+  - 🟢 **Available Slots**: Live available space counter
+  - 🔴 **Occupied Slots**: Live occupied space counter
+  - 🏍️ **Active Parked Vehicles**: Active two-wheeler count
+- **Floor Capacity Progress Gauges**: Real-time percentage meters for Ground Floor (Scooties) and Basement (Bikes) with 1-click navigation to their layouts.
+- **Active Vehicles Stream Table**: Live table displaying Bay ID, Floor, Student/Owner, License Plate, Status, and live per-second duration timers with 1-click checkout.
 
-### 4. 📊 Real-Time Campus Traffic Analytics & Telemetry
-- Hourly parking occupancy bar charts showing campus rush hours and peak morning lecture periods.
-- Zone-by-zone utilization and EV charging load efficiency metrics.
-- Key Performance Indicators (KPIs): Total capacity, live available bays, occupancy percentage, and active permits.
+### 🅿️ 4. Interactive Parking Layout (`ParkingLotMap.jsx`)
+- **Dedicated Floor Switcher**:
+  - **Ground Floor (80 Bays)**: G-01 to G-80 strictly reserved for **Scooties** (Accounts Dept & Exam IT Dept wings).
+  - **Basement (80 Bays)**: B-01 to B-80 strictly reserved for **Bikes & Motorcycles**.
+- **Dynamic Status Color-Coding**:
+  - 🟢 **Available**: Ready to park (Click to park/reserve).
+  - 🔴 **Occupied**: Actively parked (Displays plate and owner).
+  - 🟡 **Reserved**: Pre-booked campus pass.
+- **Filters & Search**: Instant filter by status (*All*, *Available*, *Occupied*, *Reserved*) or search by Bay ID (e.g. `G-05`) or license plate.
+- **Digital Permit Pass Modal**: Generates official campus digital parking permits with QR code simulation.
 
-### 5. 📝 Gate Telemetry & Security Audit Logs
-- Comprehensive access log capturing vehicle license plates, timestamps, entry/exit gates, user categories, and parking duration.
-
-### 6. 👥 Role-Based Workflow
-- **Student Mode**: View open bays, reserve slots, and generate digital permits.
-- **Faculty / Staff Mode**: Access priority academic parking bays.
-- **Security Admin Mode**: Manual vehicle release, gate override, and full audit logs.
-
----
-
-## 🖥️ User Interface Preview
-
-```
-+---------------------------------------------------------------------------------------+
-|  [P] SmartPark.Campus    [Parking Map]  [Gate Terminal]  [Analytics]  [Activity Log]  |
-+---------------------------------------------------------------------------------------+
-|  [Available: 12/26]     [Occupied: 14]     [EV Ports: 2/4]     [Two-Wheelers: 4/8]    |
-+---------------------------------------------------------------------------------------+
-|  🔍 Search slot / plate...    [All Zones] [Zone A] [Zone B] [Zone C] [Zone D]   [+Book] |
-|                                                                                       |
-|  +--------------+  +--------------+  +--------------+  +--------------+               |
-|  | Slot A-01    |  | Slot A-02    |  | Slot A-03    |  | Slot A-04    |               |
-|  | [OCCUPIED]   |  | [AVAILABLE]  |  | [OCCUPIED]   |  | [RESERVED]   |               |
-|  | KA-05-MB-4412|  | Ready to park|  | DL-01-AB-1904|  | MH-12-PQ-9081|               |
-|  +--------------+  +--------------+  +--------------+  +--------------+               |
-+---------------------------------------------------------------------------------------+
-```
+### ⏱️ 5. Real-Time Live Parking Telemetry (`LiveParkingTimerView.jsx`)
+- **Per-Second Live Duration Ticker**: Real-time counter calculating exact parking duration (`01h 24m 15s`) updating every second using JavaScript.
+- **Floor Filters & Search**: Filter active vehicles by Ground Floor or Basement.
+- **Instant Bay Release**: 1-Click **Check Out & Release Bay** button to clear slots, update the map, and refresh available capacity immediately.
 
 ---
 
-## 🚀 How to Run the Project
+## 🛠️ Technology Stack
 
-### 📋 Prerequisites
-Ensure you have the following installed on your computer:
-- [Node.js](https://nodejs.org/) (Version **18.x** or higher recommended)
-- `npm` (Comes packaged with Node.js)
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend Framework** | React 19 (`react`, `react-dom`) | Declarative, fast component-based UI architecture |
+| **Build & Dev Tooling** | Vite 8 | Ultra-fast build tool and Hot Module Replacement (HMR) |
+| **Styling & Design** | Modern CSS3 | Lightweight, responsive dark theme with sleek glassmorphism |
+| **Authentication** | Firebase Auth + Google OAuth | Google Sign-In, Email/Password, and local demo session handler |
+| **Database & Caching** | Cloud Firestore + `localStorage` | Real-time state synchronization and offline fallback |
+| **Typography** | Google Fonts (*Outfit*, *Plus Jakarta Sans*, *JetBrains Mono*) | Monospace license plate formatting & clean typography |
 
 ---
 
-### ⚙️ Quick Start (Step-by-Step)
+## 🚀 Quick Start Guide
 
-You can run the project **directly from the root folder** or inside the `frontend` folder:
-
-#### Option A: Run directly from the root folder
+### 1. Clone the Repository
 ```bash
-# 1. Install frontend dependencies (if not done yet)
-npm run install-frontend
-
-# 2. Start the dev server
-npm run dev
+git clone https://github.com/alzuni-shaikh/smart-college-parking-system.git
+cd smart-college-parking-system/frontend
 ```
 
-#### Option B: Run from the `frontend` folder
+### 2. Install Dependencies
 ```bash
-# 1. Navigate to frontend
-cd frontend
-
-# 2. Install dependencies
 npm install
+```
 
-# 3. Start the dev server
+### 3. Start Development Server
+```bash
 npm run dev
 ```
+Open **[http://localhost:5173/](http://localhost:5173/)** in your web browser.
 
-#### Step 4: Open in Your Web Browser
-Once started, open your web browser and navigate to:
+### 4. Build for Production
+```bash
+npm run build
 ```
-http://localhost:5173/
-```
-
----
-
-### 📦 Available Scripts
-
-In the `frontend` directory, you can run:
-
-| Command | Description |
-| :--- | :--- |
-| `npm run dev` | Starts the local development server at `http://localhost:5173` with Hot Module Replacement (HMR). |
-| `npm run build` | Builds the production-ready optimized bundle inside the `dist/` directory. |
-| `npm run preview` | Previews the production build locally. |
-| `npm run lint` | Runs ESLint to check for code quality and syntax standards. |
-
----
-
-## 🛠️ Common Frontend Errors & How They Were Cleared
-
-### 1. ❌ *Error: `'vite'` is not recognized as an internal or external command*
-- **Cause**: The project dependencies (`node_modules`) were not installed after cloning or setting up the repo.
-- **Fix**: Run `npm install` inside the `frontend/` folder to install all packages specified in `package.json`.
-
-### 2. ❌ *Error: Blank white screen / CORS policy error when opening `index.html` directly via file explorer (`file:///` protocol)*
-- **Cause**: Modern web frameworks like React + Vite utilize standard JavaScript ES Modules (`<script type="module" src="/src/main.jsx">`). Web browsers enforce strict Cross-Origin (CORS) security restrictions that prevent ES module scripts from executing under the `file://` protocol.
-- **Fix**: Always run the application using the local development server (`npm run dev`) or a local HTTP server instead of double-clicking `index.html`.
-
-### 3. ❌ *Error: Port `5173` already in use*
-- **Cause**: Another background process or instance of Vite is running on port 5173.
-- **Fix**: Run `npx vite --port 3000` or let Vite automatically bind to the next available open port.
 
 ---
 
@@ -142,56 +96,39 @@ In the `frontend` directory, you can run:
 
 ```text
 smart-college-parking-system/
-├── README.md                      # Comprehensive Project Documentation
-└── frontend/                      # React + Vite Frontend Application
-    ├── package.json               # Project metadata, scripts, and dependencies
-    ├── vite.config.js             # Vite build and plugin configuration
-    ├── eslint.config.js           # ESLint linting configuration
-    ├── index.html                 # HTML5 template with Google Fonts & metadata
-    ├── public/
-    │   ├── favicon.svg            # Smart parking favicon
-    │   └── icons.svg              # SVG asset sprites
-    └── src/
-        ├── main.jsx               # React DOM root entrypoint
-        ├── App.jsx                # Main application state and layout manager
-        ├── index.css              # Global styles, glassmorphism design tokens & typography
-        ├── App.css                # Component styles, animations, boom barrier & cards
-        ├── components/
-        │   ├── Icons.jsx          # Custom SVG Icon components
-        │   ├── Navbar.jsx         # Header with live clock, tabs, alerts & role switcher
-        │   ├── StatsOverview.jsx  # KPI metrics cards and capacity progress indicators
-        │   ├── ParkingLotMap.jsx  # Interactive 2D parking bay grid with search & filters
-        │   ├── SlotBookingModal.jsx# Slot reservation modal and input validator
-        │   ├── GateSimulator.jsx  # Automated boom barrier in/out terminal simulator
-        │   ├── LiveVehicleLog.jsx # Real-time gate telemetry and audit log table
-        │   ├── AnalyticsView.jsx  # Hourly occupancy charts & zone breakdown
-        │   ├── PassModal.jsx      # Digital parking pass with QR code & print support
-        │   └── NotificationToast.jsx # Floating real-time alert notifications
-        └── data/
-            └── initialSlots.js    # Mock parking bay data, telemetry logs, and traffic patterns
+├── README.md                      # Project Documentation
+└── frontend/                      # React + Vite Frontend
+    ├── package.json               # Dependencies and scripts
+    ├── vite.config.js             # Vite configuration
+    ├── eslint.config.js           # ESLint configuration
+    ├── index.html                 # HTML5 template with Google Fonts
+    ├── src/
+    │   ├── main.jsx               # React DOM entry point
+    │   ├── App.jsx                # Main application state & view router
+    │   ├── App.css                # Clean, responsive CSS stylesheet
+    │   ├── index.css              # Base design tokens and typography
+    │   ├── pages/
+    │   │   ├── Login.jsx          # Google Sign-In & User Registration page
+    │   │   └── Login.css          # Auth page styling
+    │   ├── components/
+    │   │   ├── Navbar.jsx         # Navigation bar with Sign Out & Clock
+    │   │   ├── DashboardView.jsx  # KPI metrics & floor capacity overview
+    │   │   ├── ParkingLotMap.jsx  # Visual Ground (Scooties) & Basement (Bikes) layout
+    │   │   ├── LiveParkingTimerView.jsx # Live per-second timer monitor
+    │   │   ├── SlotBookingModal.jsx     # Bay reservation & quick park modal
+    │   │   ├── PassModal.jsx            # Official digital pass with QR code
+    │   │   ├── NotificationToast.jsx    # Real-time alert notifications
+    │   │   └── Icons.jsx                # SVG icon library
+    │   ├── firebase/
+    │   │   ├── firebase.js        # Firebase app configuration
+    │   │   └── auth.js            # Google OAuth & Email auth handlers
+    │   ├── data/
+    │   │   └── initialSlots.js    # 160 bay layout (80 Ground + 80 Basement)
+    │   └── utils/
+    │       └── timerUtils.js      # Real-time parking duration helpers
 ```
 
 ---
 
-## 🔧 Technology Stack
-
-- **Core Library**: [React 19](https://react.dev/)
-- **Build Tool & Dev Server**: [Vite 8](https://vite.dev/)
-- **Styling**: Pure Modern CSS3 (Glassmorphism, CSS Grid, Flexbox, Custom CSS Variables)
-- **Typography**: Google Fonts ([Outfit](https://fonts.google.com/specimen/Outfit), [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans), [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono))
-- **Icons**: Custom Clean Vector SVGs
-
----
-
-## 🔮 Future Roadmap & Hardware Integration
-
-- [ ] **Hardware Sensors**: Connect ESP32 / Arduino microcontrollers with HC-SR04 ultrasonic sensors for physical bay occupancy detection.
-- [ ] **Live Camera ANPR**: Integrate OpenCV / Python OCR service to read license plates directly from physical camera feeds.
-- [ ] **Cloud Database**: Synchronize real-time telemetry across campuses using Firebase Firestore or PostgreSQL.
-- [ ] **SMS / WhatsApp Alerts**: Automated push notifications when reserved parking duration is about to expire.
-
----
-
-<p align="center">
-  Built for <b>Smart College Mini Project</b> • Department of Computer Science & Engineering
-</p>
+## 📄 License & Attribution
+Developed for Smart Campus IoT Initiatives. Open source for educational and institutional research.

@@ -1,16 +1,19 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { SearchIcon, ActivityIcon } from './Icons'
 
-export default function LiveVehicleLog({ logs }) {
+export default function LiveVehicleLog({ logs = [] }) {
   const [filterAction, setFilterAction] = useState('ALL')
   const [search, setSearch] = useState('')
 
   const filteredLogs = logs.filter((log) => {
     const matchAction = filterAction === 'ALL' || log.action === filterAction
+    const query = search.toLowerCase().trim()
     const matchSearch =
-      log.plate.toLowerCase().includes(search.toLowerCase()) ||
-      (log.slot && log.slot.toLowerCase().includes(search.toLowerCase())) ||
-      (log.category && log.category.toLowerCase().includes(search.toLowerCase()))
+      !query ||
+      (log.plate && log.plate.toLowerCase().includes(query)) ||
+      (log.slot && log.slot.toLowerCase().includes(query)) ||
+      (log.category && log.category.toLowerCase().includes(query)) ||
+      (log.gate && log.gate.toLowerCase().includes(query))
     return matchAction && matchSearch
   })
 
@@ -19,7 +22,7 @@ export default function LiveVehicleLog({ logs }) {
       <div className="logs-header">
         <div className="logs-title-wrap">
           <ActivityIcon className="w-5 h-5 text-cyan" />
-          <h3>Real-Time Gate Telemetry & Access Logs</h3>
+          <h3>Real-Time Gate Telemetry &amp; Access Logs</h3>
         </div>
 
         <div className="logs-controls">
@@ -27,11 +30,21 @@ export default function LiveVehicleLog({ logs }) {
             <SearchIcon className="w-4 h-4 text-muted" />
             <input
               type="text"
-              placeholder="Search by plate or slot..."
+              placeholder="Search by plate, slot, or role..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="search-input"
             />
+            {search && (
+              <button
+                type="button"
+                className="clear-search-btn"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
           </div>
 
           <div className="action-filter-pills">
@@ -47,14 +60,14 @@ export default function LiveVehicleLog({ logs }) {
               className={`pill-btn ${filterAction === 'ENTRY' ? 'active' : ''}`}
               onClick={() => setFilterAction('ENTRY')}
             >
-              🟢 Entries ({logs.filter(l => l.action === 'ENTRY').length})
+              🟢 Inbound Entries ({logs.filter((l) => l.action === 'ENTRY').length})
             </button>
             <button
               type="button"
               className={`pill-btn ${filterAction === 'EXIT' ? 'active' : ''}`}
               onClick={() => setFilterAction('EXIT')}
             >
-              🔴 Exits ({logs.filter(l => l.action === 'EXIT').length})
+              🔴 Outbound Exits ({logs.filter((l) => l.action === 'EXIT').length})
             </button>
           </div>
         </div>
@@ -67,17 +80,17 @@ export default function LiveVehicleLog({ logs }) {
               <th>Timestamp</th>
               <th>Action</th>
               <th>Vehicle Plate</th>
-              <th>Assigned Slot</th>
+              <th>Assigned Bay</th>
               <th>User Category</th>
               <th>Gate Station</th>
-              <th>Duration / Details</th>
+              <th>Duration / Status</th>
             </tr>
           </thead>
           <tbody>
             {filteredLogs.length === 0 ? (
               <tr>
                 <td colSpan="7" className="empty-table-cell">
-                  No activity log entries found.
+                  No activity log entries match your criteria.
                 </td>
               </tr>
             ) : (
@@ -94,14 +107,14 @@ export default function LiveVehicleLog({ logs }) {
                     <span className="slot-pill-sm">{item.slot || 'N/A'}</span>
                   </td>
                   <td>
-                    <span className="cat-badge">{item.category || item.vehicleType || 'Campus'}</span>
+                    <span className="cat-badge">{item.category || item.vehicleType || 'Student'}</span>
                   </td>
-                  <td className="gate-cell">{item.gate || 'Main Gate 1'}</td>
+                  <td className="gate-cell">{item.gate || 'Main Gate 1 (ANPR)'}</td>
                   <td className="details-cell">
                     {item.action === 'EXIT' ? (
-                      <span className="text-muted">Stay: {item.duration || '45m'} ({item.fee || 'Free'})</span>
+                      <span className="text-muted">Stay: {item.duration || '45m'} (Campus Free)</span>
                     ) : (
-                      <span className="text-emerald">Checked In</span>
+                      <span className="text-emerald">Checked In &bull; Parked</span>
                     )}
                   </td>
                 </tr>

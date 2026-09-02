@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { LogOutIcon } from './Icons'
+import { useState, useEffect } from 'react'
+import { LogOutIcon, PlusCircleIcon } from './Icons'
 import { logout } from '../firebase/auth'
 
 export default function Navbar({
@@ -8,21 +8,19 @@ export default function Navbar({
   onLogout,
   activeTab,
   setActiveTab,
-  currentRole,
+  onOpenQuickPark
 }) {
   const [time, setTime] = useState(new Date())
-  const [imgError, setImgError] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
-  useEffect(() => {
-    setImgError(false)
-  }, [user?.photoURL])
-
   const handleLogout = async () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
     try {
       if (onLogout) {
         await onLogout()
@@ -30,127 +28,104 @@ export default function Navbar({
         await logout()
       }
     } catch (err) {
-      console.error('Failed to logout:', err)
+      console.error('Logout error:', err)
+      setIsLoggingOut(false)
     }
   }
 
-  const getInitials = () => {
-    if (user?.displayName) {
-      const parts = user.displayName.trim().split(/\s+/)
-      if (parts.length >= 2) {
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-      }
-      return user.displayName.slice(0, 2).toUpperCase()
-    }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase()
-    }
-    return 'CP'
-  }
-
-  const displayRole = userProfile?.role || currentRole || 'Student'
+  const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'
+  const displayRole = userProfile?.role || 'Student'
 
   return (
-    <header className="navbar-container">
-      {/* Left: Brand Logo */}
-      <div className="navbar-left">
-        <div className="brand-logo">
-          <div className="logo-icon-wrap">
-            <span className="logo-p-badge">P</span>
-          </div>
-          <div className="brand-info">
-            <h1 className="brand-title">SmartPark<span className="accent-dot">.</span>Campus</h1>
-            <span className="brand-subtitle">Smart Parking System</span>
+    <header className="site-navbar">
+      <div className="navbar-inner">
+        {/* Left: Brand Identity */}
+        <div className="nav-brand" onClick={() => setActiveTab('dashboard')}>
+          <div className="nav-logo-icon">P</div>
+          <div className="nav-brand-text">
+            <h1 className="nav-title">
+              SmartPark<span className="accent">.</span>College
+            </h1>
+            <span className="nav-sub">Smart Parking System</span>
           </div>
         </div>
-      </div>
 
-      {/* Center: Clean Navigation Tabs */}
-      <nav className="nav-tabs">
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'map' ? 'active' : ''}`}
-          onClick={() => setActiveTab('map')}
-        >
-          Parking Map
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
-          onClick={() => setActiveTab('analytics')}
-        >
-          Live Analytics
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'gate' ? 'active' : ''}`}
-          onClick={() => setActiveTab('gate')}
-        >
-          Gate Terminal
-        </button>
-        <button
-          type="button"
-          className={`nav-tab-btn ${activeTab === 'logs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('logs')}
-        >
-          Activity Log
-        </button>
-      </nav>
+        {/* Center: Clean 3-Tab Navigation */}
+        <nav className="nav-menu">
+          <button
+            type="button"
+            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            <span className="nav-icon">📊</span>
+            <span>Dashboard</span>
+          </button>
 
-      {/* Right: Live Clock, User Profile & Sign Out */}
-      <div className="navbar-right">
-        {/* Live Timing Clock */}
-        <div className="live-clock">
-          <span className="clock-time">
-            {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </span>
-          <span className="clock-date">
-            {time.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-          </span>
-        </div>
+          <button
+            type="button"
+            className={`nav-link ${activeTab === 'map' ? 'active' : ''}`}
+            onClick={() => setActiveTab('map')}
+          >
+            <span className="nav-icon">🅿️</span>
+            <span>Parking Layout</span>
+          </button>
 
-        {user && (
-          <div className="user-profile-badge">
-            <div className="user-avatar-wrap">
-              {user.photoURL && !imgError ? (
-                <img
-                  src={user.photoURL}
-                  alt={user.displayName || 'User Profile'}
-                  className="user-avatar-img"
-                  referrerPolicy="no-referrer"
-                  onError={() => setImgError(true)}
-                />
-              ) : (
-                <div className="user-avatar-fallback">
-                  {getInitials()}
-                </div>
-              )}
-            </div>
+          <button
+            type="button"
+            className={`nav-link ${activeTab === 'timer' ? 'active' : ''}`}
+            onClick={() => setActiveTab('timer')}
+          >
+            <span className="nav-icon">⏱️</span>
+            <span>Live Parking</span>
+          </button>
+        </nav>
 
-            <div className="user-info-stack">
-              <div className="user-name-row">
-                <span className="user-name" title={user.displayName || 'Campus User'}>
-                  {user.displayName || 'Campus User'}
-                </span>
-                <span className="user-role-pill">{displayRole}</span>
-              </div>
-              <span className="user-email" title={user.email || ''}>
-                {user.email || ''}
-              </span>
-            </div>
-
+        {/* Right: Quick Action, Clock, Profile & Explicit Sign Out */}
+        <div className="nav-actions">
+          {/* Quick Park / Reserve Action */}
+          {onOpenQuickPark && (
             <button
               type="button"
-              className="user-logout-btn"
-              onClick={handleLogout}
-              title="Sign out"
-              aria-label="Sign out"
+              className="quick-park-btn"
+              onClick={onOpenQuickPark}
+              title="Park or Reserve a Slot"
             >
-              <LogOutIcon className="w-4 h-4 logout-icon" />
-              <span className="logout-btn-text">Sign Out</span>
+              <PlusCircleIcon className="w-4 h-4" />
+              <span>Park Vehicle</span>
             </button>
+          )}
+
+          {/* Live Campus Clock */}
+          <div className="nav-clock hide-mobile">
+            <span className="clock-time">
+              {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </span>
           </div>
-        )}
+
+          {/* User Profile Info */}
+          <div className="user-profile-chip hide-mobile">
+            <div className="user-avatar">
+              {displayName.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="user-details">
+              <span className="user-name">{displayName}</span>
+              <span className="user-role">{displayRole}</span>
+            </div>
+          </div>
+
+          {/* Prominent Sign Out Button */}
+          <button
+            type="button"
+            className="sign-out-btn"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            title="Sign Out of Session"
+            aria-label="Sign Out"
+          >
+            <LogOutIcon className="w-4 h-4" />
+            <span>{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
+          </button>
+        </div>
       </div>
     </header>
   )

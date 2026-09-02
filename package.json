@@ -8,6 +8,7 @@
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview",
+    "deploy": "npm --prefix frontend run deploy",
     "install-frontend": "npm --prefix frontend install"
   },
   "keywords": [],

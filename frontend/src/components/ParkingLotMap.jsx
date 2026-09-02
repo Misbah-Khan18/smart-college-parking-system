@@ -1,234 +1,223 @@
-import React, { useMemo } from 'react'
-import { CarIcon, BikeIcon, EvIcon, SearchIcon, PlusCircleIcon, ShieldIcon } from './Icons'
+import { useMemo, useState } from 'react'
+import {
+  BikeIcon,
+  SearchIcon,
+  PlusCircleIcon
+} from './Icons'
 
 export default function ParkingLotMap({
-  slots,
-  selectedZone,
-  setSelectedZone,
-  filterStatus,
-  setFilterStatus,
-  searchQuery,
-  setSearchQuery,
+  slots = [],
   onSelectSlot,
   onOpenBooking,
-  onReleaseSlot,
-  currentRole
+  onReleaseSlot
 }) {
-  const zones = [
-    { label: 'All Bays', value: 'All Zones' },
-    { label: 'Zone A (Student)', value: 'Zone A (Student Cars)' },
-    { label: 'Zone B (Faculty)', value: 'Zone B (Faculty & Staff)' },
-    { label: 'Zone C (EV Charging)', value: 'Zone C (EV Charging)' },
-    { label: 'Zone D (Two-Wheelers)', value: 'Zone D (Two-Wheelers)' },
-  ]
+  const [selectedFloor, setSelectedFloor] = useState('Ground Floor')
+  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'available' | 'occupied' | 'reserved'
+  const [search, setSearch] = useState('')
+
+  // Filter slots for current floor and search criteria
+  const floorSlots = useMemo(() => {
+    return slots.filter((slot) => slot.floor === selectedFloor)
+  }, [slots, selectedFloor])
+
+  const availableCount = floorSlots.filter((s) => s.status === 'available').length
+  const occupiedCount = floorSlots.filter((s) => s.status === 'occupied').length
+  const reservedCount = floorSlots.filter((s) => s.status === 'reserved').length
 
   const filteredSlots = useMemo(() => {
-    return slots.filter((slot) => {
-      const matchZone = selectedZone === 'All Zones' || slot.zone === selectedZone
-      const matchStatus = filterStatus === 'all' || slot.status === filterStatus
-      const matchSearch =
-        slot.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (slot.plate && slot.plate.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (slot.owner && slot.owner.toLowerCase().includes(searchQuery.toLowerCase()))
-      return matchZone && matchStatus && matchSearch
+    const q = search.toLowerCase().trim()
+    return floorSlots.filter((slot) => {
+      const matchesStatus = statusFilter === 'all' || slot.status === statusFilter
+      const matchesSearch =
+        !q ||
+        slot.id.toLowerCase().includes(q) ||
+        (slot.plate && slot.plate.toLowerCase().includes(q)) ||
+        (slot.owner && slot.owner.toLowerCase().includes(q))
+      return matchesStatus && matchesSearch
     })
-  }, [slots, selectedZone, filterStatus, searchQuery])
+  }, [floorSlots, statusFilter, search])
 
-  const getVehicleIcon = (type) => {
-    switch (type) {
-      case 'bike':
-        return <BikeIcon className="w-4 h-4" />
-      case 'ev':
-        return <EvIcon className="w-4 h-4" />
-      default:
-        return <CarIcon className="w-4 h-4" />
-    }
-  }
+  // Count totals for badges
+  const groundAvailable = slots.filter((s) => s.floor === 'Ground Floor' && s.status === 'available').length
+  const basementAvailable = slots.filter((s) => s.floor === 'Basement' && s.status === 'available').length
 
   return (
-    <div className="parking-map-container">
-      {/* Controls & Filter Bar */}
-      <div className="map-toolbar simple-toolbar">
-        {/* Search */}
-        <div className="search-box">
-          <SearchIcon className="w-4 h-4 text-muted" />
+    <div className="parking-map-view">
+      {/* Floor Selection Switcher */}
+      <div className="floor-switch-container">
+        <button
+          type="button"
+          className={`floor-switch-btn ${selectedFloor === 'Ground Floor' ? 'active' : ''}`}
+          onClick={() => setSelectedFloor('Ground Floor')}
+        >
+          <span className="switch-icon">🛵</span>
+          <div className="switch-text">
+            <strong>Ground Floor</strong>
+            <small>Reserved for Scooties &bull; {groundAvailable} Available</small>
+          </div>
+        </button>
+
+        <button
+          type="button"
+          className={`floor-switch-btn ${selectedFloor === 'Basement' ? 'active' : ''}`}
+          onClick={() => setSelectedFloor('Basement')}
+        >
+          <span className="switch-icon">🏍️</span>
+          <div className="switch-text">
+            <strong>Basement Floor</strong>
+            <small>Reserved for Bikes &bull; {basementAvailable} Available</small>
+          </div>
+        </button>
+      </div>
+
+      {/* Map Filter & Action Toolbar */}
+      <div className="map-toolbar glass-card">
+        {/* Search Bar */}
+        <div className="search-bar-wrap">
+          <SearchIcon className="search-icon" />
           <input
             type="text"
-            placeholder="Search slot (e.g. A-01), plate, or name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
+            placeholder="Search bay ID (e.g. G-05), plate, or student..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="search-bar-input"
           />
-          {searchQuery && (
-            <button type="button" className="clear-btn" onClick={() => setSearchQuery('')}>×</button>
+          {search && (
+            <button
+              type="button"
+              className="clear-search-btn"
+              onClick={() => setSearch('')}
+            >
+              &times;
+            </button>
           )}
         </div>
 
-        {/* Zone Filter Buttons */}
-        <div className="zone-filter-pills">
-          {zones.map((z) => (
-            <button
-              key={z.value}
-              type="button"
-              className={`filter-pill ${selectedZone === z.value ? 'active' : ''}`}
-              onClick={() => setSelectedZone(z.value)}
-            >
-              {z.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Status Filter & Book Action */}
+        {/* Status Filters */}
         <div className="status-filter-group">
-          <div className="status-toggle-btns">
-            <button
-              type="button"
-              className={`status-btn ${filterStatus === 'all' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('all')}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`status-btn available ${filterStatus === 'available' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('available')}
-            >
-              Available
-            </button>
-            <button
-              type="button"
-              className={`status-btn occupied ${filterStatus === 'occupied' ? 'active' : ''}`}
-              onClick={() => setFilterStatus('occupied')}
-            >
-              Occupied
-            </button>
-          </div>
-
           <button
             type="button"
-            className="btn btn-primary book-slot-btn"
-            onClick={() => onOpenBooking(null)}
+            className={`filter-pill ${statusFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('all')}
           >
-            <PlusCircleIcon className="w-4 h-4" />
-            <span>Book Slot</span>
+            All ({floorSlots.length})
+          </button>
+          <button
+            type="button"
+            className={`filter-pill available ${statusFilter === 'available' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('available')}
+          >
+            🟢 Available ({availableCount})
+          </button>
+          <button
+            type="button"
+            className={`filter-pill occupied ${statusFilter === 'occupied' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('occupied')}
+          >
+            🔴 Occupied ({occupiedCount})
+          </button>
+          <button
+            type="button"
+            className={`filter-pill reserved ${statusFilter === 'reserved' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('reserved')}
+          >
+            🟡 Reserved ({reservedCount})
           </button>
         </div>
+
+        {/* Action Button */}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => onOpenBooking && onOpenBooking(null)}
+        >
+          <PlusCircleIcon className="w-4 h-4" />
+          <span>Park / Reserve</span>
+        </button>
       </div>
 
-      {/* Clean Legend */}
-      <div className="map-legend simple-legend">
+      {/* Grid Legend */}
+      <div className="layout-legend">
         <div className="legend-item">
-          <span className="legend-dot status-available"></span>
-          <span>Available ({slots.filter((s) => s.status === 'available').length})</span>
+          <span className="legend-dot available"></span>
+          <span>Available (Click to Park)</span>
         </div>
         <div className="legend-item">
-          <span className="legend-dot status-occupied"></span>
-          <span>Occupied ({slots.filter((s) => s.status === 'occupied').length})</span>
+          <span className="legend-dot occupied"></span>
+          <span>Occupied (Parked Vehicle)</span>
         </div>
         <div className="legend-item">
-          <span className="legend-dot status-reserved"></span>
-          <span>Reserved ({slots.filter((s) => s.status === 'reserved').length})</span>
+          <span className="legend-dot reserved"></span>
+          <span>Reserved (Pre-booked Pass)</span>
         </div>
       </div>
 
-      {/* Clean Slots Grid */}
-      <div className="slots-grid-view">
-        {filteredSlots.length === 0 ? (
-          <div className="empty-state">
-            <ShieldIcon className="w-10 h-10 text-muted" />
-            <p>No parking slots match the selected filters.</p>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                setSelectedZone('All Zones')
-                setFilterStatus('all')
-                setSearchQuery('')
-              }}
-            >
-              Reset Filters
-            </button>
-          </div>
-        ) : (
-          filteredSlots.map((slot) => {
+      {/* Interactive Parking Slot Grid */}
+      {filteredSlots.length === 0 ? (
+        <div className="empty-map-state glass-card">
+          <p>No parking slots match the selected filters or search.</p>
+        </div>
+      ) : (
+        <div className="parking-grid">
+          {filteredSlots.map((slot) => {
             const isAvailable = slot.status === 'available'
             const isOccupied = slot.status === 'occupied'
             const isReserved = slot.status === 'reserved'
+            const isScooty = slot.type === 'scooty' || slot.floor === 'Ground Floor'
 
             return (
               <div
                 key={slot.id}
-                className={`slot-card ${slot.status} ${slot.type === 'ev' ? 'is-ev' : ''}`}
-                onClick={() => onSelectSlot(slot)}
+                className={`slot-box ${slot.status}`}
+                onClick={() => onSelectSlot && onSelectSlot(slot)}
               >
-                <div className="slot-top-row">
-                  <div className="slot-id-badge">
-                    <span className="slot-id-text">{slot.id}</span>
-                    {slot.type === 'ev' && <span className="ev-tag">⚡ EV</span>}
-                  </div>
-                  <div className="slot-type-icon">{getVehicleIcon(slot.type)}</div>
+                <div className="slot-box-header">
+                  <span className="slot-id font-mono">{slot.id}</span>
+                  <span className="slot-type-icon">{isScooty ? '🛵' : '🏍️'}</span>
                 </div>
 
-                <div className="slot-body">
-                  <div className="slot-status-indicator">
-                    <span className={`status-pill ${slot.status}`}>
-                      {slot.status}
-                    </span>
-                  </div>
+                <div className="slot-box-body">
+                  {isAvailable && (
+                    <div className="slot-status-text text-emerald">
+                      <span>Available</span>
+                      <small className="slot-action-hint">+ Click to Park</small>
+                    </div>
+                  )}
 
                   {isOccupied && (
-                    <div className="slot-info">
-                      <span className="plate-num">{slot.plate}</span>
-                      <span className="owner-name">{slot.owner || 'Occupied'}</span>
+                    <div className="slot-occupied-info">
+                      <strong className="slot-plate font-mono">{slot.plate}</strong>
+                      <span className="slot-owner">{slot.owner || 'Student'}</span>
                     </div>
                   )}
 
                   {isReserved && (
-                    <div className="slot-info">
-                      <span className="plate-num">{slot.plate}</span>
-                      <span className="owner-name">{slot.owner}</span>
-                      {slot.reservedUntil && (
-                        <span className="time-tag">Until {slot.reservedUntil}</span>
-                      )}
-                    </div>
-                  )}
-
-                  {isAvailable && (
-                    <div className="slot-info available-info">
-                      <span className="ready-text">Ready to park</span>
+                    <div className="slot-reserved-info">
+                      <strong className="slot-plate font-mono">{slot.plate || 'RESERVED'}</strong>
+                      <span className="slot-owner text-amber">{slot.owner || 'Pass Holder'}</span>
                     </div>
                   )}
                 </div>
 
-                <div className="slot-actions" onClick={(e) => e.stopPropagation()}>
-                  {isAvailable ? (
-                    <button
-                      type="button"
-                      className="btn-slot-action btn-book-quick"
-                      onClick={() => onOpenBooking(slot)}
-                    >
-                      Book
+                {/* Card footer action for occupied/reserved slots */}
+                {!isAvailable && onReleaseSlot && (
+                  <div
+                    className="slot-box-footer"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onReleaseSlot(slot.id)
+                    }}
+                  >
+                    <button type="button" className="slot-release-btn">
+                      Checkout ↲
                     </button>
-                  ) : (
-                    <div className="occupied-actions">
-                      {(currentRole === 'Security Admin' || currentRole === 'Faculty') && (
-                        <button
-                          type="button"
-                          className="btn-slot-action btn-release"
-                          onClick={() => onReleaseSlot(slot.id)}
-                          title="Checkout vehicle"
-                        >
-                          Checkout
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   )
 }
