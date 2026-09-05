@@ -4,13 +4,12 @@ import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
 import {
   INITIAL_SLOTS,
-  INITIAL_REGISTERED_VEHICLES
+  INITIAL_REGISTERED_VEHICLES,
+  INITIAL_PARKING_HISTORY
 } from './data/initialSlots'
 
 import Navbar from './components/Navbar'
-import DashboardView from './components/DashboardView'
 import ParkingLotMap from './components/ParkingLotMap'
-import LiveParkingTimerView from './components/LiveParkingTimerView'
 import SlotBookingModal from './components/SlotBookingModal'
 import PassModal from './components/PassModal'
 import ConfirmationModal from './components/ConfirmationModal'
@@ -18,6 +17,23 @@ import SubtleAppBackground from './components/SubtleAppBackground'
 import NotificationToast from './components/NotificationToast'
 import IntroSplashScreen from './components/IntroSplashScreen'
 import Login from './pages/Login'
+import RegistrationPage from './pages/RegistrationPage'
+import ParkingHistoryView from './components/ParkingHistoryView'
+
+// Admin Views (7 pages)
+import AdminDashboardView from './components/admin/AdminDashboardView'
+import VehicleEntryView from './components/admin/VehicleEntryView'
+import VehicleExitView from './components/admin/VehicleExitView'
+import WrongParkingView from './components/admin/WrongParkingView'
+
+// Student Views (5 pages)
+import StudentDashboardView from './components/student/StudentDashboardView'
+import StudentAvailableParkingView from './components/student/StudentAvailableParkingView'
+import StudentMyVehicleView from './components/student/StudentMyVehicleView'
+import StudentMyStatusView from './components/student/StudentMyStatusView'
+import StudentMyHistoryView from './components/student/StudentMyHistoryView'
+
+import { getRegisteredVehicles } from './services/vehicleService'
 import './App.css'
 
 export default function App() {
@@ -29,6 +45,7 @@ export default function App() {
       return false
     }
   })
+
   // ==========================================
   // AUTHENTICATION & USER SESSION
   // ==========================================
@@ -71,9 +88,13 @@ export default function App() {
             setUserProfile(profile)
           } else {
             setUserProfile({
-              displayName: currentUser.displayName || 'Campus Member',
+              displayName: currentUser.displayName || 'Alzuni Shaikh',
               email: currentUser.email,
               role: 'Student',
+              campusId: 'S2410701',
+              vehicleType: 'scooty',
+              defaultPlate: 'MH-12-AB-1234',
+              stream: 'BCA (Bachelor of Computer Applications)',
               photoURL: currentUser.photoURL || ''
             })
           }
@@ -93,12 +114,19 @@ export default function App() {
     return () => unsubscribe()
   }, [])
 
-  // Handle Quick Demo Login
+  // Modals & Notifications Toast
+  const [toast, setToast] = useState(null)
+  const showToast = (title, message, type = 'info') => {
+    setToast({ title, message, type })
+  }
+
+  // Handle Quick Demo Login with personalized greeting
   const handleDemoLogin = (demoData) => {
     localStorage.setItem('demo_user_session', JSON.stringify(demoData))
     setUser(demoData)
     setUserProfile(demoData)
-    showToast('Signed In Successfully', `Welcome to School of Commerce Smart Parking, ${demoData.displayName}!`, 'success')
+    const firstName = demoData.displayName?.split(' ')[0] || 'Alzuni'
+    showToast('Signed In', `Welcome, ${firstName} 👋`, 'success')
   }
 
   // Handle Logout
@@ -118,7 +146,7 @@ export default function App() {
   }
 
   // ==========================================
-  // APPLICATION STATE (SLOTS & NAVIGATION)
+  // APPLICATION STATE (SLOTS, HISTORY, TABS)
   // ==========================================
   const [slots, setSlots] = useState(() => {
     const saved = localStorage.getItem('parking_slots_state')
@@ -140,19 +168,34 @@ export default function App() {
     }
   }, [slots])
 
-  const [activeTab, setActiveTab] = useState('home') // 'home' | 'map' | 'timer'
+  const [parkingHistory, setParkingHistory] = useState(() => {
+    const saved = localStorage.getItem('parking_history_state')
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_PARKING_HISTORY
+  })
 
-  // Modals & Notifications
+  useEffect(() => {
+    try {
+      localStorage.setItem('parking_history_state', JSON.stringify(parkingHistory))
+    } catch {
+      // ignore
+    }
+  }, [parkingHistory])
+
+  const [activeTab, setActiveTab] = useState('home')
+
+  // Modals
   const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [bookingSlotTarget, setBookingSlotTarget] = useState(null)
-  const [bookingType, setBookingType] = useState('slot') // 'slot' | 'monthly'
+  const [bookingType, setBookingType] = useState('slot')
   const [confirmationData, setConfirmationData] = useState(null)
   const [activePass, setActivePass] = useState(null)
-  const [toast, setToast] = useState(null)
-
-  const showToast = (title, message, type = 'info') => {
-    setToast({ title, message, type })
-  }
 
   const availableSlots = useMemo(() => {
     return slots.filter((s) => s.status === 'available')
@@ -163,6 +206,83 @@ export default function App() {
     setBookingSlotTarget(slot)
     setBookingType(type)
     setIsBookingOpen(true)
+  }
+
+  // ==========================================
+  // GATE 1: VEHICLE ENTRY HANDLER
+  // ==========================================
+  const handleVehicleEntry = ({
+    plate,
+    owner,
+    rollNumber,
+    stream,
+    type,
+    category = 'Student',
+    preferredFloor
+  }) => {
+    const targetFloor = preferredFloor || (type === 'scooty' ? 'Ground Floor' : 'Basement')
+    const openSlot =
+      slots.find((s) => s.status === 'available' && s.floor === targetFloor) ||
+      slots.find((s) => s.status === 'available')
+
+    if (!openSlot) {
+      return {
+        success: false,
+        message: `No available parking bays remaining on ${targetFloor}.`
+      }
+    }
+
+    const nowTime = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    })
+    const nowTimestamp = Date.now()
+
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.id === openSlot.id
+          ? {
+              ...s,
+              status: 'occupied',
+              plate: plate.toUpperCase(),
+              owner: owner || 'Campus Member',
+              rollNumber: rollNumber || '',
+              stream: stream || '',
+              type: type || 'scooty',
+              category: category || 'Student',
+              entryTime: nowTime,
+              entryTimestamp: nowTimestamp
+            }
+          : s
+      )
+    )
+
+    const passData = {
+      passId: `SOC-${openSlot.id.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`,
+      slotId: openSlot.id,
+      plate: plate.toUpperCase(),
+      owner: owner || 'Campus Member',
+      category: category || 'Student',
+      reservedUntil: 'Active Session',
+      floor: openSlot.floor,
+      section: openSlot.section,
+      zone: `${openSlot.floor} - ${openSlot.section}`,
+      passType: 'Gate Ingress Permit'
+    }
+
+    showToast(
+      'Vehicle Admitted',
+      `${plate.toUpperCase()} assigned to Bay ${openSlot.id} (${openSlot.floor}).`,
+      'success'
+    )
+
+    return {
+      success: true,
+      slotId: openSlot.id,
+      floor: openSlot.floor,
+      passData
+    }
   }
 
   // ==========================================
@@ -248,11 +368,39 @@ export default function App() {
   }
 
   // ==========================================
-  // RELEASE / CHECKOUT HANDLER
+  // GATE 2: RELEASE / CHECKOUT HANDLER
   // ==========================================
   const handleReleaseSlot = (slotId) => {
     const target = slots.find((s) => s.id === slotId)
     const plate = target?.plate || 'Vehicle'
+
+    if (target && target.plate) {
+      const exitTimeStr = new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
+      const durationMs = target.entryTimestamp ? Date.now() - target.entryTimestamp : 3600000
+      const hours = Math.floor(durationMs / 3600000)
+      const mins = Math.floor((durationMs % 3600000) / 60000)
+      const durationStr = `${hours > 0 ? `${hours} hr ` : ''}${mins} min`
+
+      const historyEntry = {
+        id: `HIST-${Date.now().toString().slice(-5)}`,
+        studentName: target.owner || 'Student Member',
+        rollNumber: target.rollNumber || 'S2410701',
+        stream: target.stream || 'BCA (Bachelor of Computer Applications)',
+        vehicleNumber: target.plate,
+        vehicleType: target.type || (target.floor === 'Ground Floor' ? 'scooty' : 'bike'),
+        slotId: target.id,
+        floor: target.floor,
+        entryTime: target.entryTime || 'Earlier',
+        exitTime: exitTimeStr,
+        duration: durationStr || '15 min'
+      }
+
+      setParkingHistory((prev) => [historyEntry, ...prev])
+    }
 
     setSlots((prev) =>
       prev.map((s) =>
@@ -293,7 +441,9 @@ export default function App() {
             <span className="brand-logo-text">P</span>
           </div>
           <h2 className="brand-name">School of Commerce Smart Parking</h2>
-          <p className="brand-sub" style={{ marginTop: '8px' }}>Connecting to campus telemetry...</p>
+          <p className="brand-sub" style={{ marginTop: '8px' }}>
+            Connecting to campus telemetry...
+          </p>
         </div>
       </div>
     )
@@ -316,13 +466,18 @@ export default function App() {
   // ==========================================
   // 2. MAIN APP INTERFACE (AFTER LOGIN)
   // ==========================================
-  const isHomeActive = activeTab === 'home' || activeTab === 'dashboard'
-
   const isAdmin =
     userProfile?.role === 'Security Admin' ||
     userProfile?.role === 'Admin' ||
     user?.email?.includes('admin') ||
-    user?.role === 'Security Admin'
+    user?.role === 'Security Admin' ||
+    user?.role === 'Admin'
+
+  const isHomeActive =
+    activeTab === 'home' ||
+    activeTab === 'dashboard' ||
+    (isAdmin && activeTab === 'admin-dashboard') ||
+    (!isAdmin && activeTab === 'student-dashboard')
 
   return (
     <div className="app-root">
@@ -342,51 +497,137 @@ export default function App() {
       {/* Main Content Area with 150-250ms Smooth Page Transitions */}
       <main className="main-viewport">
         <div key={activeTab} className="page-view-container page-enter-animation">
-          {/* OPTION 1: HOME PAGE (DASHBOARD) */}
-          {isHomeActive && (
-            <DashboardView
-              slots={slots}
-              onNavigateTab={setActiveTab}
-              onReleaseSlot={handleReleaseSlot}
-              onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
-              isAdmin={isAdmin}
-            />
+          {/* =========================================================
+              ADMIN SIDE — 7 PAGES
+              ========================================================= */}
+          {isAdmin && (
+            <>
+              {/* PAGE 1: ADMIN DASHBOARD */}
+              {isHomeActive && (
+                <AdminDashboardView
+                  user={user}
+                  userProfile={userProfile}
+                  slots={slots}
+                  onNavigateTab={setActiveTab}
+                  onReleaseSlot={handleReleaseSlot}
+                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
+                />
+              )}
+
+              {/* PAGE 2: PARKING MAP */}
+              {activeTab === 'map' && (
+                <ParkingLotMap
+                  slots={slots}
+                  onSelectSlot={(slot) => {
+                    if (slot.status === 'available') {
+                      handleOpenBookingModal(slot, 'slot')
+                    } else if (slot.plate) {
+                      setActivePass({
+                        passId: `SOC-${slot.id.replace(/[^a-zA-Z0-9]/g, '')}`,
+                        slotId: slot.id,
+                        plate: slot.plate,
+                        owner: slot.owner,
+                        category: slot.category,
+                        reservedUntil: slot.reservedUntil || 'Active Session',
+                        floor: slot.floor,
+                        section: slot.section,
+                        zone: `${slot.floor} - ${slot.section}`,
+                        passType: slot.passType || 'Hourly Slot'
+                      })
+                    }
+                  }}
+                  onOpenBooking={(slot) => handleOpenBookingModal(slot, 'slot')}
+                  onReleaseSlot={handleReleaseSlot}
+                />
+              )}
+
+              {/* PAGE 3: STUDENT & VEHICLE REGISTRATION */}
+              {activeTab === 'register' && (
+                <RegistrationPage slots={slots} showToast={showToast} />
+              )}
+
+              {/* PAGE 4: VEHICLE ENTRY */}
+              {activeTab === 'vehicle-entry' && (
+                <VehicleEntryView
+                  slots={slots}
+                  registeredVehicles={getRegisteredVehicles()}
+                  onVehicleEntry={handleVehicleEntry}
+                  onShowPass={(pass) => setActivePass(pass)}
+                />
+              )}
+
+              {/* PAGE 5: VEHICLE EXIT */}
+              {activeTab === 'vehicle-exit' && (
+                <VehicleExitView slots={slots} onReleaseSlot={handleReleaseSlot} />
+              )}
+
+              {/* PAGE 6: REPORTS & PARKING HISTORY */}
+              {activeTab === 'reports-history' && (
+                <ParkingHistoryView history={parkingHistory} />
+              )}
+
+              {/* PAGE 7: WRONG PARKING MANAGEMENT */}
+              {activeTab === 'wrong-parking' && (
+                <WrongParkingView
+                  slots={slots}
+                  onReleaseSlot={handleReleaseSlot}
+                  showToast={showToast}
+                />
+              )}
+            </>
           )}
 
-          {/* OPTION 2: PARKING LAYOUT */}
-          {activeTab === 'map' && (
-            <ParkingLotMap
-              slots={slots}
-              onSelectSlot={(slot) => {
-                if (slot.status === 'available') {
-                  handleOpenBookingModal(slot, 'slot')
-                } else if (slot.plate) {
-                  setActivePass({
-                    passId: `SOC-${slot.id.replace(/[^a-zA-Z0-9]/g, '')}`,
-                    slotId: slot.id,
-                    plate: slot.plate,
-                    owner: slot.owner,
-                    category: slot.category,
-                    reservedUntil: slot.reservedUntil || 'Active Session',
-                    floor: slot.floor,
-                    section: slot.section,
-                    zone: `${slot.floor} - ${slot.section}`,
-                    passType: slot.passType || 'Hourly Slot'
-                  })
-                }
-              }}
-              onOpenBooking={(slot) => handleOpenBookingModal(slot, 'slot')}
-              onReleaseSlot={handleReleaseSlot}
-            />
-          )}
+          {/* =========================================================
+              STUDENT SIDE — 5 PAGES
+              ========================================================= */}
+          {!isAdmin && (
+            <>
+              {/* PAGE 1: STUDENT DASHBOARD */}
+              {isHomeActive && (
+                <StudentDashboardView
+                  user={user}
+                  userProfile={userProfile}
+                  slots={slots}
+                  onNavigateTab={setActiveTab}
+                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
+                  onViewPass={(pass) => setActivePass(pass)}
+                />
+              )}
 
-          {/* OPTION 3: LIVE PARKING */}
-          {activeTab === 'timer' && (
-            <LiveParkingTimerView
-              slots={slots}
-              onReleaseSlot={handleReleaseSlot}
-              onOpenBooking={(slot) => handleOpenBookingModal(slot, 'slot')}
-            />
+              {/* PAGE 2: AVAILABLE PARKING */}
+              {activeTab === 'student-available-parking' && (
+                <StudentAvailableParkingView
+                  slots={slots}
+                  userProfile={userProfile}
+                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
+                />
+              )}
+
+              {/* PAGE 3: MY VEHICLE */}
+              {activeTab === 'student-my-vehicle' && (
+                <StudentMyVehicleView
+                  user={user}
+                  userProfile={userProfile}
+                  onViewPass={(pass) => setActivePass(pass)}
+                />
+              )}
+
+              {/* PAGE 4: MY PARKING STATUS */}
+              {activeTab === 'student-my-status' && (
+                <StudentMyStatusView
+                  user={user}
+                  userProfile={userProfile}
+                  slots={slots}
+                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
+                  onNavigateTab={setActiveTab}
+                />
+              )}
+
+              {/* PAGE 5: MY PARKING HISTORY / PROFILE */}
+              {activeTab === 'student-my-history' && (
+                <StudentMyHistoryView user={user} userProfile={userProfile} />
+              )}
+            </>
           )}
         </div>
       </main>
@@ -400,7 +641,7 @@ export default function App() {
         }}
         initialSlot={bookingSlotTarget}
         availableSlots={availableSlots}
-        registeredVehicles={INITIAL_REGISTERED_VEHICLES}
+        registeredVehicles={getRegisteredVehicles()}
         initialBookingType={bookingType}
         onConfirmBooking={handleConfirmBooking}
         user={user}
@@ -436,4 +677,3 @@ export default function App() {
     </div>
   )
 }
-

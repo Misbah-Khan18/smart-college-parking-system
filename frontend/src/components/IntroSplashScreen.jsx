@@ -5,6 +5,27 @@ export default function IntroSplashScreen({ onComplete }) {
   const [phase, setPhase] = useState(1) // 1: Point appear, 2: Layout & Radar expand, 3: College Name Reveal
 
   useEffect(() => {
+    // Check if user has prefers-reduced-motion enabled
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    if (prefersReducedMotion) {
+      setPhase(3)
+      // Fast transition for reduced-motion users (550ms)
+      const tFastDone = setTimeout(() => {
+        try {
+          sessionStorage.setItem('soc_intro_played', 'true')
+        } catch {
+          // ignore
+        }
+        onComplete()
+      }, 550)
+      return () => clearTimeout(tFastDone)
+    }
+
+    // Standard high-performance CSS hardware-accelerated intro sequence
     // Phase 1: Glowing point appears in center (0s)
     const t1 = setTimeout(() => setPhase(2), 500)
     // Phase 2: Radar & Smart Parking Layout expand (0.5s)
@@ -95,11 +116,11 @@ export default function IntroSplashScreen({ onComplete }) {
           </div>
         </div>
 
-        {/* College Name & System Reveal */}
+        {/* College Name & System Initialization Reveal */}
         <div className={`digital-text-container ${phase >= 3 ? 'visible' : ''}`}>
           <div className="telemetry-status-pill">
             <span className="status-live-dot"></span>
-            <span>IOT SMART SENSORS ACTIVE</span>
+            <span>SMART PARKING SYSTEM INITIALIZING</span>
           </div>
 
           <h1 className="digital-school-title">

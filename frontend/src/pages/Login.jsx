@@ -154,12 +154,14 @@ export default function Login({ onDemoLogin }) {
     if (onDemoLogin) {
       onDemoLogin({
         uid: role === 'Admin' ? 'demo-admin-01' : 'demo-student-01',
-        displayName: role === 'Admin' ? 'Campus Admin' : 'Aarav Sharma',
-        email: role === 'Admin' ? 'admin@college.edu' : 'aarav.sharma@college.edu',
+        displayName: role === 'Admin' ? 'Campus Admin' : 'Alzuni Shaikh',
+        email: role === 'Admin' ? 'admin@college.edu' : 'alzuni.shaikh@college.edu',
         role: role === 'Admin' ? 'Security Admin' : 'Student',
-        campusId: role === 'Admin' ? 'ADM-101' : 'STU-2026',
+        campusId: role === 'Admin' ? 'ADM-101' : 'S2410701',
         vehicleType: 'scooty',
-        defaultPlate: role === 'Admin' ? 'MH-04-AD-001' : 'MH-12-ST-4421',
+        defaultPlate: role === 'Admin' ? 'MH-04-AD-001' : 'MH-12-AB-1234',
+        stream: 'BCA (Bachelor of Computer Applications)',
+        phoneNumber: '+91 98765 43210'
       })
     }
   }
