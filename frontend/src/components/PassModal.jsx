@@ -4,6 +4,7 @@ export default function PassModal({ pass, onClose }) {
   if (!pass) return null
 
   const displayPassId = pass.passId || `SMP-${(pass.slotId || '00').replace(/[^a-zA-Z0-9]/g, '')}-PERMIT`
+  const isMonthly = pass.passType === 'Monthly Pass' || pass.reservedLabel?.includes('Monthly')
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -11,7 +12,9 @@ export default function PassModal({ pass, onClose }) {
         <div className="modal-header">
           <div className="modal-title-wrap">
             <ShieldIcon className="w-5 h-5 text-emerald" />
-            <h3 className="modal-title">Official Campus Parking Pass</h3>
+            <h3 className="modal-title">
+              {isMonthly ? 'School of Commerce Monthly Pass' : 'Official Campus Parking Pass'}
+            </h3>
           </div>
           <button type="button" className="close-btn" onClick={onClose} aria-label="Close pass modal">
             <XIcon className="w-5 h-5" />
@@ -21,19 +24,22 @@ export default function PassModal({ pass, onClose }) {
         <div className="pass-ticket">
           <div className="ticket-top">
             <div className="college-header">
-              <h4>SMART CAMPUS PARKING AUTHORITY</h4>
+              <h4>SCHOOL OF COMMERCE &bull; SMART PARKING</h4>
               <span className="ticket-id">PASS #{displayPassId}</span>
             </div>
-            <div className="status-ribbon">
-              <span className="pulse-indicator"></span> ACTIVE PERMIT
+            <div className={`status-ribbon ${isMonthly ? 'monthly' : ''}`}>
+              <span className="pulse-indicator"></span>
+              <span>{isMonthly ? '30-DAY MONTHLY PASS' : 'ACTIVE PERMIT'}</span>
             </div>
           </div>
 
           <div className="ticket-body">
             <div className="slot-hero-badge">
-              <span className="slot-hero-label">ASSIGNED SLOT</span>
+              <span className="slot-hero-label">
+                {isMonthly ? 'DESIGNATED PARKING BAY' : 'ASSIGNED BAY'}
+              </span>
               <span className="slot-hero-id">{pass.slotId}</span>
-              <span className="slot-hero-zone">{pass.zone || pass.section || 'Campus Parking Area'}</span>
+              <span className="slot-hero-zone">{pass.zone || pass.section || 'School of Commerce Campus Area'}</span>
             </div>
 
             <div className="ticket-details-grid">
@@ -46,33 +52,36 @@ export default function PassModal({ pass, onClose }) {
                 <span className="detail-val">{pass.owner || 'Campus User'}</span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Category</span>
-                <span className="detail-val badge-category">{pass.category || 'Student'}</span>
+                <span className="detail-label">Permit Type</span>
+                <span className="detail-val badge-category">
+                  {isMonthly ? 'Monthly Campus Permit' : (pass.category || 'Student Pass')}
+                </span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Valid Until</span>
-                <span className="detail-val text-emerald font-bold">{pass.reservedUntil || 'Full Day Pass'}</span>
+                <span className="detail-label">Validity</span>
+                <span className="detail-val text-emerald font-bold">
+                  {pass.reservedUntil || (isMonthly ? '30 Days Monthly Pass' : 'Active Session')}
+                </span>
               </div>
             </div>
 
             {/* QR Code Simulation */}
             <div className="qr-section">
               <div className="qr-box">
-                {/* SVG QR Code Pattern */}
                 <svg viewBox="0 0 100 100" className="qr-svg" fill="currentColor">
-                  {/* Outer corner 1 */}
+                  {/* Corner 1 */}
                   <rect x="5" y="5" width="26" height="26" fill="#000" rx="3" />
                   <rect x="9" y="9" width="18" height="18" fill="#fff" />
                   <rect x="13" y="13" width="10" height="10" fill="#000" />
-                  {/* Outer corner 2 */}
+                  {/* Corner 2 */}
                   <rect x="69" y="5" width="26" height="26" fill="#000" rx="3" />
                   <rect x="73" y="9" width="18" height="18" fill="#fff" />
                   <rect x="77" y="13" width="10" height="10" fill="#000" />
-                  {/* Outer corner 3 */}
+                  {/* Corner 3 */}
                   <rect x="5" y="69" width="26" height="26" fill="#000" rx="3" />
                   <rect x="9" y="73" width="18" height="18" fill="#fff" />
                   <rect x="13" y="77" width="10" height="10" fill="#000" />
-                  {/* Simulated QR data grid */}
+                  {/* Simulated QR data */}
                   <rect x="36" y="8" width="6" height="6" fill="#000" />
                   <rect x="46" y="8" width="6" height="6" fill="#000" />
                   <rect x="56" y="8" width="6" height="6" fill="#000" />
@@ -107,7 +116,7 @@ export default function PassModal({ pass, onClose }) {
                   <rect x="86" y="82" width="6" height="6" fill="#000" />
                 </svg>
               </div>
-              <p className="qr-hint">Scan at Automatic Gate Reader for Contactless Entry</p>
+              <p className="qr-hint">Scan at School of Commerce Gate Reader for Contactless Entry</p>
             </div>
           </div>
         </div>

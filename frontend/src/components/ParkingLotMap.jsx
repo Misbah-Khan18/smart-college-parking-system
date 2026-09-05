@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import {
-  BikeIcon,
   SearchIcon,
   PlusCircleIcon
 } from './Icons'
@@ -9,11 +8,15 @@ export default function ParkingLotMap({
   slots = [],
   onSelectSlot,
   onOpenBooking,
-  onReleaseSlot
+  onReleaseSlot,
+  selectedSlotId: controlledSelectedId
 }) {
   const [selectedFloor, setSelectedFloor] = useState('Ground Floor')
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'available' | 'occupied' | 'reserved'
   const [search, setSearch] = useState('')
+  const [localSelectedId, setLocalSelectedId] = useState(null)
+
+  const selectedSlotId = controlledSelectedId !== undefined ? controlledSelectedId : localSelectedId
 
   // Filter slots for current floor and search criteria
   const floorSlots = useMemo(() => {
@@ -40,6 +43,13 @@ export default function ParkingLotMap({
   // Count totals for badges
   const groundAvailable = slots.filter((s) => s.floor === 'Ground Floor' && s.status === 'available').length
   const basementAvailable = slots.filter((s) => s.floor === 'Basement' && s.status === 'available').length
+
+  const handleSlotClick = (slot) => {
+    setLocalSelectedId(slot.id)
+    if (onSelectSlot) {
+      onSelectSlot(slot)
+    }
+  }
 
   return (
     <div className="parking-map-view">
@@ -107,7 +117,7 @@ export default function ParkingLotMap({
             className={`filter-pill available ${statusFilter === 'available' ? 'active' : ''}`}
             onClick={() => setStatusFilter('available')}
           >
-            🟢 Available ({availableCount})
+            🔵 Available ({availableCount})
           </button>
           <button
             type="button"
@@ -140,7 +150,7 @@ export default function ParkingLotMap({
       <div className="layout-legend">
         <div className="legend-item">
           <span className="legend-dot available"></span>
-          <span>Available (Click to Park)</span>
+          <span>Available (Soft Cyan Glow)</span>
         </div>
         <div className="legend-item">
           <span className="legend-dot occupied"></span>
@@ -163,13 +173,14 @@ export default function ParkingLotMap({
             const isAvailable = slot.status === 'available'
             const isOccupied = slot.status === 'occupied'
             const isReserved = slot.status === 'reserved'
+            const isSelected = selectedSlotId === slot.id
             const isScooty = slot.type === 'scooty' || slot.floor === 'Ground Floor'
 
             return (
               <div
                 key={slot.id}
-                className={`slot-box ${slot.status}`}
-                onClick={() => onSelectSlot && onSelectSlot(slot)}
+                className={`slot-box ${slot.status} ${isSelected ? 'selected' : ''}`}
+                onClick={() => handleSlotClick(slot)}
               >
                 <div className="slot-box-header">
                   <span className="slot-id font-mono">{slot.id}</span>
@@ -178,8 +189,11 @@ export default function ParkingLotMap({
 
                 <div className="slot-box-body">
                   {isAvailable && (
-                    <div className="slot-status-text text-emerald">
-                      <span>Available</span>
+                    <div className="slot-status-text text-cyan">
+                      <span className="status-label">
+                        <span className="available-cyan-dot"></span>
+                        Available
+                      </span>
                       <small className="slot-action-hint">+ Click to Park</small>
                     </div>
                   )}

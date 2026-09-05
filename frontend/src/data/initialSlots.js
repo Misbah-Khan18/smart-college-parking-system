@@ -390,6 +390,21 @@ export const INITIAL_SLOTS = [
 
 export const INITIAL_REGISTERED_VEHICLES = [
   {
+    id: 'REG-2026-000',
+    studentName: 'Alzuni Shaikh',
+    rollNumber: 'S2410701',
+    stream: 'BCA (Bachelor of Computer Applications)',
+    phoneNumber: '+91 98765 43210',
+    vehicleNumber: 'MH-12-AB-1234',
+    vehicleType: 'scooty',
+    isEv: false,
+    category: 'Student',
+    preferredFloor: 'Ground Floor',
+    registeredAt: '2026-08-01',
+    status: 'Active',
+    passId: 'SMP-S2410701-00'
+  },
+  {
     id: 'REG-2026-001',
     studentName: 'Ananya Deshmukh',
     rollNumber: 'CS21B044',

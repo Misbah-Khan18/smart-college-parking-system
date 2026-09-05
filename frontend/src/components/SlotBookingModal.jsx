@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { XIcon, QrIcon, CheckIcon } from './Icons'
+import { XIcon, QrIcon, CheckIcon, ShieldIcon } from './Icons'
 
 export default function SlotBookingModal({
   isOpen,
@@ -8,6 +8,7 @@ export default function SlotBookingModal({
   availableSlots = [],
   registeredVehicles = [],
   prefilledData = null,
+  initialBookingType = 'slot', // 'slot' | 'monthly'
   onConfirmBooking,
   currentRole = 'Student',
   user,
@@ -17,12 +18,13 @@ export default function SlotBookingModal({
 
   return (
     <SlotBookingContent
-      key={initialSlot?.id || prefilledData?.vehicleNumber || 'default-booking'}
+      key={initialSlot?.id || prefilledData?.vehicleNumber || initialBookingType || 'default-booking'}
       onClose={onClose}
       initialSlot={initialSlot}
       availableSlots={availableSlots}
       registeredVehicles={registeredVehicles}
       prefilledData={prefilledData}
+      initialBookingType={initialBookingType}
       onConfirmBooking={onConfirmBooking}
       currentRole={currentRole}
       user={user}
@@ -37,11 +39,13 @@ function SlotBookingContent({
   availableSlots = [],
   registeredVehicles = [],
   prefilledData = null,
+  initialBookingType = 'slot',
   onConfirmBooking,
   currentRole,
   user,
   userProfile
 }) {
+  const [bookingMode, setBookingMode] = useState(initialBookingType || 'slot') // 'slot' | 'monthly'
   const defaultSlotId = initialSlot?.id || availableSlots[0]?.id || ''
   const defaultSlot = initialSlot || availableSlots.find((s) => s.id === defaultSlotId)
 
@@ -56,6 +60,7 @@ function SlotBookingContent({
     prefilledData?.category || userProfile?.role || (currentRole === 'Faculty' ? 'Faculty' : 'Student')
   )
   const [durationHours, setDurationHours] = useState('2')
+  const [passDuration, setPassDuration] = useState('30') // 30 days | 90 days | 180 days
   const [vehicleType, setVehicleType] = useState(
     prefilledData?.vehicleType || defaultSlot?.type || 'scooty'
   )
@@ -104,8 +109,19 @@ function SlotBookingContent({
     }
 
     const now = new Date()
-    const expTime = new Date(now.getTime() + parseInt(durationHours, 10) * 60 * 60 * 1000)
-    const formattedExpiry = expTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    let formattedExpiry = ''
+    let reservedLabel = ''
+
+    if (bookingMode === 'monthly') {
+      const days = parseInt(passDuration, 10) || 30
+      const expDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+      formattedExpiry = `${days} Days (Valid until ${expDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })})`
+      reservedLabel = `Monthly Pass (${days} Days)`
+    } else {
+      const expTime = new Date(now.getTime() + parseInt(durationHours, 10) * 60 * 60 * 1000)
+      formattedExpiry = expTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      reservedLabel = `Session Pass (${durationHours}h)`
+    }
 
     onConfirmBooking({
       slotId,
@@ -113,8 +129,10 @@ function SlotBookingContent({
       ownerName: ownerName.trim(),
       category,
       vehicleType,
-      durationHours: parseInt(durationHours, 10),
+      durationHours: bookingMode === 'monthly' ? parseInt(passDuration, 10) * 24 : parseInt(durationHours, 10),
       reservedUntil: formattedExpiry,
+      passType: bookingMode === 'monthly' ? 'Monthly Pass' : 'Hourly Slot',
+      reservedLabel
     })
 
     onClose()
@@ -126,15 +144,52 @@ function SlotBookingContent({
         <div className="modal-header">
           <div className="modal-title-wrap">
             <QrIcon className="w-5 h-5 text-cyan" />
-            <h3 className="modal-title">Reserve Parking Bay</h3>
+            <h3 className="modal-title">
+              {bookingMode === 'monthly' ? 'Book Monthly Campus Pass' : 'Reserve Parking Slot'}
+            </h3>
           </div>
           <button type="button" className="close-btn" onClick={onClose} aria-label="Close booking modal">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Mode Selector Pill */}
+        <div className="modal-mode-tabs">
+          <button
+            type="button"
+            className={`modal-tab-pill ${bookingMode === 'slot' ? 'active' : ''}`}
+            onClick={() => {
+              setBookingMode('slot')
+              setErrorMsg('')
+            }}
+          >
+            <span>🅿️ Book Slot (Daily)</span>
+          </button>
+          <button
+            type="button"
+            className={`modal-tab-pill ${bookingMode === 'monthly' ? 'active' : ''}`}
+            onClick={() => {
+              setBookingMode('monthly')
+              setErrorMsg('')
+            }}
+          >
+            <span>🎫 Book Monthly Pass</span>
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="booking-form">
           {errorMsg && <div className="error-banner">{errorMsg}</div>}
+
+          {/* Monthly Pass Highlight Banner */}
+          {bookingMode === 'monthly' && (
+            <div className="monthly-pass-badge-banner">
+              <ShieldIcon className="w-5 h-5 text-indigo" />
+              <div>
+                <strong>School of Commerce Monthly Permit</strong>
+                <p>Guaranteed designated floor slot &bull; Unlimited campus barrier entry</p>
+              </div>
+            </div>
+          )}
 
           {/* Quick Select from Registered Students */}
           {registeredVehicles.length > 0 && !prefilledData && (
@@ -157,7 +212,9 @@ function SlotBookingContent({
 
           {/* Select Slot */}
           <div className="form-group">
-            <label htmlFor="slot-select">Select Available Bay *</label>
+            <label htmlFor="slot-select">
+              {bookingMode === 'monthly' ? 'Select Designated Bay *' : 'Select Available Bay *'}
+            </label>
             <select
               id="slot-select"
               value={slotId}
@@ -234,16 +291,18 @@ function SlotBookingContent({
                 onChange={(e) => setVehicleType(e.target.value)}
                 className="form-control"
               >
-                <option value="scooty">🛵 Scooty (Normal Petrol)</option>
-                <option value="scooty-ev">⚡ EV Scooty (Electric)</option>
-                <option value="bike">🏍️ Bike / Motorcycle (Normal)</option>
-                <option value="bike-ev">⚡ EV Bike (Electric)</option>
+                <option value="scooty">🛵 Scooty (Ground Floor)</option>
+                <option value="bike">🏍️ Bike (Basement)</option>
+                <option value="scooty-ev">⚡ EV Scooty (Ground Floor)</option>
+                <option value="bike-ev">⚡ EV Bike (Basement)</option>
               </select>
             </div>
+          </div>
 
-            {/* Duration */}
+          {/* Duration Choice: Hourly vs Monthly */}
+          {bookingMode === 'slot' ? (
             <div className="form-group">
-              <label htmlFor="duration-select">Duration</label>
+              <label htmlFor="duration-select">Stay Duration</label>
               <select
                 id="duration-select"
                 value={durationHours}
@@ -256,15 +315,32 @@ function SlotBookingContent({
                 <option value="8">Full Day (8 Hours)</option>
               </select>
             </div>
-          </div>
+          ) : (
+            <div className="form-group">
+              <label htmlFor="monthly-pass-select">Monthly Permit Validity</label>
+              <select
+                id="monthly-pass-select"
+                value={passDuration}
+                onChange={(e) => setPassDuration(e.target.value)}
+                className="form-control"
+              >
+                <option value="30">1 Month (30 Days) - Standard Campus Pass</option>
+                <option value="90">3 Months (Quarterly Semester Permit)</option>
+                <option value="180">6 Months (Full Semester Permit)</option>
+              </select>
+            </div>
+          )}
 
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button
+              type="submit"
+              className={`btn ${bookingMode === 'monthly' ? 'btn-indigo' : 'btn-primary'}`}
+            >
               <CheckIcon className="w-4 h-4" />
-              Confirm Reservation
+              <span>{bookingMode === 'monthly' ? 'Confirm Monthly Pass' : 'Confirm Slot Reservation'}</span>
             </button>
           </div>
         </form>
