@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import {
   CheckIcon,
-  SearchIcon,
   PlusCircleIcon
 } from '../Icons'
 
@@ -11,78 +10,146 @@ export default function StudentAvailableParkingView({
   onOpenBooking
 }) {
   const [selectedFloor, setSelectedFloor] = useState('all') // 'all' | 'Ground Floor' | 'Basement'
-  const [search, setSearch] = useState('')
+  const [selectedSection, setSelectedSection] = useState('all') // 'all' | section name | 'ground-all' | 'basement-all'
 
   const availableSlots = useMemo(() => {
     return slots.filter((s) => s.status === 'available')
   }, [slots])
 
-  const filteredSlots = useMemo(() => {
-    return availableSlots.filter((s) => {
-      const matchFloor = selectedFloor === 'all' || s.floor === selectedFloor
-      const q = search.toLowerCase().trim()
-      const matchSearch =
-        !q ||
-        s.id.toLowerCase().includes(q) ||
-        (s.section && s.section.toLowerCase().includes(q)) ||
-        (s.zone && s.zone.toLowerCase().includes(q))
-      return matchFloor && matchSearch
-    })
-  }, [availableSlots, selectedFloor, search])
-
   const groundAvailable = availableSlots.filter((s) => s.floor === 'Ground Floor').length
   const basementAvailable = availableSlots.filter((s) => s.floor === 'Basement').length
 
+  // Filter slots based on dropdown and floor selection
+  const filteredSlots = useMemo(() => {
+    return availableSlots.filter((s) => {
+      // If a specific section is chosen in dropdown
+      if (selectedSection !== 'all') {
+        if (selectedSection === 'ground-all') return s.floor === 'Ground Floor'
+        if (selectedSection === 'basement-all') return s.floor === 'Basement'
+        return s.section === selectedSection
+      }
+      // Otherwise match floor filter
+      if (selectedFloor !== 'all') {
+        return s.floor === selectedFloor
+      }
+      return true
+    })
+  }, [availableSlots, selectedFloor, selectedSection])
+
+  // Get active section info for display banner
+  const sectionInfo = useMemo(() => {
+    if (selectedSection === 'ground-all' || (selectedFloor === 'Ground Floor' && selectedSection === 'all')) {
+      return {
+        icon: '🛵',
+        title: 'Ground Floor &bull; Scooties (All Sections)',
+        description: 'Designated exclusively for student & staff scooties (Bays G-01 to G-80)',
+        count: groundAvailable,
+        total: 80
+      }
+    }
+    if (selectedSection === 'basement-all' || (selectedFloor === 'Basement' && selectedSection === 'all')) {
+      return {
+        icon: '🏍️',
+        title: 'Basement Floor &bull; Bikes (All Rows)',
+        description: 'Designated exclusively for student & staff motorcycles (Bays B-01 to B-80)',
+        count: basementAvailable,
+        total: 80
+      }
+    }
+    if (selectedSection !== 'all') {
+      const isGround = selectedSection.includes('Accounts') || selectedSection.includes('Exam')
+      return {
+        icon: isGround ? '🛵' : '🏍️',
+        title: `${isGround ? 'Ground Floor' : 'Basement'} &bull; ${selectedSection}`,
+        description: isGround ? 'Scooty parking wing with dedicated surveillance' : 'Motorcycle row with IoT sensor telemetry',
+        count: filteredSlots.length,
+        total: 20
+      }
+    }
+    return {
+      icon: '🅿️',
+      title: 'All Campus Parking Wings (Ground + Basement)',
+      description: 'Showing all open parking bays across School of Commerce campus',
+      count: availableSlots.length,
+      total: 160
+    }
+  }, [selectedSection, selectedFloor, groundAvailable, basementAvailable, filteredSlots.length, availableSlots.length])
+
+  const handleDropdownChange = (val) => {
+    setSelectedSection(val)
+    if (val === 'all') {
+      setSelectedFloor('all')
+    } else if (val === 'ground-all' || val.includes('Accounts') || val.includes('Exam')) {
+      setSelectedFloor('Ground Floor')
+    } else if (val === 'basement-all' || val.includes('Basement')) {
+      setSelectedFloor('Basement')
+    }
+  }
+
   return (
     <div className="student-page-container">
-      {/* Header */}
-      <div className="page-section-header glass-card">
-        <div className="psh-badge">
-          <span>🅿️ REAL-TIME BAY TELEMETRY</span>
-        </div>
-        <h1 className="psh-title">
-          Available <span className="gradient-text">Parking Bays</span>
-        </h1>
-        <p className="psh-subtitle">
-          Live campus parking availability. Ground Floor designated for Scooties (80 bays), Basement designated for Bikes (80 bays).
-        </p>
+      {/* Sleek Direct Dropdown Selector Bar */}
+      <div className="parking-section-selector-bar glass-card mb-4">
+        <select
+          id="section-select"
+          className="section-dropdown-select w-full"
+          value={selectedSection}
+          onChange={(e) => handleDropdownChange(e.target.value)}
+          aria-label="Select Parking Floor or Section"
+        >
+          <optgroup label="🌟 All Campus Parking">
+            <option value="all">🌐 All Open Bays ({availableSlots.length} bays available)</option>
+          </optgroup>
+
+          <optgroup label="🛵 Ground Floor — Scooties (80 Bays)">
+            <option value="ground-all">🛵 Ground Floor &bull; All Scooty Sections ({groundAvailable} open)</option>
+            <option value="Accounts Department - Front Side">
+              🛵 Ground: Accounts Dept - Front Side (G-01 to G-20)
+            </option>
+            <option value="Accounts Department - Opposite Side">
+              🛵 Ground: Accounts Dept - Opposite Side (G-21 to G-40)
+            </option>
+            <option value="Exam IT Department - Front Side">
+              🛵 Ground: Exam IT Dept - Front Side (G-41 to G-60)
+            </option>
+            <option value="Exam IT Department - Opposite Side">
+              🛵 Ground: Exam IT Dept - Opposite Side (G-61 to G-80)
+            </option>
+          </optgroup>
+
+          <optgroup label="🏍️ Basement Floor — Bikes (80 Bays)">
+            <option value="basement-all">🏍️ Basement &bull; All Bike Rows ({basementAvailable} open)</option>
+            <option value="Basement Row 1">
+              🏍️ Basement: Row 1 (B-01 to B-20)
+            </option>
+            <option value="Basement Row 2">
+              🏍️ Basement: Row 2 (B-21 to B-40)
+            </option>
+            <option value="Basement Row 3">
+              🏍️ Basement: Row 3 (B-41 to B-60)
+            </option>
+            <option value="Basement Row 4">
+              🏍️ Basement: Row 4 (B-61 to B-80)
+            </option>
+          </optgroup>
+        </select>
       </div>
 
-      {/* Controls & Filter Pills */}
-      <div className="table-controls-bar glass-card mb-4">
-        <div className="filter-tabs-row">
-          <button
-            type="button"
-            className={`pill-btn ${selectedFloor === 'all' ? 'active' : ''}`}
-            onClick={() => setSelectedFloor('all')}
-          >
-            All Open Bays ({availableSlots.length})
-          </button>
-          <button
-            type="button"
-            className={`pill-btn ${selectedFloor === 'Ground Floor' ? 'active' : ''}`}
-            onClick={() => setSelectedFloor('Ground Floor')}
-          >
-            🛵 Ground Floor &bull; Scooties ({groundAvailable})
-          </button>
-          <button
-            type="button"
-            className={`pill-btn ${selectedFloor === 'Basement' ? 'active' : ''}`}
-            onClick={() => setSelectedFloor('Basement')}
-          >
-            🏍️ Basement &bull; Bikes ({basementAvailable})
-          </button>
+      {/* Active Section Info Header */}
+      <div className="section-active-badge-header">
+        <div className="sabh-left">
+          <span className="sabh-icon">{sectionInfo.icon}</span>
+          <div>
+            <h4
+              className="sabh-title"
+              dangerouslySetInnerHTML={{ __html: sectionInfo.title }}
+            ></h4>
+            <p className="sabh-desc">{sectionInfo.description}</p>
+          </div>
         </div>
-
-        <div className="search-box">
-          <SearchIcon className="w-4 h-4 text-muted" />
-          <input
-            type="text"
-            placeholder="Search bay ID (e.g. G-02, B-05)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="search-input"
-          />
+        <div className="sabh-count-pill">
+          <CheckIcon className="w-4 h-4 text-emerald" />
+          <span>{filteredSlots.length} Open Bays Available</span>
         </div>
       </div>
 
@@ -91,12 +158,19 @@ export default function StudentAvailableParkingView({
         {filteredSlots.length === 0 ? (
           <div className="empty-state glass-card p-5 text-center col-span-full">
             <span className="empty-icon">🅿️</span>
-            <h4>No available slots match your filter</h4>
-            <p className="text-muted">Try selecting a different floor or clear your search.</p>
+            <h4>No available slots in this section</h4>
+            <p className="text-muted">All bays in this specific section are currently occupied or reserved. Try selecting another section from the dropdown.</p>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm mt-3"
+              onClick={() => handleDropdownChange('all')}
+            >
+              <span>View All Campus Open Bays</span>
+            </button>
           </div>
         ) : (
           filteredSlots.map((slot) => {
-            const isScooty = slot.floor === 'Ground Floor'
+            const isScooty = slot.floor === 'Ground Floor' || slot.type === 'scooty'
             return (
               <div key={slot.id} className="available-slot-card glass-card">
                 <div className="asc-top">

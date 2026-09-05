@@ -39,20 +39,16 @@ export default function Navbar({
   return (
     <header className="site-navbar">
       <div className="navbar-inner">
-        {/* Left: Brand Identity (shown for Admin, clean for Student) */}
-        {isAdmin ? (
+        {/* Left: Brand Identity (Admin Only) */}
+        {isAdmin && (
           <div className="nav-brand" onClick={() => setActiveTab('admin-dashboard')}>
             <div className="nav-logo-icon">P</div>
             <div className="nav-brand-text">
-              <h1 className="nav-title">
+              <h1 className="nav-title soc-brand-animated">
                 School of Commerce<span className="accent">.</span>Park
               </h1>
               <span className="nav-sub">Admin Management Console</span>
             </div>
-          </div>
-        ) : (
-          <div className="nav-brand-student" onClick={() => setActiveTab('student-dashboard')} style={{ cursor: 'pointer' }}>
-            <div className="nav-logo-icon" title="School of Commerce">P</div>
           </div>
         )}
 

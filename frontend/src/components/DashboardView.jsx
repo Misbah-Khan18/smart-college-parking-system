@@ -65,8 +65,8 @@ export default function DashboardView({
           ========================================================= */}
       <section className="college-hero-section glass-card">
         <div className="hero-content">
-          <h1 className="college-hero-title">
-            <strong>School of Commerce</strong> <span className="gradient-text">Smart Parking</span>
+          <h1 className="college-hero-title soc-brand-animated">
+            <strong>School of Commerce</strong> <span className="accent-dot">.</span> <span className="gradient-text">Smart Parking</span>
           </h1>
         </div>
 
@@ -148,50 +148,65 @@ export default function DashboardView({
       </div>
 
       {/* =========================================================
-          4 MAIN KPI CARDS (DASHBOARD METRICS)
+          OCCUPIED, AVAILED (AVAILABLE), AND RESERVED SLOTS TELEMETRY
+          (SHOWN DIRECTLY BELOW BOOK SLOT & BOOK MONTHLY PASS)
           ========================================================= */}
-      <div className="kpi-grid">
-        <div className="kpi-card glass-card">
-          <div className="kpi-icon-box cyan">
-            <span className="kpi-emoji">🅿️</span>
+      <div className="slots-telemetry-section">
+        <div className="slots-telemetry-grid">
+          {/* Availed / Available Slots */}
+          <div className="telemetry-card available">
+            <div className="tc-icon-wrap available">
+              <CheckIcon className="w-5 h-5 text-emerald" />
+            </div>
+            <div className="tc-content">
+              <span className="tc-label">Availed / Available</span>
+              <div className="tc-val-row">
+                <strong className="tc-value available">{availableSlots}</strong>
+                <span className="tc-sub">Open Bays</span>
+              </div>
+            </div>
           </div>
-          <div className="kpi-data">
-            <span className="kpi-label">Total Parking Bays</span>
-            <strong className="kpi-value text-cyan">{totalSlots}</strong>
-            <span className="kpi-sub">80 Ground + 80 Basement</span>
-          </div>
-        </div>
 
-        <div className="kpi-card glass-card">
-          <div className="kpi-icon-box emerald">
-            <CheckIcon className="w-6 h-6 text-emerald" />
+          {/* Occupied Slots */}
+          <div className="telemetry-card occupied">
+            <div className="tc-icon-wrap occupied">
+              <span>🔴</span>
+            </div>
+            <div className="tc-content">
+              <span className="tc-label">Occupied Slots</span>
+              <div className="tc-val-row">
+                <strong className="tc-value occupied">{occupiedSlots}</strong>
+                <span className="tc-sub">Parked</span>
+              </div>
+            </div>
           </div>
-          <div className="kpi-data">
-            <span className="kpi-label">Available Slots</span>
-            <strong className="kpi-value text-emerald">{availableSlots}</strong>
-            <span className="kpi-sub">Ready for parking</span>
-          </div>
-        </div>
 
-        <div className="kpi-card glass-card">
-          <div className="kpi-icon-box rose">
-            <ShieldIcon className="w-6 h-6 text-rose" />
+          {/* Reserved Slots */}
+          <div className="telemetry-card reserved">
+            <div className="tc-icon-wrap reserved">
+              <span>🟡</span>
+            </div>
+            <div className="tc-content">
+              <span className="tc-label">Reserved Slots</span>
+              <div className="tc-val-row">
+                <strong className="tc-value reserved">{reservedSlots}</strong>
+                <span className="tc-sub">Pre-booked</span>
+              </div>
+            </div>
           </div>
-          <div className="kpi-data">
-            <span className="kpi-label">Occupied Slots</span>
-            <strong className="kpi-value text-rose">{occupiedSlots}</strong>
-            <span className="kpi-sub">Currently parked</span>
-          </div>
-        </div>
 
-        <div className="kpi-card glass-card">
-          <div className="kpi-icon-box indigo">
-            <BikeIcon className="w-6 h-6 text-indigo" />
-          </div>
-          <div className="kpi-data">
-            <span className="kpi-label">Active Vehicles</span>
-            <strong className="kpi-value text-indigo">{occupiedSlots + reservedSlots}</strong>
-            <span className="kpi-sub">Parked &amp; reserved</span>
+          {/* Total Monitored */}
+          <div className="telemetry-card total">
+            <div className="tc-icon-wrap total">
+              <span>🅿️</span>
+            </div>
+            <div className="tc-content">
+              <span className="tc-label">Total Bays</span>
+              <div className="tc-val-row">
+                <strong className="tc-value total">{totalSlots}</strong>
+                <span className="tc-sub">160 Bays (G+B)</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

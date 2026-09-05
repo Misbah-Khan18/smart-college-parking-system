@@ -174,7 +174,7 @@ export default function Login({ onDemoLogin }) {
           <div className="brand-badge">
             <span className="brand-logo-text">P</span>
           </div>
-          <h1 className="brand-name">
+          <h1 className="brand-name soc-brand-animated">
             School of Commerce <span className="accent">Smart Parking</span>
           </h1>
           <p className="brand-sub">Campus Two-Wheeler IoT Parking System</p>
