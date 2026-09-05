@@ -173,9 +173,9 @@ export default function Login({ onDemoLogin }) {
             <span className="brand-logo-text">P</span>
           </div>
           <h1 className="brand-name">
-            SmartPark<span className="accent">.</span>College
+            School of Commerce <span className="accent">Smart Parking</span>
           </h1>
-          <p className="brand-sub">College Smart Parking System</p>
+          <p className="brand-sub">Campus Two-Wheeler IoT Parking System</p>
         </div>
 
         {/* Tab Switcher: Sign In / Register */}

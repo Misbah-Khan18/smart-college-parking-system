@@ -35,30 +35,31 @@ export default function Navbar({
 
   const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'
   const displayRole = userProfile?.role || 'Student'
+  const isHomeActive = activeTab === 'home' || activeTab === 'dashboard'
 
   return (
     <header className="site-navbar">
       <div className="navbar-inner">
-        {/* Left: Brand Identity */}
-        <div className="nav-brand" onClick={() => setActiveTab('dashboard')}>
+        {/* Left: Brand Identity with School of Commerce */}
+        <div className="nav-brand" onClick={() => setActiveTab('home')}>
           <div className="nav-logo-icon">P</div>
           <div className="nav-brand-text">
             <h1 className="nav-title">
-              SmartPark<span className="accent">.</span>College
+              School of Commerce<span className="accent">.</span>Park
             </h1>
             <span className="nav-sub">Smart Parking System</span>
           </div>
         </div>
 
-        {/* Center: Clean 3-Tab Navigation */}
+        {/* Center: Clean 3-Tab Navigation (Home, Parking Layout, Live Parking) */}
         <nav className="nav-menu">
           <button
             type="button"
-            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
+            className={`nav-link ${isHomeActive ? 'active' : ''}`}
+            onClick={() => setActiveTab('home')}
           >
-            <span className="nav-icon">📊</span>
-            <span>Dashboard</span>
+            <span className="nav-icon">🏠</span>
+            <span>Home</span>
           </button>
 
           <button
@@ -87,11 +88,11 @@ export default function Navbar({
             <button
               type="button"
               className="quick-park-btn"
-              onClick={onOpenQuickPark}
+              onClick={() => onOpenQuickPark('slot')}
               title="Park or Reserve a Slot"
             >
               <PlusCircleIcon className="w-4 h-4" />
-              <span>Park Vehicle</span>
+              <span>Book Slot</span>
             </button>
           )}
 
