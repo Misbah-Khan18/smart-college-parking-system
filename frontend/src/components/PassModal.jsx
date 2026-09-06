@@ -3,7 +3,7 @@ import { XIcon, ShieldIcon } from './Icons'
 export default function PassModal({ pass, onClose }) {
   if (!pass) return null
 
-  const displayPassId = pass.passId || `SMP-${(pass.slotId || '00').replace(/[^a-zA-Z0-9]/g, '')}-PERMIT`
+  const displayPassId = pass.passId || `SMP-${String(pass.slotId || '00').replace(/[^a-zA-Z0-9]/g, '')}-PERMIT`
   const isMonthly = pass.passType === 'Monthly Pass' || pass.reservedLabel?.includes('Monthly')
 
   return (
