@@ -28,7 +28,7 @@ import WrongParkingView from './components/admin/WrongParkingView'
 
 // Student Views (5 pages)
 import StudentDashboardView from './components/student/StudentDashboardView'
-import StudentAvailableParkingView from './components/student/StudentAvailableParkingView'
+import CampusParkingDashboard from './components/CampusParkingDashboard'
 import StudentMyVehicleView from './components/student/StudentMyVehicleView'
 import StudentMyStatusView from './components/student/StudentMyStatusView'
 import StudentMyHistoryView from './components/student/StudentMyHistoryView'
@@ -596,7 +596,7 @@ export default function App() {
 
               {/* PAGE 2: AVAILABLE PARKING */}
               {activeTab === 'student-available-parking' && (
-                <StudentAvailableParkingView
+                <CampusParkingDashboard
                   slots={slots}
                   userProfile={userProfile}
                   onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
@@ -625,7 +625,11 @@ export default function App() {
 
               {/* PAGE 5: MY PARKING HISTORY / PROFILE */}
               {activeTab === 'student-my-history' && (
-                <StudentMyHistoryView user={user} userProfile={userProfile} />
+                <StudentMyHistoryView
+                  user={user}
+                  userProfile={userProfile}
+                  history={parkingHistory}
+                />
               )}
             </>
           )}

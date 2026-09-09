@@ -431,6 +431,109 @@
 }
 
 /* =========================================================
+   MOBILE NAVIGATION TOGGLE & DRAWER (< 900px)
+   ========================================================= */
+
+.mobile-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  font-size: 18px;
+}
+
+.mobile-nav-toggle:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.mobile-nav-icon {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .site-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .navbar-inner {
+    padding: 10px 14px;
+    position: relative;
+  }
+
+  .mobile-nav-toggle {
+    display: flex;
+  }
+
+  .user-profile-chip.hide-mobile {
+    display: none;
+  }
+
+  .sign-out-btn .sign-out-text {
+    display: none;
+  }
+
+  .sign-out-btn {
+    padding: 8px 10px;
+  }
+
+  .nav-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(9, 13, 22, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 16px 16px;
+    gap: 6px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+    border-radius: 0 0 16px 16px;
+    z-index: 999;
+    max-height: calc(100vh - 65px);
+    overflow-y: auto;
+  }
+
+  .nav-menu.mobile-open {
+    display: flex;
+    animation: mobileNavDrop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes mobileNavDrop {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .nav-link {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 14px;
+    font-size: 14px;
+    border-radius: 8px;
+    justify-content: flex-start;
+  }
+}
+
+/* =========================================================
    DASHBOARD VIEW
    ========================================================= */
 
@@ -4877,6 +4980,82 @@ html, body, #root, .app-root {
   box-sizing: border-box;
 }
 
+/* Responsive Tables */
+.history-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.3) rgba(15, 23, 42, 0.6);
+}
+
+.history-table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.history-table-wrapper::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+.history-table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.3);
+  border-radius: 4px;
+}
+
+.history-table {
+  min-width: 780px;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-responsive-wrapper,
+.table-responsive {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Modals Mobile Responsiveness */
+.modal-overlay {
+  padding: 16px !important;
+  box-sizing: border-box;
+}
+
+.modal-content {
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+/* Viewport and Card Responsive Adaptations (< 768px) */
+@media (max-width: 768px) {
+  .main-viewport {
+    padding: 14px 10px 36px;
+  }
+
+  .nav-title {
+    font-size: 15px;
+  }
+
+  .nav-sub {
+    display: none;
+  }
+
+  .nav-logo-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+
+  .modal-content {
+    padding: 18px 14px !important;
+    border-radius: var(--radius-md) !important;
+  }
+}
+
 /* =========================================================
    SCHOOL OF COMMERCE BRAND TRANSITIONS & ANIMATIONS
    ========================================================= */
@@ -5283,5 +5462,19 @@ html, body, #root, .app-root {
     transform: none !important;
     animation: none !important;
   }
+}
+
+/* SVG and Dimension Utilities */
+.w-3 { width: 0.75rem !important; height: 0.75rem !important; }
+.w-4 { width: 1rem !important; height: 1rem !important; }
+.w-5 { width: 1.25rem !important; height: 1.25rem !important; }
+.w-6 { width: 1.5rem !important; height: 1.5rem !important; }
+.h-3 { height: 0.75rem !important; }
+.h-4 { height: 1rem !important; }
+.h-5 { height: 1.25rem !important; }
+.h-6 { height: 1.5rem !important; }
+svg.w-3, svg.w-4, svg.w-5, svg.w-6 {
+  flex-shrink: 0;
+  display: inline-block;
 }
 

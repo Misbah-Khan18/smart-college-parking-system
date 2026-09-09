@@ -445,3 +445,29 @@
   color: #38bdf8;
   transform: translateY(-1px);
 }
+
+@media (max-width: 480px) {
+  .login-container {
+    padding: 16px 12px;
+  }
+
+  .login-card {
+    padding: 24px 18px;
+    border-radius: 16px;
+  }
+
+  .brand-name {
+    font-size: 20px;
+  }
+
+  .demo-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+

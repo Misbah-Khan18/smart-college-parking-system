@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { LogOutIcon } from './Icons'
 import { logout } from '../firebase/auth'
 
@@ -11,6 +11,16 @@ export default function Navbar({
   onOpenQuickPark
 }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  // Close mobile menu on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleLogout = async () => {
     if (isLoggingOut) return
@@ -27,6 +37,11 @@ export default function Navbar({
     }
   }
 
+  const handleTabClick = (tab) => {
+    setActiveTab(tab)
+    setMobileMenuOpen(false)
+  }
+
   const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'
   const displayRole = userProfile?.role || 'Student'
   const isAdmin =
@@ -39,9 +54,9 @@ export default function Navbar({
   return (
     <header className="site-navbar">
       <div className="navbar-inner">
-        {/* Left: Brand Identity (Admin Only) */}
-        {isAdmin && (
-          <div className="nav-brand" onClick={() => setActiveTab('admin-dashboard')}>
+        {/* Left: Brand Identity */}
+        {isAdmin ? (
+          <div className="nav-brand" onClick={() => handleTabClick('admin-dashboard')}>
             <div className="nav-logo-icon">P</div>
             <div className="nav-brand-text">
               <h1 className="nav-title soc-brand-animated">
@@ -50,17 +65,27 @@ export default function Navbar({
               <span className="nav-sub">Admin Management Console</span>
             </div>
           </div>
+        ) : (
+          <div className="nav-brand" onClick={() => handleTabClick('student-dashboard')}>
+            <div className="nav-logo-icon">P</div>
+            <div className="nav-brand-text">
+              <h1 className="nav-title soc-brand-animated">
+                School of Commerce<span className="accent">.</span>Park
+              </h1>
+              <span className="nav-sub">Student Portal</span>
+            </div>
+          </div>
         )}
 
         {/* Center: Dynamic Role-Based Navigation */}
-        <nav className="nav-menu">
+        <nav className={`nav-menu ${mobileMenuOpen ? 'mobile-open' : ''}`}>
           {isAdmin ? (
             /* ADMIN SIDE — 7 PAGES */
             <>
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'home' || activeTab === 'admin-dashboard' ? 'active' : ''}`}
-                onClick={() => setActiveTab('admin-dashboard')}
+                onClick={() => handleTabClick('admin-dashboard')}
               >
                 <span className="nav-icon">📊</span>
                 <span>Admin Dashboard</span>
@@ -69,7 +94,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'map' ? 'active' : ''}`}
-                onClick={() => setActiveTab('map')}
+                onClick={() => handleTabClick('map')}
               >
                 <span className="nav-icon">🅿️</span>
                 <span>Parking Map</span>
@@ -78,7 +103,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'register' ? 'active' : ''}`}
-                onClick={() => setActiveTab('register')}
+                onClick={() => handleTabClick('register')}
               >
                 <span className="nav-icon">📋</span>
                 <span>Student &amp; Vehicle Registration</span>
@@ -87,7 +112,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'vehicle-entry' ? 'active' : ''}`}
-                onClick={() => setActiveTab('vehicle-entry')}
+                onClick={() => handleTabClick('vehicle-entry')}
               >
                 <span className="nav-icon">🚗</span>
                 <span>Vehicle Entry</span>
@@ -96,7 +121,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'vehicle-exit' ? 'active' : ''}`}
-                onClick={() => setActiveTab('vehicle-exit')}
+                onClick={() => handleTabClick('vehicle-exit')}
               >
                 <span className="nav-icon">🛑</span>
                 <span>Vehicle Exit</span>
@@ -105,7 +130,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'reports-history' ? 'active' : ''}`}
-                onClick={() => setActiveTab('reports-history')}
+                onClick={() => handleTabClick('reports-history')}
               >
                 <span className="nav-icon">📜</span>
                 <span>Reports &amp; Parking History</span>
@@ -114,7 +139,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'wrong-parking' ? 'active' : ''}`}
-                onClick={() => setActiveTab('wrong-parking')}
+                onClick={() => handleTabClick('wrong-parking')}
               >
                 <span className="nav-icon">⚠️</span>
                 <span>Wrong Parking Management</span>
@@ -126,7 +151,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'home' || activeTab === 'student-dashboard' ? 'active' : ''}`}
-                onClick={() => setActiveTab('student-dashboard')}
+                onClick={() => handleTabClick('student-dashboard')}
               >
                 <span className="nav-icon">🏠</span>
                 <span>Student Dashboard</span>
@@ -135,7 +160,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'student-available-parking' ? 'active' : ''}`}
-                onClick={() => setActiveTab('student-available-parking')}
+                onClick={() => handleTabClick('student-available-parking')}
               >
                 <span className="nav-icon">🅿️</span>
                 <span>Available Parking</span>
@@ -144,7 +169,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'student-my-vehicle' ? 'active' : ''}`}
-                onClick={() => setActiveTab('student-my-vehicle')}
+                onClick={() => handleTabClick('student-my-vehicle')}
               >
                 <span className="nav-icon">🛵</span>
                 <span>My Vehicle</span>
@@ -153,7 +178,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'student-my-status' ? 'active' : ''}`}
-                onClick={() => setActiveTab('student-my-status')}
+                onClick={() => handleTabClick('student-my-status')}
               >
                 <span className="nav-icon">📍</span>
                 <span>My Parking Status</span>
@@ -162,7 +187,7 @@ export default function Navbar({
               <button
                 type="button"
                 className={`nav-link ${activeTab === 'student-my-history' ? 'active' : ''}`}
-                onClick={() => setActiveTab('student-my-history')}
+                onClick={() => handleTabClick('student-my-history')}
               >
                 <span className="nav-icon">📜</span>
                 <span>My Parking History/Profile</span>
@@ -171,7 +196,7 @@ export default function Navbar({
           )}
         </nav>
 
-        {/* Right: Profile & Explicit Sign Out */}
+        {/* Right: Profile & Explicit Sign Out & Mobile Toggle */}
         <div className="nav-actions">
           {/* User Profile Info */}
           <div className="user-profile-chip hide-mobile">
@@ -194,7 +219,18 @@ export default function Navbar({
             aria-label="Sign Out"
           >
             <LogOutIcon className="w-4 h-4" />
-            <span>{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
+            <span className="sign-out-text">{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
+          </button>
+
+          {/* Mobile Hamburger Menu Toggle Button */}
+          <button
+            type="button"
+            className="mobile-nav-toggle"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            aria-label={mobileMenuOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
+            aria-expanded={mobileMenuOpen}
+          >
+            <span className="mobile-nav-icon">{mobileMenuOpen ? '✕' : '☰'}</span>
           </button>
         </div>
       </div>

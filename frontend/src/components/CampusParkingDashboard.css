@@ -1,0 +1,2280 @@
+/* ==========================================================================
+   CAMPUS PARKING DASHBOARD - CAD BLUEPRINT & DARK NAVY OPERATIONAL THEME
+   Visual replica of master plan DWG-AIT-FL06
+   ========================================================================== */
+
+:root {
+  --bg-deep: #070c18;
+  --bg-card: #0c1425;
+  --bg-card-inner: #0a1120;
+  --bg-bay-dark: #0e172a;
+  --border-cad: #1c2b48;
+  --border-cad-dim: #152238;
+  --border-highlight: #38bdf8;
+  
+  --color-green: #10b981;
+  --color-green-glow: rgba(16, 185, 129, 0.35);
+  --color-red: #ef4444;
+  --color-red-glow: rgba(239, 68, 68, 0.35);
+  --color-amber: #f59e0b;
+  --color-amber-glow: rgba(245, 158, 11, 0.35);
+  --color-cyan: #38bdf8;
+  --color-cyan-glow: rgba(56, 189, 248, 0.35);
+  
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-dim: #475569;
+  
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: 'Outfit', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Dashboard Container */
+.cad-dashboard-wrapper {
+  min-height: 100vh;
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  padding: 16px 24px 32px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Blueprint Grid Background Pattern */
+.cad-dashboard-wrapper::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cad-dashboard-wrapper.blueprint-mode::before {
+  opacity: 1;
+  background-image: 
+    linear-gradient(to right, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
+  background-color: #030814;
+}
+
+.cad-dashboard-wrapper > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ==========================================================================
+   1. TOP TOOLBAR
+   ========================================================================== */
+.cad-top-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: rgba(12, 20, 37, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-cad-dim);
+  border-radius: 12px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.cad-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cad-filter-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-right: 4px;
+  letter-spacing: 0.2px;
+}
+
+.cad-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cad-pill-btn {
+  background: rgba(18, 28, 49, 0.7);
+  border: 1px solid var(--border-cad);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #cbd5e1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.cad-pill-btn:hover {
+  background: rgba(30, 48, 80, 0.85);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.cad-pill-btn.active {
+  background: rgba(19, 78, 122, 0.45);
+  border-color: #38bdf8;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+}
+
+/* Color specific pills */
+.cad-pill-btn.pill-available {
+  color: #34d399;
+}
+.cad-pill-btn.pill-available.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.25);
+  color: #a7f3d0;
+}
+
+.cad-pill-btn.pill-occupied,
+.cad-pill-btn.pill-booked {
+  color: #f87171;
+}
+.cad-pill-btn.pill-occupied.active,
+.cad-pill-btn.pill-booked.active {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.25);
+  color: #fecaca;
+}
+
+.cad-pill-btn.pill-reserved {
+  color: #fbbf24;
+}
+.cad-pill-btn.pill-reserved.active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: #f59e0b;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+}
+
+.cad-pill-btn.pill-ev {
+  color: #38bdf8;
+}
+.cad-pill-btn.pill-ev.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+  color: #bae6fd;
+}
+
+.cad-pill-count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  opacity: 0.9;
+}
+
+/* Toolbar Right Side */
+.cad-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cad-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #080e1c;
+  border: 1px solid var(--border-cad);
+  border-radius: 8px;
+  padding: 6px 12px;
+  width: 240px;
+  transition: all 0.2s ease;
+}
+
+.cad-search-box:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  width: 270px;
+}
+
+.cad-search-icon {
+  width: 15px;
+  height: 15px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.cad-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f1f5f9;
+  font-size: 0.83rem;
+  width: 100%;
+}
+
+.cad-search-input::placeholder {
+  color: #52637a;
+}
+
+.cad-search-clear {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.cad-search-clear:hover {
+  color: #f1f5f9;
+}
+
+.cad-blueprint-toggle {
+  background: rgba(14, 23, 42, 0.9);
+  border: 1px solid var(--border-cad);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.cad-blueprint-toggle:hover {
+  background: rgba(30, 48, 80, 0.8);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.cad-blueprint-toggle.active {
+  background: rgba(14, 116, 144, 0.25);
+  border-color: #06b6d4;
+  color: #67e8f9;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.25);
+}
+
+/* ==========================================================================
+   2. MAIN MAP CARD
+   ========================================================================== */
+.cad-main-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-cad);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Header Strip */
+.cad-header-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+
+.cad-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cad-live-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--color-green);
+  box-shadow: 0 0 10px var(--color-green);
+  animation: cadPulse 2s infinite ease-in-out;
+}
+
+@keyframes cadPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.88); }
+}
+
+.cad-header-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.2px;
+  margin: 0;
+}
+
+.cad-header-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: #4b6282;
+  margin-left: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* Legend */
+.cad-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.cad-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+.cad-legend-square {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.cad-legend-square.green {
+  background-color: var(--color-green);
+  box-shadow: 0 0 6px var(--color-green-glow);
+}
+.cad-legend-square.red {
+  background-color: var(--color-red);
+  box-shadow: 0 0 6px var(--color-red-glow);
+}
+.cad-legend-square.amber {
+  background-color: var(--color-amber);
+  box-shadow: 0 0 6px var(--color-amber-glow);
+}
+.cad-legend-square.blue {
+  background-color: var(--color-cyan);
+  box-shadow: 0 0 6px var(--color-cyan-glow);
+}
+
+/* ==========================================================================
+   3. INNER MAP CANVAS (GRID BLUEPRINT LAYOUT)
+   ========================================================================== */
+.cad-map-canvas {
+  background: var(--bg-card-inner);
+  border: 1px solid var(--border-cad);
+  border-radius: 10px;
+  padding: 16px 20px 20px 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 1060px;
+  box-sizing: border-box;
+  background-image: 
+    linear-gradient(to right, rgba(56, 189, 248, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Hazard Warning Banner */
+.cad-hazard-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #151d08;
+  border: 2px solid #ca8a04;
+  border-radius: 6px;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 16px rgba(234, 179, 8, 0.15);
+  margin: 0 auto;
+  width: 68%;
+  min-width: 580px;
+}
+
+.cad-hazard-stripes {
+  width: 32px;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    #eab308,
+    #eab308 10px,
+    #18181b 10px,
+    #18181b 20px
+  );
+  z-index: 2;
+}
+
+.cad-hazard-stripes.left {
+  left: 0;
+  border-right: 1px solid #eab308;
+}
+
+.cad-hazard-stripes.right {
+  right: 0;
+  border-left: 1px solid #eab308;
+}
+
+.cad-hazard-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 44px;
+  gap: 16px;
+  z-index: 1;
+}
+
+.cad-hazard-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #facc15;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 6px rgba(250, 204, 21, 0.4);
+}
+
+.cad-hazard-icon {
+  font-size: 0.95rem;
+}
+
+.cad-clearance-tag {
+  background: #09090b;
+  border: 1px solid #ca8a04;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #facc15;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   4. MAP TOP ROW (LEFT CLUSTER, MAIN GATE, RIGHT CLUSTER)
+   ========================================================================== */
+.cad-top-row-layout {
+  display: grid;
+  grid-template-columns: 200px 180px 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+/* Left Cluster: P45 - P48 (4 bays) */
+.cad-top-left-cluster {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: rgba(10, 18, 33, 0.6);
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-cad-dim);
+}
+
+/* Main Gate Entry Block */
+.cad-main-gate-block {
+  border: 1.5px dashed #f59e0b;
+  background: rgba(245, 158, 11, 0.05);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cad-main-gate-block:hover {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #fbbf24;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+
+.cad-gate-title {
+  color: #fbbf24;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+
+.cad-gate-subtitle {
+  color: #d97706;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* Right Cluster: P36 - P44 (9 bays) */
+.cad-top-right-cluster {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 6px;
+  background: rgba(10, 18, 33, 0.6);
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-cad-dim);
+}
+
+/* ==========================================================================
+   5. MAP MIDDLE BAND (LEFT STACK, CENTER COURTYARD, RIGHT 2x2 SPECIAL)
+   ========================================================================== */
+.cad-middle-band {
+  display: grid;
+  grid-template-columns: 140px 1fr 260px;
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* Middle Left Stack (P27 - P31) */
+.cad-mid-left-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: space-between;
+}
+
+.cad-stack-bay {
+  background: var(--bg-bay-dark);
+  border: 1px solid var(--border-cad);
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 38px;
+}
+
+.cad-stack-bay:hover {
+  border-color: var(--border-highlight);
+  background: #14223d;
+  transform: translateX(2px);
+}
+
+.cad-stack-bay-id {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.cad-stack-bay-status {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.cad-stack-bay-status.status-free,
+.cad-stack-bay-status.status-available {
+  color: var(--color-green);
+}
+
+.cad-stack-bay-status.status-busy,
+.cad-stack-bay-status.status-booked {
+  color: var(--color-red);
+}
+
+.cad-stack-bay-status.status-reserved {
+  color: var(--color-amber);
+}
+
+/* Center Circulation Area */
+.cad-center-area {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px dashed var(--border-cad);
+  border-radius: 8px;
+  padding: 16px 18px;
+  min-height: 180px;
+  background: rgba(7, 13, 24, 0.4);
+}
+
+.cad-center-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cad-lane-ingress-label {
+  color: #eab308;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.cad-sensor-radar-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 116, 144, 0.2);
+  border: 1px solid rgba(6, 182, 212, 0.4);
+  border-radius: 9999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.cad-radar-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+  animation: radarRing 1.8s infinite ease-out;
+}
+
+@keyframes radarRing {
+  0% { transform: scale(0.9); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+  100% { transform: scale(0.9); opacity: 1; }
+}
+
+/* Central Circulation Courtyard Box */
+.cad-courtyard-panel {
+  background: rgba(14, 23, 42, 0.85);
+  border: 1px solid var(--border-cad);
+  border-radius: 8px;
+  padding: 14px 18px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+  box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.4);
+}
+
+.cad-courtyard-title {
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.cad-courtyard-sub {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.cad-crosswalk-stripes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cad-crosswalk-bar {
+  width: 28px;
+  height: 6px;
+  background: rgba(226, 232, 240, 0.85);
+  border-radius: 1px;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+}
+
+.cad-center-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cad-bypass-label {
+  color: #eab308;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.cad-lanes-cleared-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: #475569;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+/* Middle Right 2x2 Special Grid */
+.cad-mid-right-special-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+}
+
+.cad-special-bay-card {
+  background: var(--bg-bay-dark);
+  border: 1px solid var(--border-cad);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 96px;
+}
+
+.cad-special-bay-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.cad-special-bay-card.theme-ev {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+.cad-special-bay-card.theme-ev:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+}
+
+.cad-special-bay-card.theme-reserved {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+.cad-special-bay-card.theme-reserved:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25);
+}
+
+.cad-special-bay-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cad-special-bay-id {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.cad-special-bay-icon {
+  font-size: 0.88rem;
+}
+
+.cad-special-bay-icon.icon-lightning {
+  color: #38bdf8;
+  filter: drop-shadow(0 0 4px #38bdf8);
+}
+
+.cad-special-bay-icon.icon-star {
+  color: #f59e0b;
+  filter: drop-shadow(0 0 4px #f59e0b);
+}
+
+.cad-special-bay-icon.icon-permit {
+  color: #38bdf8;
+}
+
+.cad-special-bay-center {
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #f1f5f9;
+  margin: 4px 0;
+}
+
+.cad-special-bay-badge {
+  text-align: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.cad-special-bay-badge.badge-charging {
+  background: rgba(14, 116, 144, 0.35);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.cad-special-bay-badge.badge-ready {
+  background: rgba(14, 116, 144, 0.3);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.cad-special-bay-badge.badge-reserved {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.cad-special-bay-badge.badge-permit {
+  background: rgba(14, 116, 144, 0.25);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+/* ==========================================================================
+   6. MAP BOTTOM ROW (P1 - P20, 20 BAYS)
+   ========================================================================== */
+.cad-bottom-row-layout {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 5px;
+  background: rgba(10, 18, 33, 0.6);
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-cad-dim);
+}
+
+/* Common Standard Bay Cell */
+.cad-standard-bay {
+  background: var(--bg-bay-dark);
+  border: 1px solid var(--border-cad);
+  border-radius: 6px;
+  padding: 7px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 66px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  position: relative;
+}
+
+.cad-standard-bay:hover {
+  transform: translateY(-2px);
+  border-color: #38bdf8;
+  background: #14213d;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.cad-standard-bay.bay-selected {
+  border: 1.5px solid #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+
+.cad-standard-bay.bay-dimmed {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+}
+
+.cad-standard-bay.bay-match-highlight {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+  animation: cadPulseMatch 1.5s infinite alternate;
+}
+
+@keyframes cadPulseMatch {
+  from { box-shadow: 0 0 6px rgba(56, 189, 248, 0.3); }
+  to { box-shadow: 0 0 16px rgba(56, 189, 248, 0.8); }
+}
+
+.cad-bay-id-text {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.cad-bay-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 3px 0;
+}
+
+.cad-bay-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+}
+
+.cad-bay-dot.green {
+  background: var(--color-green);
+  box-shadow: 0 0 6px var(--color-green-glow);
+}
+
+.cad-bay-dot.red {
+  background: var(--color-red);
+  box-shadow: 0 0 6px var(--color-red-glow);
+}
+
+.cad-bay-dot.amber {
+  background: var(--color-amber);
+  box-shadow: 0 0 6px var(--color-amber-glow);
+}
+
+.cad-bay-dot.blue {
+  background: var(--color-cyan);
+  box-shadow: 0 0 6px var(--color-cyan-glow);
+}
+
+.cad-bay-star-icon {
+  font-size: 0.72rem;
+  color: #f59e0b;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.6));
+}
+
+.cad-bay-label-text {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.cad-bay-label-text.text-free,
+.cad-bay-label-text.text-open,
+.cad-bay-label-text.text-available {
+  color: var(--color-green);
+}
+
+.cad-bay-label-text.text-busy,
+.cad-bay-label-text.text-booked {
+  color: var(--color-red);
+}
+
+.cad-bay-label-text.text-staff,
+.cad-bay-label-text.text-dean,
+.cad-bay-label-text.text-reserved {
+  color: var(--color-amber);
+}
+
+/* ==========================================================================
+   7. ANNEX EXPANDABLE / QUICK ACCESS BAR (P21 - P26)
+   ========================================================================== */
+.cad-annex-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(14, 23, 42, 0.5);
+  border: 1px dashed var(--border-cad-dim);
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.cad-annex-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cad-annex-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.3px;
+}
+
+.cad-annex-bays-grid {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cad-annex-bays-grid .cad-standard-bay {
+  min-height: 48px;
+  padding: 4px 8px;
+  flex-direction: row;
+  gap: 8px;
+}
+
+/* ==========================================================================
+   8. MODALS & POPOVERS
+   ========================================================================== */
+.cad-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cad-modal-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(56, 189, 248, 0.15);
+  overflow: hidden;
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlideUp {
+  from { transform: translateY(16px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.cad-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #1e293b;
+  background: #090e1c;
+}
+
+.cad-modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cad-modal-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.cad-modal-badge.badge-available {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.cad-modal-badge.badge-occupied {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.cad-modal-badge.badge-reserved {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.cad-modal-badge.badge-ev {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.cad-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.cad-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.cad-modal-close-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cad-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Info Grid Row */
+.cad-modal-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: #090e1c;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.cad-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cad-info-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cad-info-value {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.cad-info-value.highlight-green {
+  color: #34d399;
+}
+
+.cad-info-value.highlight-red {
+  color: #f87171;
+}
+
+.cad-info-value.highlight-amber {
+  color: #fbbf24;
+}
+
+.cad-info-value.highlight-blue {
+  color: #38bdf8;
+}
+
+/* Pass Generator Form */
+.cad-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cad-form-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+.cad-form-select,
+.cad-form-input {
+  background: #090e1c;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #f1f5f9;
+  font-size: 0.85rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.cad-form-select:focus,
+.cad-form-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.cad-quick-fill-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cad-quick-chip {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid #334155;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cad-quick-chip:hover {
+  background: #334155;
+  color: #f1f5f9;
+  border-color: #38bdf8;
+}
+
+.cad-modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.cad-btn-secondary {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cad-btn-secondary:hover {
+  background: #334155;
+  color: #ffffff;
+}
+
+.cad-btn-primary {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  border: 1px solid #38bdf8;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s ease;
+}
+
+.cad-btn-primary:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.5);
+  transform: translateY(-1px);
+}
+
+.cad-btn-danger {
+  background: rgba(220, 38, 38, 0.2);
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #fca5a5;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cad-btn-danger:hover {
+  background: rgba(220, 38, 38, 0.35);
+  color: #ffffff;
+}
+
+/* Completed Digital Pass Ticket */
+.cad-digital-pass-card {
+  background: linear-gradient(145deg, #0c1527, #070c18);
+  border: 1px solid #38bdf8;
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.2);
+}
+
+.cad-pass-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px dashed #1e293b;
+  padding-bottom: 10px;
+}
+
+.cad-pass-brand {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+}
+
+.cad-pass-id {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.cad-pass-content-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cad-pass-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.cad-pass-qr-box {
+  width: 96px;
+  height: 96px;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.cad-qr-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.cad-qr-scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #0284c7;
+  box-shadow: 0 0 6px #38bdf8;
+  animation: qrScanMove 2s infinite ease-in-out;
+}
+
+@keyframes qrScanMove {
+  0%, 100% { top: 4px; }
+  50% { top: 88px; }
+}
+
+.cad-pass-validity-banner {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #6ee7b7;
+  font-weight: 600;
+}
+
+/* Toast Message Notification */
+.cad-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  animation: toastSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toastSlide {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.cad-toast-card {
+  background: #0f172a;
+  border: 1px solid #38bdf8;
+  border-radius: 8px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 15px rgba(56, 189, 248, 0.25);
+}
+
+.cad-toast-icon {
+  font-size: 1.1rem;
+}
+
+.cad-toast-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.cad-toast-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.cad-toast-desc {
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+/* ==========================================================================
+   CAD BLUEPRINT MAP HORIZONTAL SCROLL WRAPPER (MOBILE RESPONSIVE)
+   Preserves 100% of the CAD layout without cramping slots on mobile screens
+   ========================================================================== */
+.cad-map-scroll-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 10px;
+  padding-bottom: 6px;
+  position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.4) rgba(15, 23, 42, 0.6);
+}
+
+.cad-map-scroll-wrapper::-webkit-scrollbar {
+  height: 7px;
+}
+
+.cad-map-scroll-wrapper::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 4px;
+}
+
+.cad-map-scroll-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.4);
+  border-radius: 4px;
+}
+
+.cad-map-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.7);
+}
+
+.cad-mobile-scroll-hint {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(14, 116, 144, 0.15);
+  border: 1px dashed rgba(6, 182, 212, 0.45);
+  border-radius: 8px;
+  color: #38bdf8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.cad-hint-arrow {
+  font-size: 1.05rem;
+  animation: hintSwipe 1.8s infinite ease-in-out;
+}
+
+@keyframes hintSwipe {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+
+@media (max-width: 1100px) {
+  .cad-mobile-scroll-hint {
+    display: flex;
+  }
+}
+
+/* ==========================================================================
+   9. FLOOR SWITCHER SEGMENTED CONTROL
+   ========================================================================== */
+.cad-floor-switcher-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cad-switcher-label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.3px;
+}
+
+.cad-floor-segmented-tabs {
+  display: flex;
+  align-items: center;
+  background: #080e1c;
+  border: 1px solid var(--border-cad);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.cad-floor-tab-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.cad-floor-tab-btn:hover {
+  color: #ffffff;
+  background: rgba(30, 48, 80, 0.4);
+}
+
+.cad-floor-tab-btn.active {
+  background: #1e293b;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(56, 189, 248, 0.3);
+}
+
+.cad-toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-cad-dim);
+  margin: 0 6px;
+}
+
+/* ==========================================================================
+   10. LOWER GROUND FLOOR CANVAS & WING CLUSTERS
+   Exact reproduction of CAD reference DWG-AIT-LG01-REV3
+   ========================================================================== */
+.cad-lg-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: #080f1d;
+  border: 1px solid #16243d;
+  border-radius: 10px;
+  min-width: 1060px;
+  box-sizing: border-box;
+}
+
+/* Warning Strip: Sleek dark bar (not yellow-striped) */
+.cad-lg-warning-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0a1120;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 6px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.cad-lg-warning-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cad-lg-warning-dot {
+  color: #f59e0b;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.cad-lg-warning-title {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #f59e0b;
+  letter-spacing: 0.5px;
+}
+
+.cad-lg-warning-right {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.cad-lg-clearance-val {
+  color: #ffffff;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+.cad-lg-radar-val {
+  color: #10b981;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+/* Wing Section & Headers */
+.cad-lg-wing-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cad-lg-wing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.cad-lg-wing-title {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #10b981;
+  letter-spacing: 0.6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cad-lg-wing-arrow {
+  font-size: 0.72rem;
+  color: #10b981;
+}
+
+.cad-lg-wing-meta {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.4px;
+}
+
+/* 10 columns × 2 rows Grid */
+.cad-lg-grid {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 8px;
+}
+
+/* Lower Ground Bay Card Design */
+.cad-lg-bay-card {
+  background: #0a1122;
+  border: 1px solid #1c2b48;
+  border-radius: 7px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 84px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  position: relative;
+}
+
+.cad-lg-bay-card:hover {
+  transform: translateY(-2px);
+  border-color: #38bdf8;
+  background: #0f1c36;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+
+.cad-lg-bay-card.bay-selected {
+  border: 1.5px solid #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.45), inset 0 0 8px rgba(56, 189, 248, 0.15);
+  z-index: 3;
+}
+
+.cad-lg-bay-card.bay-dimmed {
+  opacity: 0.28;
+  filter: grayscale(0.7);
+}
+
+.cad-lg-bay-card.bay-match-highlight {
+  border-color: #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.6);
+  animation: cadPulseMatch 1.5s infinite alternate;
+}
+
+/* Card Top Row */
+.cad-lg-bay-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cad-lg-bay-id {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.cad-lg-dot {
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+}
+
+.cad-lg-dot.dot-green {
+  background: var(--color-green);
+  box-shadow: 0 0 6px var(--color-green-glow);
+}
+
+.cad-lg-dot.dot-red {
+  background: var(--color-red);
+  box-shadow: 0 0 6px var(--color-red-glow);
+}
+
+.cad-lg-dot.dot-amber {
+  background: var(--color-amber);
+  box-shadow: 0 0 6px var(--color-amber-glow);
+}
+
+.cad-lg-dot.dot-blue {
+  background: var(--color-cyan);
+  box-shadow: 0 0 6px var(--color-cyan-glow);
+}
+
+/* Card Center Status Word */
+.cad-lg-bay-center {
+  text-align: center;
+  margin: 4px 0;
+}
+
+.cad-lg-status-word {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.cad-lg-status-word.status-free,
+.cad-lg-status-word.status-available {
+  color: var(--color-green);
+}
+
+.cad-lg-status-word.status-busy,
+.cad-lg-status-word.status-booked {
+  color: var(--color-red);
+}
+
+.cad-lg-status-word.status-staff,
+.cad-lg-status-word.status-reserved {
+  color: var(--color-amber);
+}
+
+.cad-lg-bolt {
+  font-size: 0.85rem;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.6));
+}
+
+/* Card Bottom Subtext */
+.cad-lg-bay-bottom {
+  text-align: center;
+}
+
+.cad-lg-subtext {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.3px;
+}
+
+/* ==========================================================================
+   11. CENTRAL ARTERY DIVIDER (TWO-WAY FLOW ROAD)
+   ========================================================================== */
+.cad-lg-central-artery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #080f1e;
+  border: 1px solid #1a2a46;
+  border-radius: 6px;
+  padding: 6px 12px;
+  position: relative;
+  overflow: hidden;
+  margin: 4px 0;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.cad-artery-tab {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.cad-artery-tab.tab-in {
+  background: #10b981;
+  color: #022c22;
+}
+
+.cad-artery-tab.tab-out {
+  background: #f59e0b;
+  color: #451a03;
+}
+
+.cad-artery-road-segment {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 16px;
+  height: 24px;
+}
+
+.cad-road-dashed-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  border-top: 1.5px dashed rgba(245, 158, 11, 0.45);
+  z-index: 0;
+}
+
+.cad-road-text {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4b6282;
+  letter-spacing: 0.6px;
+  background: #080f1e;
+  padding: 0 8px;
+  z-index: 1;
+}
+
+.cad-artery-road-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #080f1e;
+  padding: 0 14px;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.cad-artery-center-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.cad-artery-center-label {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+/* ==========================================================================
+   12. PERSISTENT BOTTOM DETAIL BAR
+   Unified telemetry, reservation actions, and sharing
+   ========================================================================== */
+.cad-bottom-detail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #080f1e;
+  border: 1px solid #1c2b48;
+  border-radius: 10px;
+  padding: 12px 20px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.02);
+  margin-top: 2px;
+  flex-wrap: wrap;
+  animation: barFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes barFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.cad-bottom-detail-bar.empty-placeholder {
+  justify-content: center;
+  padding: 14px;
+  background: rgba(8, 15, 30, 0.5);
+  border: 1px dashed #1c2b48;
+}
+
+.cad-bottom-empty-text {
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Left: BAY Box */
+.cad-bottom-bay-box {
+  background: #040813;
+  border: 1px solid #1e293b;
+  border-radius: 7px;
+  padding: 6px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+}
+
+.cad-bottom-bay-tag {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.8px;
+}
+
+.cad-bottom-bay-id {
+  font-family: var(--font-mono);
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: #34d399;
+  letter-spacing: 0.3px;
+}
+
+/* Center-Left: Title, Status Badge, Subtitle */
+.cad-bottom-info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 220px;
+}
+
+.cad-bottom-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cad-bottom-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: 0.2px;
+}
+
+.cad-bottom-status-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+}
+
+.cad-bottom-status-badge.badge-available {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.cad-bottom-status-badge.badge-occupied,
+.cad-bottom-status-badge.badge-booked {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.cad-bottom-status-badge.badge-reserved {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.cad-bottom-status-badge.badge-ev {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.cad-bottom-subtitle {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Center 3 Meta Columns */
+.cad-bottom-meta-columns {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.cad-bottom-meta-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cad-bottom-meta-label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.cad-bottom-meta-value {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.cad-bottom-meta-value.val-tariff-green {
+  color: #34d399;
+}
+
+/* Right Actions */
+.cad-bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cad-bottom-btn-reserve {
+  background: #10b981;
+  color: #022c22;
+  font-size: 0.88rem;
+  font-weight: 800;
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.cad-bottom-btn-reserve:hover {
+  background: #34d399;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.55);
+  transform: translateY(-1px);
+}
+
+.cad-bottom-btn-occupied {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+.cad-bottom-btn-reserved {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.cad-bottom-btn-reserved:hover {
+  background: rgba(245, 158, 11, 0.35);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+.cad-bottom-btn-share {
+  background: transparent;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.cad-bottom-btn-share:hover {
+  border-color: #38bdf8;
+  color: #ffffff;
+  background: rgba(56, 189, 248, 0.08);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.cad-share-symbol {
+  font-size: 0.95rem;
+}
+
+/* ==========================================================================
+   MOBILE & TABLET RESPONSIVENESS (< 768px & < 480px)
+   Toolbar, Header, and Bottom Detail Bar adaptation without page overflow
+   ========================================================================== */
+@media (max-width: 768px) {
+  .cad-main-card {
+    padding: 12px 10px;
+    border-radius: 12px;
+  }
+
+  .cad-top-toolbar {
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  .cad-toolbar-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cad-floor-switcher-container {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .cad-floor-segmented-tabs {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .cad-toolbar-divider {
+    display: none;
+  }
+
+  .cad-filter-pills {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .cad-pill-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .cad-toolbar-right {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .cad-search-box {
+    width: 100%;
+  }
+
+  .cad-search-input {
+    width: 100%;
+  }
+
+  .cad-header-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .cad-legend {
+    gap: 10px;
+    font-size: 0.76rem;
+  }
+
+  .cad-bottom-detail-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .cad-bottom-info-block {
+    min-width: 0;
+  }
+
+  .cad-bottom-meta-columns {
+    gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cad-bottom-actions {
+    width: 100%;
+  }
+
+  .cad-bottom-btn-reserve,
+  .cad-bottom-btn-occupied,
+  .cad-bottom-btn-reserved {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cad-modal-card {
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cad-modal-body {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 480px) {
+  .cad-bottom-meta-columns {
+    grid-template-columns: 1fr;
+  }
+}
