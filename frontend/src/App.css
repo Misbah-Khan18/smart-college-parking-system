@@ -4700,6 +4700,218 @@
   font-weight: 600;
 }
 
+/* Edit Vehicle & Profile Specs Form */
+.psh-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mve-header-edit-btn {
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+  border: none;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  transition: all 0.2s ease;
+}
+
+.mve-header-edit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.5);
+}
+
+.mve-success-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  animation: fadeIn 0.3s ease;
+}
+
+.mve-success-icon {
+  font-size: 1.4rem;
+}
+
+.mve-success-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.84rem;
+  color: #a7f3d0;
+}
+
+.mve-success-text strong {
+  color: #34d399;
+}
+
+.mve-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+  animation: fadeIn 0.25s ease;
+}
+
+.mve-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mve-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.3px;
+}
+
+.mve-input {
+  background: rgba(10, 16, 31, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 0.88rem;
+  color: #f1f5f9;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.mve-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  background: rgba(12, 20, 38, 0.95);
+}
+
+.mve-type-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.mve-type-btn {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.mve-type-btn:hover {
+  background: rgba(30, 48, 80, 0.5);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.mve-type-btn.active {
+  background: rgba(14, 116, 144, 0.22);
+  border-color: #06b6d4;
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.25);
+}
+
+.mve-type-icon {
+  font-size: 1.3rem;
+}
+
+.mve-type-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.mve-type-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.mve-type-sub {
+  font-size: 0.72rem;
+  color: #38bdf8;
+  font-family: var(--font-mono);
+}
+
+.mve-quick-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.mve-chip {
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mve-chip:hover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.mve-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.mve-save-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: none;
+  font-weight: 800;
+  padding: 10px 20px;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s ease;
+}
+
+.mve-save-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.55);
+}
+
+.mve-persistence-hint {
+  font-size: 0.72rem;
+  color: #64748b;
+  text-align: center;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.mve-view-footer {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mve-btn-edit-block {
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.mve-btn-edit-block:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
 .pass-mini-ticket {
   margin-top: 14px;
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
@@ -5477,4 +5689,328 @@ svg.w-3, svg.w-4, svg.w-5, svg.w-6 {
   flex-shrink: 0;
   display: inline-block;
 }
+
+/* =========================================================
+   PAYMENT MODAL — GPay / UPI ₹10 Parking Fee
+   ========================================================= */
+
+.payment-backdrop {
+  z-index: 9999;
+}
+
+.payment-modal-card {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 0 0 24px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  animation: slideUpFade 0.3s ease;
+}
+
+/* Header */
+.payment-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.payment-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.payment-icon-wrap {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.payment-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+.payment-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
+/* Fee Banner */
+.payment-fee-banner {
+  margin: 18px 24px 0;
+  background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.12));
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.fee-amount-display {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.fee-rupee {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--emerald);
+}
+.fee-value {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--emerald);
+  line-height: 1;
+  font-family: var(--font-mono, monospace);
+}
+.fee-flat-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--emerald);
+  background: rgba(16,185,129,0.18);
+  border-radius: 4px;
+  padding: 2px 6px;
+  letter-spacing: 1px;
+  align-self: center;
+}
+.fee-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fee-note {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.fee-vehicle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 1px;
+}
+
+/* UPI ID strip */
+.upi-info-strip {
+  margin: 12px 24px 0;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.upi-chip {
+  background: rgba(99,102,241,0.25);
+  color: #a5b4fc;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(99,102,241,0.3);
+  white-space: nowrap;
+}
+.upi-id-text {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  flex: 1;
+}
+.upi-merchant-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* QR Section */
+.payment-qr-section {
+  margin: 16px 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.qr-scan-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+.payment-qr-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 4px rgba(56,189,248,0.12);
+}
+.payment-qr-img {
+  border-radius: 8px;
+  display: block;
+}
+.payment-qr-fallback {
+  background: transparent;
+}
+.upi-app-logos {
+  display: flex;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.upi-app-logos span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Open GPay button */
+.btn-gpay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 24px 0;
+  padding: 11px 20px;
+  background: linear-gradient(135deg, #1a73e8, #0d47a1);
+  border: 1px solid rgba(26,115,232,0.4);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  cursor: pointer;
+}
+.btn-gpay:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(26,115,232,0.4);
+}
+
+/* Disclaimer */
+.payment-disclaimer {
+  margin: 10px 24px 0;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  text-align: center;
+}
+.payment-disclaimer strong {
+  color: var(--text-muted);
+}
+
+/* Payment Actions */
+.payment-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 24px 0;
+}
+.btn-payment-done {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 20px;
+  background: linear-gradient(135deg, var(--emerald), #059669);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.btn-payment-done:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16,185,129,0.35);
+}
+.btn-payment-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.18s ease;
+}
+.btn-payment-cancel:hover {
+  background: rgba(255,255,255,0.09);
+  color: var(--text-main);
+}
+
+/* Confirming State */
+.payment-confirming-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 24px;
+  min-height: 200px;
+}
+.payment-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(56,189,248,0.2);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.confirming-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+.confirming-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Success State */
+.payment-success-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  min-height: 200px;
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes popIn {
+  from { transform: scale(0.7); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.payment-success-checkmark {
+  font-size: 3.5rem;
+  line-height: 1;
+}
+.payment-success-text {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--emerald);
+  margin: 0;
+}
+.payment-success-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+
 

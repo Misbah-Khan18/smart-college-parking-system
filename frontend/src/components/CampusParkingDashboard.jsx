@@ -8,10 +8,10 @@ import {
 } from '../data/campusMasterPlanData'
 import './CampusParkingDashboard.css'
 
-export default function CampusParkingDashboard() {
+export default function CampusParkingDashboard({ slots, userProfile, onOpenBooking }) {
   // 1. Active Floor State (persists within same session)
   const [activeFloor, setActiveFloor] = useState(() => {
-    return sessionStorage.getItem('campus_active_floor') || 'lower_ground'
+    return sessionStorage.getItem('campus_active_floor') || 'ground'
   })
 
   // 2. In-memory Master Bay State per floor
@@ -131,6 +131,20 @@ export default function CampusParkingDashboard() {
   // Reserve Slot Action from Bottom Detail Bar
   const handleReserveFromBottomBar = (bay) => {
     if (!bay) return
+
+    // If parent booking handler exists, launch booking + payment flow
+    if (onOpenBooking) {
+      onOpenBooking(
+        {
+          id: bay.id,
+          floor: activeFloor === 'ground' ? 'Ground Floor' : 'Lower Ground Floor',
+          section: bay.wing || (activeFloor === 'ground' ? 'Ground Master Plan' : 'Subterranean Master Plan')
+        },
+        'slot'
+      )
+      return
+    }
+
     const now = new Date()
     const expiryTimestamp = new Date(now.getTime() + 2 * 60 * 60 * 1000) // 2 hours
     const passCode = generatePassId()
@@ -274,6 +288,7 @@ export default function CampusParkingDashboard() {
 
     const classNames = [
       'cad-standard-bay',
+      `bay-status-${statusText.toLowerCase()}`,
       isSelected ? 'bay-selected' : '',
       (!isMatchFilter || (searchQuery.trim() && !isMatchSearch)) ? 'bay-dimmed' : '',
       isHighlighted ? 'bay-match-highlight' : ''
@@ -287,15 +302,14 @@ export default function CampusParkingDashboard() {
         onClick={() => handleBayClick(bay)}
         title={`Bay ${bay.id} — ${statusText}`}
       >
-        <span className="cad-bay-id-text">{bay.id}</span>
-        
-        <div className="cad-bay-indicator">
+        <div className="cad-bay-header">
+          <span className="cad-bay-id-text">{bay.id}</span>
           <span className={`cad-bay-dot ${dotColor}`} />
         </div>
 
-        <span className={`cad-bay-label-text text-${statusText.toLowerCase()}`}>
+        <div className={`cad-bay-label-text text-${statusText.toLowerCase()}`}>
           {statusText}
-        </span>
+        </div>
       </div>
     )
   }
@@ -567,114 +581,158 @@ export default function CampusParkingDashboard() {
 
             /* ================================================================
                GROUND FLOOR LAYOUT (DWG-AIT-FL06)
+               Clean, Structured, Well-Margined Campus Parking Layout
                ================================================================ */
-            <div className="cad-map-canvas">
+            <div className="cad-map-canvas cad-ground-canvas">
               
-              {/* Top Hazard Warning Banner */}
-              <div className="cad-hazard-banner">
-                <div className="cad-hazard-stripes left" />
-                
-                <div className="cad-hazard-content">
-                  <div className="cad-hazard-text">
-                    <span className="cad-hazard-icon">↓</span>
-                    <span>CAMPUS VEHICULAR INGRESS &amp; OVERHEAD CANOPY [SPEED 10 KM/H]</span>
-                  </div>
-                  <div className="cad-clearance-tag">
-                    CLEARANCE: 3.5M
-                  </div>
+              {/* Sleek Technical Ingress Banner (No harsh hazard stripes) */}
+              <div className="cad-ingress-banner">
+                <div className="cad-ingress-left">
+                  <span className="cad-ingress-pulse" />
+                  <span className="cad-ingress-title">
+                    ↓ MAIN CAMPUS VEHICULAR INGRESS &amp; OVERHEAD CANOPY
+                  </span>
                 </div>
-
-                <div className="cad-hazard-stripes right" />
+                <div className="cad-ingress-right">
+                  <span className="cad-ingress-pill speed">
+                    SPEED LIMIT: <strong>10 KM/H</strong>
+                  </span>
+                  <span className="cad-ingress-pill clearance">
+                    CLEARANCE: <strong>3.5M</strong>
+                  </span>
+                  <span className="cad-ingress-pill rfid">
+                    RFID GATE: <strong>ONLINE</strong>
+                  </span>
+                </div>
               </div>
 
-              {/* Top Row: Left Cluster (4 bays) | Main Gate Entry | Right Cluster (9 bays) */}
-              <div className="cad-top-row-layout">
+              {/* North Perimeter Bays & Main RFID Gateway */}
+              <div className="cad-top-row-container">
                 
-                {/* Left Cluster: P45 - P48 */}
-                <div className="cad-top-left-cluster">
-                  {['P45', 'P46', 'P47', 'P48'].map(id => renderStandardBay(id))}
+                {/* West Cluster: P45 - P48 */}
+                <div className="cad-cluster-block west-cluster">
+                  <div className="cad-cluster-label">WEST WING &bull; P45 – P48</div>
+                  <div className="cad-cluster-bays">
+                    {['P45', 'P46', 'P47', 'P48'].map(id => renderStandardBay(id))}
+                  </div>
                 </div>
 
-                {/* Main Gate Entry Block */}
+                {/* Main Gate Entry RFID Portal */}
                 <div
-                  className="cad-main-gate-block"
+                  className="cad-gate-portal-block"
                   onClick={() => setGateModalOpen(true)}
+                  role="button"
+                  tabIndex={0}
                   title="Click to view Automated RFID Gate Telemetry"
                 >
-                  <div className="cad-gate-title">MAIN GATE ENTRY</div>
-                  <div className="cad-gate-subtitle">↓ AUTOMATED RFID</div>
+                  <div className="cad-gate-portal-header">
+                    <span className="cad-gate-icon">🚧</span>
+                    <span className="cad-gate-rfid-chip">RFID ANPR</span>
+                  </div>
+                  <div className="cad-gate-title">MAIN GATE ACCESS</div>
+                  <div className="cad-gate-status">
+                    <span className="cad-gate-dot" />
+                    <span>AUTOMATED BARRIER</span>
+                  </div>
                 </div>
 
-                {/* Right Cluster: P36 - P44 */}
-                <div className="cad-top-right-cluster">
-                  {['P36', 'P37', 'P38', 'P39', 'P40', 'P41', 'P42', 'P43', 'P44'].map(id => renderStandardBay(id))}
+                {/* East Cluster: P36 - P44 */}
+                <div className="cad-cluster-block east-cluster">
+                  <div className="cad-cluster-label">EAST WING &bull; P36 – P44</div>
+                  <div className="cad-cluster-bays">
+                    {['P36', 'P37', 'P38', 'P39', 'P40', 'P41', 'P42', 'P43', 'P44'].map(id => renderStandardBay(id))}
+                  </div>
                 </div>
 
               </div>
 
-              {/* Middle Band: Left Column Stack (5 bays) | Center Driveway Area | Right 2x2 Special Grid */}
+              {/* Middle Section: West Perimeter Stack | Circulation Driveway | East 2x2 Grid */}
               <div className="cad-middle-band">
                 
-                {/* Left Column Stack: P27 - P31 */}
-                <div className="cad-mid-left-stack">
-                  {['P27', 'P28', 'P29', 'P30', 'P31'].map(id => {
-                    const bay = bayMap.get(id)
-                    if (!bay) return null
-                    const isMatchFilter = checkFilterMatch(bay)
-                    const isMatchSearch = checkSearchMatch(bay)
-                    const isSelected = selectedBay?.id === bay.id
-                    const isHighlighted = searchQuery.trim() && isMatchSearch
-                    const isBooked = bay.status === 'booked' || bay.status === 'occupied'
-                    const isReserved = bay.status === 'reserved'
-                    const statusText = isBooked ? 'BOOKED' : isReserved ? 'RESERVED' : 'AVAILABLE'
-                    const statusColorClass = isBooked ? 'status-booked' : isReserved ? 'status-reserved' : 'status-available'
+                {/* West Stack: P27 - P31 */}
+                <div className="cad-mid-left-section">
+                  <div className="cad-section-mini-tag">WEST ROW &bull; P27-P31</div>
+                  <div className="cad-mid-left-stack">
+                    {['P27', 'P28', 'P29', 'P30', 'P31'].map(id => {
+                      const bay = bayMap.get(id)
+                      if (!bay) return null
+                      const isMatchFilter = checkFilterMatch(bay)
+                      const isMatchSearch = checkSearchMatch(bay)
+                      const isSelected = selectedBay?.id === bay.id
+                      const isHighlighted = searchQuery.trim() && isMatchSearch
+                      const isBooked = bay.status === 'booked' || bay.status === 'occupied'
+                      const isReserved = bay.status === 'reserved'
+                      const statusText = isBooked ? 'BOOKED' : isReserved ? 'RESERVED' : 'AVAILABLE'
+                      const statusColorClass = isBooked ? 'status-booked' : isReserved ? 'status-reserved' : 'status-available'
 
-                    return (
-                      <div
-                        key={bay.id}
-                        id={`bay-${bay.id}`}
-                        className={`cad-stack-bay ${isSelected ? 'bay-selected' : ''} ${(!isMatchFilter || (searchQuery.trim() && !isMatchSearch)) ? 'bay-dimmed' : ''} ${isHighlighted ? 'bay-match-highlight' : ''}`}
-                        onClick={() => handleBayClick(bay)}
-                        title={`Bay ${bay.id} — ${statusText}`}
-                      >
-                        <span className="cad-stack-bay-id">{bay.id}</span>
-                        <span className={`cad-stack-bay-status ${statusColorClass}`}>
-                          {statusText}
-                        </span>
-                      </div>
-                    )
-                  })}
+                      return (
+                        <div
+                          key={bay.id}
+                          id={`bay-${bay.id}`}
+                          className={`cad-stack-bay ${isSelected ? 'bay-selected' : ''} ${(!isMatchFilter || (searchQuery.trim() && !isMatchSearch)) ? 'bay-dimmed' : ''} ${isHighlighted ? 'bay-match-highlight' : ''}`}
+                          onClick={() => handleBayClick(bay)}
+                          title={`Bay ${bay.id} — ${statusText}`}
+                        >
+                          <div className="cad-stack-bay-left">
+                            <span className="cad-stack-bay-id">{bay.id}</span>
+                            <span className={`cad-stack-dot dot-${statusText.toLowerCase()}`} />
+                          </div>
+                          <span className={`cad-stack-bay-status ${statusColorClass}`}>
+                            {statusText}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
 
-                {/* Center Area: Entry Lane & South Exit Circulation */}
-                <div className="cad-center-area">
-                  <div className="cad-center-top-row">
-                    <span className="cad-lane-ingress-label">ENTRY LANE →</span>
-                    <div className="cad-sensor-radar-badge">
+                {/* Center Circulation Courtyard & Traffic Lane */}
+                <div className="cad-center-driveway">
+                  <div className="cad-driveway-lane lane-top">
+                    <span className="cad-lane-direction">INGRESS FLOW →</span>
+                    <div className="cad-driveway-dashed" />
+                    <span className="cad-lane-meta">MAX 10 KM/H</span>
+                  </div>
+
+                  <div className="cad-driveway-core">
+                    <div className="cad-radar-status-badge">
                       <span className="cad-radar-pulse-dot" />
-                      <span>Sensor Radar Active</span>
+                      <span>INDUCTIVE SENSOR RADAR ACTIVE &bull; LANES CLEAR</span>
                     </div>
                   </div>
 
-                  <div className="cad-center-bottom-row">
-                    <span className="cad-bypass-label">← INTERNAL BYPASS &amp; SOUTH EXIT</span>
-                    <span className="cad-lanes-cleared-tag">LANES A/B CLEARED</span>
+                  <div className="cad-driveway-lane lane-bottom">
+                    <span className="cad-lane-direction">← EGRESS &amp; INTERNAL BYPASS</span>
+                    <div className="cad-driveway-dashed" />
+                    <span className="cad-lane-meta">ONE-WAY FLOW</span>
                   </div>
                 </div>
 
-                {/* Right 2x2 Grid: P32, P33, P34, P35 (Standard Visual Treatment) */}
-                <div className="cad-mid-right-special-grid">
-                  {['P32', 'P33', 'P34', 'P35'].map(id => renderStandardBay(id))}
+                {/* East Cluster: P32 - P35 (2x2 Grid) */}
+                <div className="cad-mid-right-section">
+                  <div className="cad-section-mini-tag">EAST POD &bull; P32-P35</div>
+                  <div className="cad-mid-right-special-grid">
+                    {['P32', 'P33', 'P34', 'P35'].map(id => renderStandardBay(id))}
+                  </div>
                 </div>
 
               </div>
 
-              {/* Bottom Row: 20 Bays (P1 to P20) */}
-              <div className="cad-bottom-row-layout">
-                {[
-                  'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10',
-                  'P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20'
-                ].map(id => renderStandardBay(id))}
+              {/* South Perimeter Bays: P1 to P20 (Structured into 2 neat rows of 10 bays) */}
+              <div className="cad-south-perimeter-container">
+                <div className="cad-south-header">
+                  <span className="cad-south-title">▼ SOUTH PERIMETER BAYS (P01 – P20)</span>
+                  <span className="cad-south-meta">20 STANDARD CAMPUS SLOTS &bull; LIFT CORE PROXIMITY</span>
+                </div>
+
+                <div className="cad-south-rows">
+                  <div className="cad-south-row">
+                    {['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8', 'P9', 'P10'].map(id => renderStandardBay(id))}
+                  </div>
+                  <div className="cad-south-row">
+                    {['P11', 'P12', 'P13', 'P14', 'P15', 'P16', 'P17', 'P18', 'P19', 'P20'].map(id => renderStandardBay(id))}
+                  </div>
+                </div>
               </div>
 
             </div>
