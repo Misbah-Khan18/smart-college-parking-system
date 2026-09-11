@@ -168,7 +168,9 @@ export default function App() {
     if (savedCustom && demoData.role !== 'Security Admin') {
       try {
         finalData = { ...demoData, ...JSON.parse(savedCustom) }
-      } catch {}
+      } catch {
+        // ignore parse errors
+      }
     }
     localStorage.setItem('demo_user_session', JSON.stringify(finalData))
     setUser(finalData)

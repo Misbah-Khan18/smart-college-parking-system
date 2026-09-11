@@ -3,12 +3,11 @@ import {
   createInitialBayData,
   createLowerGroundBayData,
   getFormattedTime,
-  getDurationString,
   generatePassId
 } from '../data/campusMasterPlanData'
 import './CampusParkingDashboard.css'
 
-export default function CampusParkingDashboard({ slots, userProfile, onOpenBooking }) {
+export default function CampusParkingDashboard({ onOpenBooking }) {
   // 1. Active Floor State (persists within same session)
   const [activeFloor, setActiveFloor] = useState(() => {
     return sessionStorage.getItem('campus_active_floor') || 'ground'
@@ -58,7 +57,7 @@ export default function CampusParkingDashboard({ slots, userProfile, onOpenBooki
   }
 
   // Real-time Current Clock for dynamic calculations
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [, setCurrentTime] = useState(new Date())
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)

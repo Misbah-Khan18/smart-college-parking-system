@@ -1,10 +1,4 @@
-import { useState, useEffect } from 'react'
-import {
-  ShieldIcon,
-  CheckIcon,
-  UserIcon,
-  IdCardIcon
-} from '../Icons'
+import { useState } from 'react'
 import { getFloorForVehicleType } from '../../services/vehicleService'
 
 export default function StudentMyVehicleView({
@@ -24,37 +18,18 @@ export default function StudentMyVehicleView({
     return null
   }
 
-  const stored = getStoredProfile()
+  // Local state for persistent profile overrides
+  const [localProfile, setLocalProfile] = useState(() => getStoredProfile())
 
-  // Base profile state
-  const [profile, setProfile] = useState(() => {
-    return {
-      displayName: stored?.displayName || userProfile?.displayName || user?.displayName || 'Alzuni Shaikh',
-      rollNumber: stored?.campusId || stored?.rollNumber || userProfile?.campusId || userProfile?.rollNumber || 'S2410701',
-      vehiclePlate: stored?.defaultPlate || stored?.vehiclePlate || stored?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehicleNumber || 'MH-12-AB-1234',
-      vehicleType: stored?.vehicleType || userProfile?.vehicleType || 'scooty',
-      stream: stored?.stream || userProfile?.stream || 'BCA (Bachelor of Computer Applications)',
-      phone: stored?.phoneNumber || stored?.phone || userProfile?.phoneNumber || '+91 98765 43210'
-    }
-  })
-
-  // Sync if userProfile changes from outside and no local override
-  useEffect(() => {
-    const latestSaved = getStoredProfile()
-    if (latestSaved) {
-      setProfile((prev) => ({ ...prev, ...latestSaved }))
-    } else if (userProfile) {
-      setProfile((prev) => ({
-        ...prev,
-        displayName: userProfile.displayName || prev.displayName,
-        rollNumber: userProfile.campusId || userProfile.rollNumber || prev.rollNumber,
-        vehiclePlate: userProfile.defaultPlate || userProfile.vehicleNumber || prev.vehiclePlate,
-        vehicleType: userProfile.vehicleType || prev.vehicleType,
-        stream: userProfile.stream || prev.stream,
-        phone: userProfile.phoneNumber || prev.phone
-      }))
-    }
-  }, [userProfile])
+  // Combined active profile (custom user edits take highest priority)
+  const profile = {
+    displayName: localProfile?.displayName || userProfile?.displayName || user?.displayName || 'Alzuni Shaikh',
+    rollNumber: localProfile?.campusId || localProfile?.rollNumber || userProfile?.campusId || userProfile?.rollNumber || 'S2410701',
+    vehiclePlate: localProfile?.defaultPlate || localProfile?.vehiclePlate || localProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehicleNumber || 'MH-12-AB-1234',
+    vehicleType: localProfile?.vehicleType || userProfile?.vehicleType || 'scooty',
+    stream: localProfile?.stream || userProfile?.stream || 'BCA (Bachelor of Computer Applications)',
+    phone: localProfile?.phoneNumber || localProfile?.phone || userProfile?.phoneNumber || '+91 98765 43210'
+  }
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false)
@@ -110,14 +85,7 @@ export default function StudentMyVehicleView({
     }
 
     // 2. Local component state update
-    setProfile({
-      displayName: cleanName,
-      rollNumber: cleanRoll,
-      vehiclePlate: cleanPlate,
-      vehicleType: cleanType,
-      stream: cleanStream,
-      phone: cleanPhone
-    })
+    setLocalProfile(updated)
 
     // 3. Update global userProfile in App
     if (onUpdateProfile) {

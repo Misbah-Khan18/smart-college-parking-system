@@ -96,8 +96,8 @@ export default function PaymentModal({ bookingData, onPaymentSuccess, onClose })
 
   const { slotId, vehicleNumber, passType } = bookingData
   const isMonthly = passType === 'Monthly Pass'
-  // Always ₹10 flat fee — no time-based calc
-  const fee = PARKING_FEE
+  // ₹300 for Monthly Pass, ₹10 flat fee for regular slot bookings
+  const fee = isMonthly ? 300 : PARKING_FEE
 
   const upiNote = `Parking Bay ${slotId} - ${vehicleNumber}`
   const upiLink = buildUPILink({
