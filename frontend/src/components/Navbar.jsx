@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LogOutIcon } from './Icons'
 import { logout } from '../firebase/auth'
 
@@ -50,8 +50,6 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
     }
   }, [])
 
-  useEffect(() => { setMenuOpen(false) }, [activeTab])
-
   const handleLogout = async () => {
     if (isLoggingOut) return
     setIsLoggingOut(true)
@@ -64,7 +62,10 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
     }
   }
 
-  const handleTab = (id) => setActiveTab(id)
+  const handleTab = (id) => {
+    setActiveTab(id)
+    setMenuOpen(false)
+  }
 
   return (
     <header className="site-navbar" ref={menuRef}>

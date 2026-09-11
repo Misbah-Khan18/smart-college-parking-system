@@ -1,10 +1,33 @@
-import { XIcon, ShieldIcon } from './Icons'
+import { useState } from 'react'
+import { XIcon, ShieldIcon, CheckIcon } from './Icons'
 
 export default function PassModal({ pass, onClose }) {
+  const [copied, setCopied] = useState(false)
   if (!pass) return null
 
-  const displayPassId = pass.passId || `SMP-${String(pass.slotId || '00').replace(/[^a-zA-Z0-9]/g, '')}-PERMIT`
-  const isMonthly = pass.passType === 'Monthly Pass' || pass.reservedLabel?.includes('Monthly')
+  const displayPassId = pass.id || pass.passId || 'SMP-PERMIT-CURRENT'
+  const permitType = pass.permitType || pass.passType || 'Monthly Pass'
+  const isMonthly = permitType.includes('Monthly')
+  const isSemester = permitType.includes('Semester')
+  const isDaily = permitType.includes('Daily')
+
+  const validUntilStr = pass.validUntil
+    ? new Date(pass.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : (pass.reservedUntil || '30 Days Active')
+
+  const qrSrc = pass.qrCodeDataUrl || pass.qrCode
+  const qrToken = pass.qrToken || pass.id
+
+  const handleCopyToken = () => {
+    if (qrToken) {
+      navigator.clipboard.writeText(qrToken).catch(() => {})
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  // Dynamic bay assignment status
+  const currentSlotId = pass.currentAssignedSlotId || (pass.slotId && pass.slotId !== 'DYNAMIC' ? pass.slotId : null)
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -13,7 +36,7 @@ export default function PassModal({ pass, onClose }) {
           <div className="modal-title-wrap">
             <ShieldIcon className="w-5 h-5 text-emerald" />
             <h3 className="modal-title">
-              {isMonthly ? 'School of Commerce Monthly Pass' : 'Official Campus Parking Pass'}
+              {isSemester ? 'Semester Term Pass' : isMonthly ? '30-Day Monthly Permit' : isDaily ? 'Daily Parking Permit' : 'Official Campus Permit'}
             </h3>
           </div>
           <button type="button" className="close-btn" onClick={onClose} aria-label="Close pass modal">
@@ -25,98 +48,89 @@ export default function PassModal({ pass, onClose }) {
           <div className="ticket-top">
             <div className="college-header">
               <h4>SCHOOL OF COMMERCE &bull; SMART PARKING</h4>
-              <span className="ticket-id">PASS #{displayPassId}</span>
+              <span className="ticket-id">PERMIT #{displayPassId}</span>
             </div>
-            <div className={`status-ribbon ${isMonthly ? 'monthly' : ''}`}>
+            <div className={`status-ribbon ${isMonthly || isSemester ? 'monthly' : ''}`}>
               <span className="pulse-indicator"></span>
-              <span>{isMonthly ? '30-DAY MONTHLY PASS' : 'ACTIVE PERMIT'}</span>
+              <span>{pass.paymentStatus === 'PAID' || pass.status === 'ACTIVE' ? 'VERIFIED & ACTIVE' : 'PENDING'}</span>
             </div>
           </div>
 
           <div className="ticket-body">
+            {/* Dynamic Bay Assignment Banner */}
             <div className="slot-hero-badge">
               <span className="slot-hero-label">
-                {isMonthly ? 'DESIGNATED PARKING BAY' : 'ASSIGNED BAY'}
+                {currentSlotId ? 'CURRENTLY ASSIGNED BAY' : 'PARKING BAY ASSIGNMENT'}
               </span>
-              <span className="slot-hero-id">{pass.slotId}</span>
-              <span className="slot-hero-zone">{pass.zone || pass.section || 'School of Commerce Campus Area'}</span>
+              <span className="slot-hero-id font-mono">
+                {currentSlotId || 'DYNAMIC'}
+              </span>
+              <span className="slot-hero-zone">
+                {currentSlotId
+                  ? `${pass.floor || 'Campus Level'} &bull; In Active Session`
+                  : 'Nearest bay dynamically allocated at Gate Ingress (Scooty &rarr; Ground Floor, Bike &rarr; Basement)'}
+              </span>
             </div>
 
             <div className="ticket-details-grid">
               <div className="detail-item">
                 <span className="detail-label">Vehicle Plate</span>
-                <span className="detail-val plate-styled">{pass.plate || 'REGISTERED'}</span>
+                <span className="detail-val plate-styled">{pass.vehiclePlate || pass.plate || 'REGISTERED'}</span>
               </div>
               <div className="detail-item">
                 <span className="detail-label">Owner / Holder</span>
-                <span className="detail-val">{pass.owner || 'Campus User'}</span>
+                <span className="detail-val">{pass.studentName || pass.owner || 'Campus Member'}</span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Permit Type</span>
+                <span className="detail-label">Permit Tier</span>
                 <span className="detail-val badge-category">
-                  {isMonthly ? 'Monthly Campus Permit' : (pass.category || 'Student Pass')}
+                  {permitType} ({pass.vehicleType === 'bike' ? '🏍️ Bike' : '🛵 Scooty'})
                 </span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Validity</span>
+                <span className="detail-label">Valid Until</span>
                 <span className="detail-val text-emerald font-bold">
-                  {pass.reservedUntil || (isMonthly ? '30 Days Monthly Pass' : 'Active Session')}
+                  {validUntilStr}
                 </span>
               </div>
             </div>
 
-            {/* QR Code Simulation */}
+            {/* Real QR Section */}
             <div className="qr-section">
-              <div className="qr-box">
-                <svg viewBox="0 0 100 100" className="qr-svg" fill="currentColor">
-                  {/* Corner 1 */}
-                  <rect x="5" y="5" width="26" height="26" fill="#000" rx="3" />
-                  <rect x="9" y="9" width="18" height="18" fill="#fff" />
-                  <rect x="13" y="13" width="10" height="10" fill="#000" />
-                  {/* Corner 2 */}
-                  <rect x="69" y="5" width="26" height="26" fill="#000" rx="3" />
-                  <rect x="73" y="9" width="18" height="18" fill="#fff" />
-                  <rect x="77" y="13" width="10" height="10" fill="#000" />
-                  {/* Corner 3 */}
-                  <rect x="5" y="69" width="26" height="26" fill="#000" rx="3" />
-                  <rect x="9" y="73" width="18" height="18" fill="#fff" />
-                  <rect x="13" y="77" width="10" height="10" fill="#000" />
-                  {/* Simulated QR data */}
-                  <rect x="36" y="8" width="6" height="6" fill="#000" />
-                  <rect x="46" y="8" width="6" height="6" fill="#000" />
-                  <rect x="56" y="8" width="6" height="6" fill="#000" />
-                  <rect x="36" y="18" width="6" height="6" fill="#000" />
-                  <rect x="46" y="24" width="6" height="6" fill="#000" />
-                  <rect x="56" y="18" width="6" height="6" fill="#000" />
-                  <rect x="8" y="36" width="6" height="6" fill="#000" />
-                  <rect x="18" y="36" width="6" height="6" fill="#000" />
-                  <rect x="28" y="36" width="6" height="6" fill="#000" />
-                  <rect x="38" y="36" width="6" height="6" fill="#000" />
-                  <rect x="48" y="36" width="6" height="6" fill="#000" />
-                  <rect x="58" y="36" width="6" height="6" fill="#000" />
-                  <rect x="68" y="36" width="6" height="6" fill="#000" />
-                  <rect x="78" y="36" width="6" height="6" fill="#000" />
-                  <rect x="88" y="36" width="6" height="6" fill="#000" />
-                  <rect x="36" y="46" width="6" height="6" fill="#000" />
-                  <rect x="52" y="46" width="6" height="6" fill="#000" />
-                  <rect x="68" y="46" width="6" height="6" fill="#000" />
-                  <rect x="82" y="46" width="6" height="6" fill="#000" />
-                  <rect x="36" y="58" width="6" height="6" fill="#000" />
-                  <rect x="48" y="58" width="6" height="6" fill="#000" />
-                  <rect x="62" y="58" width="6" height="6" fill="#000" />
-                  <rect x="76" y="58" width="6" height="6" fill="#000" />
-                  <rect x="36" y="70" width="6" height="6" fill="#000" />
-                  <rect x="50" y="70" width="6" height="6" fill="#000" />
-                  <rect x="64" y="70" width="6" height="6" fill="#000" />
-                  <rect x="80" y="70" width="6" height="6" fill="#000" />
-                  <rect x="36" y="82" width="6" height="6" fill="#000" />
-                  <rect x="48" y="82" width="6" height="6" fill="#000" />
-                  <rect x="60" y="82" width="6" height="6" fill="#000" />
-                  <rect x="74" y="82" width="6" height="6" fill="#000" />
-                  <rect x="86" y="82" width="6" height="6" fill="#000" />
-                </svg>
+              <div className="qr-box" style={{ background: '#ffffff', padding: '8px', borderRadius: '12px', display: 'inline-block' }}>
+                {qrSrc ? (
+                  <img
+                    src={qrSrc}
+                    alt="Campus Permit Verification QR Code"
+                    width={180}
+                    height={180}
+                    style={{ display: 'block', borderRadius: '6px' }}
+                  />
+                ) : (
+                  <div style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '12px' }}>
+                    Payment verification pending. Complete Stripe checkout to generate QR.
+                  </div>
+                )}
               </div>
-              <p className="qr-hint">Scan at School of Commerce Gate Reader for Contactless Entry</p>
+              <p className="qr-hint">
+                Scan at School of Commerce Boom Barrier Reader for Contactless Ingress
+              </p>
+              {qrToken && (
+                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <code style={{ fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '4px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {qrToken}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={handleCopyToken}
+                    className="btn btn-sm btn-secondary"
+                    style={{ padding: '3px 8px', fontSize: '11px' }}
+                    title="Copy Token to Gate Simulator"
+                  >
+                    {copied ? <CheckIcon className="w-3 h-3 text-emerald" /> : '📋 Copy'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
