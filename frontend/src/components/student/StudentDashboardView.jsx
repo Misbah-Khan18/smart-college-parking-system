@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import {
   CheckIcon,
   ShieldIcon,
@@ -9,33 +8,34 @@ export default function StudentDashboardView({
   user,
   userProfile,
   slots = [],
+  activePermit,
+  onViewPass,
   onNavigateTab,
-  onOpenBooking
+  onOpenBooking,
+  onCancelPermit
 }) {
   const displayName = userProfile?.displayName || user?.displayName || 'Alzuni Shaikh'
   const firstName = displayName.split(' ')[0] || 'Alzuni'
 
   // Calculations
   const totalSlots = slots.length || 160
-  const occupiedSlots = slots.filter((s) => s.status === 'occupied').length
-  const availableSlots = slots.filter((s) => s.status === 'available').length
-  const reservedSlots = slots.filter((s) => s.status === 'reserved').length
+  const occupiedSlots = slots.filter((s) => s.status === 'occupied' || s.status === 'OCCUPIED').length
+  const availableSlots = slots.filter((s) => s.status === 'available' || s.status === 'AVAILABLE').length
+  const reservedSlots = slots.filter((s) => s.status === 'reserved' || s.status === 'RESERVED').length
 
   const groundSlots = slots.filter((s) => s.floor === 'Ground Floor')
-  const groundAvailable = groundSlots.filter((s) => s.status === 'available').length
-  const groundOccupied = groundSlots.filter((s) => s.status !== 'available').length
+  const groundAvailable = groundSlots.filter((s) => s.status === 'available' || s.status === 'AVAILABLE').length
+  const groundOccupied = groundSlots.filter((s) => s.status !== 'available' && s.status !== 'AVAILABLE').length
   const groundPercent = Math.round((groundOccupied / (groundSlots.length || 1)) * 100)
 
   const basementSlots = slots.filter((s) => s.floor === 'Basement')
-  const basementAvailable = basementSlots.filter((s) => s.status === 'available').length
-  const basementOccupied = basementSlots.filter((s) => s.status !== 'available').length
+  const basementAvailable = basementSlots.filter((s) => s.status === 'available' || s.status === 'AVAILABLE').length
+  const basementOccupied = basementSlots.filter((s) => s.status !== 'available' && s.status !== 'AVAILABLE').length
   const basementPercent = Math.round((basementOccupied / (basementSlots.length || 1)) * 100)
 
   return (
     <div className="student-dashboard-container">
-      {/* =========================================================
-          HERO BANNER: BIG BOLD School of Commerce.Park + Welcome, Alzuni 👋
-          ========================================================= */}
+      {/* Hero Banner */}
       <section className="student-hero-banner glass-card student-hero-clean">
         <div className="shb-content">
           <h1 className="soc-hero-title soc-brand-animated">
@@ -49,60 +49,101 @@ export default function StudentDashboardView({
         </div>
       </section>
 
-      {/* =========================================================
-          2 OPTIONS: BOOK SLOT | BOOK MONTHLY PASS
-          ========================================================= */}
-      <div className="quick-options-grid mb-4">
-        {/* Option 1: Book Slot */}
-        <div className="quick-option-card glass-card">
-          <div className="q-option-left">
-            <div className="q-icon-box cyan">
-              <span className="q-emoji">🅿️</span>
+      {/* Active Permit Banner or Buy Permit Options */}
+      {activePermit ? (
+        <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.75))', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
+              🎫
             </div>
-            <div className="q-info">
-              <h4>Book Parking Slot</h4>
-              <span className="text-muted">Instant bay reservation &bull; {availableSlots} bays open</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => onOpenBooking && onOpenBooking(null, 'slot')}
-          >
-            <PlusCircleIcon className="w-4 h-4" />
-            <span>Book Slot</span>
-          </button>
-        </div>
-
-        {/* Option 2: Book Monthly Pass */}
-        <div className="quick-option-card glass-card">
-          <div className="q-option-left">
-            <div className="q-icon-box indigo">
-              <span className="q-emoji">🎫</span>
-            </div>
-            <div className="q-info">
-              <h4>Book Monthly Pass</h4>
-              <span className="text-muted">30-Day recurring permit for students &amp; staff</span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <strong style={{ fontSize: '16px', color: '#f8fafc' }}>
+                  {activePermit.permitType || 'Monthly'} Campus Permit
+                </strong>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', fontWeight: 700 }}>
+                  ACTIVE &bull; PAID
+                </span>
+              </div>
+              <p style={{ margin: '3px 0 0', fontSize: '12.5px', color: '#94a3b8' }}>
+                Vehicle: <strong style={{ color: '#38bdf8', fontFamily: 'monospace' }}>{activePermit.vehiclePlate}</strong> &bull; Valid until: {new Date(activePermit.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
             </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-indigo btn-sm"
-            onClick={() => onOpenBooking && onOpenBooking(null, 'monthly')}
-          >
-            <ShieldIcon className="w-4 h-4" />
-            <span>Monthly Pass</span>
-          </button>
-        </div>
-      </div>
 
-      {/* =========================================================
-          OCCUPIED, AVAILED (AVAILABLE), AND RESERVED SLOTS TELEMETRY
-          (SHOWN DIRECTLY BELOW BOOK SLOT & BOOK MONTHLY PASS)
-          ========================================================= */}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onViewPass && onViewPass(activePermit)}
+            >
+              📱 Show Ingress QR Code
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => onOpenBooking && onOpenBooking(null, 'permit')}
+            >
+              🔄 Change / Renew
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5' }}
+              onClick={() => onCancelPermit && onCancelPermit(activePermit)}
+              title="Cancel this permit"
+            >
+              🗑️ Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="quick-options-grid mb-4">
+          <div className="quick-option-card glass-card">
+            <div className="q-option-left">
+              <div className="q-icon-box cyan">
+                <span className="q-emoji">🎫</span>
+              </div>
+              <div className="q-info">
+                <h4>Get Parking Permit</h4>
+                <span className="text-muted">Daily (₹20), Monthly (₹300), or Semester (₹1200)</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onOpenBooking && onOpenBooking(null, 'permit')}
+            >
+              <PlusCircleIcon className="w-4 h-4" />
+              <span>Buy Permit</span>
+            </button>
+          </div>
+
+          <div className="quick-option-card glass-card">
+            <div className="q-option-left">
+              <div className="q-icon-box indigo">
+                <span className="q-emoji">📍</span>
+              </div>
+              <div className="q-info">
+                <h4>Dynamic Bay Telemetry</h4>
+                <span className="text-muted">Nearest compatible bay assigned upon Gate Ingress</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => onNavigateTab && onNavigateTab('student-my-status')}
+            >
+              <ShieldIcon className="w-4 h-4" />
+              <span>My Status</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Telemetry Grid */}
       <div className="slots-telemetry-section">
         <div className="slots-telemetry-grid">
-          {/* Availed / Available Slots */}
           <div className="telemetry-card available">
             <div className="tc-icon-wrap available">
               <CheckIcon className="w-5 h-5 text-emerald" />
@@ -116,7 +157,6 @@ export default function StudentDashboardView({
             </div>
           </div>
 
-          {/* Occupied Slots */}
           <div className="telemetry-card occupied">
             <div className="tc-icon-wrap occupied">
               <span>🛵</span>
@@ -130,7 +170,6 @@ export default function StudentDashboardView({
             </div>
           </div>
 
-          {/* Reserved Slots */}
           <div className="telemetry-card reserved">
             <div className="tc-icon-wrap reserved">
               <span>🟡</span>
@@ -144,7 +183,6 @@ export default function StudentDashboardView({
             </div>
           </div>
 
-          {/* Total Monitored */}
           <div className="telemetry-card total">
             <div className="tc-icon-wrap total">
               <span>🅿️</span>
@@ -160,11 +198,8 @@ export default function StudentDashboardView({
         </div>
       </div>
 
-      {/* =========================================================
-          2 MAIN FLOOR CAPACITY CARDS (GROUND VS BASEMENT)
-          ========================================================= */}
+      {/* 2 Floor Capacity Cards */}
       <div className="floor-capacity-grid two-cols">
-        {/* Ground Floor (Scooties) */}
         <div className="floor-card glass-card">
           <div className="floor-card-top">
             <div className="floor-header-title">
@@ -198,12 +233,11 @@ export default function StudentDashboardView({
             className="btn btn-secondary btn-sm w-full mt-3"
             onClick={() => onNavigateTab && onNavigateTab('student-available-parking')}
           >
-            <span>Browse Ground Floor Slots</span>
+            <span>Browse Ground Floor Layout</span>
             <span>&rarr;</span>
           </button>
         </div>
 
-        {/* Basement (Bikes) */}
         <div className="floor-card glass-card">
           <div className="floor-card-top">
             <div className="floor-header-title">
@@ -237,7 +271,7 @@ export default function StudentDashboardView({
             className="btn btn-secondary btn-sm w-full mt-3"
             onClick={() => onNavigateTab && onNavigateTab('student-available-parking')}
           >
-            <span>Browse Basement Slots</span>
+            <span>Browse Basement Layout</span>
             <span>&rarr;</span>
           </button>
         </div>

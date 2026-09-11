@@ -1,48 +1,31 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { LogOutIcon } from './Icons'
 import { logout } from '../firebase/auth'
 
-export default function Navbar({
-  user,
-  userProfile,
-  onLogout,
-  activeTab,
-  setActiveTab
-}) {
+const STUDENT_TABS = [
+  { id: 'student-dashboard',         icon: '🏠', label: 'Dashboard' },
+  { id: 'student-available-parking', icon: '🅿️', label: 'Available' },
+  { id: 'student-my-vehicle',        icon: '🛵', label: 'My Vehicle' },
+  { id: 'student-my-status',         icon: '📍', label: 'Status' },
+  { id: 'student-my-history',        icon: '📜', label: 'History' },
+]
+
+const ADMIN_TABS = [
+  { id: 'admin-dashboard',  icon: '📊', label: 'Dashboard' },
+  { id: 'map',              icon: '🅿️', label: 'Parking Map' },
+  { id: 'register',         icon: '📋', label: 'Registration' },
+  { id: 'vehicle-entry',    icon: '🚗', label: 'Entry' },
+  { id: 'vehicle-exit',     icon: '🛑', label: 'Exit' },
+  { id: 'reports-history',  icon: '📜', label: 'Reports' },
+  { id: 'wrong-parking',    icon: '⚠️', label: 'Violations' },
+  { id: 'gate-scanner',     icon: '🛡️', label: 'Gate Scanner' },
+]
+
+export default function Navbar({ user, userProfile, onLogout, activeTab, setActiveTab }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
 
-  // Close mobile menu on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setMobileMenuOpen(false)
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
-
-  const handleLogout = async () => {
-    if (isLoggingOut) return
-    setIsLoggingOut(true)
-    try {
-      if (onLogout) {
-        await onLogout()
-      } else {
-        await logout()
-      }
-    } catch (err) {
-      console.error('Logout error:', err)
-      setIsLoggingOut(false)
-    }
-  }
-
-  const handleTabClick = (tab) => {
-    setActiveTab(tab)
-    setMobileMenuOpen(false)
-  }
-
-  const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'
-  const displayRole = userProfile?.role || 'Student'
   const isAdmin =
     userProfile?.role === 'Security Admin' ||
     userProfile?.role === 'Admin' ||
@@ -50,197 +33,158 @@ export default function Navbar({
     user?.role === 'Security Admin' ||
     user?.role === 'Admin'
 
+  const tabs = isAdmin ? ADMIN_TABS : STUDENT_TABS
+  const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'
+  const displayRole = userProfile?.role || 'Student'
+  const initials = displayName.slice(0, 2).toUpperCase()
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
+    const onOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onOutside)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('mousedown', onOutside)
+    }
+  }, [])
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+    try {
+      if (onLogout) await onLogout()
+      else await logout()
+    } catch (err) {
+      console.error('Logout error:', err)
+      setIsLoggingOut(false)
+    }
+  }
+
+  const handleTab = (id) => {
+    setActiveTab(id)
+    setMenuOpen(false)
+  }
+
   return (
-    <header className="site-navbar">
+    <header className="site-navbar" ref={menuRef}>
+      <div className="navbar-glow-line" />
       <div className="navbar-inner">
-        {/* Left: Brand Identity */}
-        {isAdmin ? (
-          <div className="nav-brand" onClick={() => handleTabClick('admin-dashboard')}>
-            <div className="nav-logo-icon">P</div>
-            <div className="nav-brand-text">
-              <h1 className="nav-title soc-brand-animated">
-                School of Commerce<span className="accent">.</span>Park
-              </h1>
-              <span className="nav-sub">Admin Management Console</span>
-            </div>
+        <button
+          type="button"
+          className="nav-brand"
+          onClick={() => handleTab(isAdmin ? 'admin-dashboard' : 'student-dashboard')}
+          aria-label="Go to dashboard"
+        >
+          <div className="nav-logo-icon">
+            <span className="nav-logo-letter">P</span>
           </div>
-        ) : (
-          <div className="nav-brand" onClick={() => handleTabClick('student-dashboard')}>
-            <div className="nav-logo-icon">P</div>
-            <div className="nav-brand-text">
-              <h1 className="nav-title soc-brand-animated">
-                School of Commerce<span className="accent">.</span>Park
-              </h1>
-              <span className="nav-sub">Student Portal</span>
-            </div>
+          <div className="nav-brand-text">
+            <span className="nav-title">SOC<span className="nav-accent">.</span>Park</span>
+            <span className="nav-sub">{isAdmin ? 'Admin Console' : 'Student Portal'}</span>
           </div>
-        )}
+        </button>
 
-        {/* Center: Dynamic Role-Based Navigation */}
-        <nav className={`nav-menu ${mobileMenuOpen ? 'mobile-open' : ''}`}>
-          {isAdmin ? (
-            /* ADMIN SIDE — 7 PAGES */
-            <>
+        <nav className="nav-desktop-tabs" aria-label="Main navigation">
+          {tabs.map((tab) => {
+            const isActive =
+              activeTab === tab.id ||
+              (tab.id === 'admin-dashboard' && activeTab === 'home') ||
+              (tab.id === 'student-dashboard' && activeTab === 'home')
+            return (
               <button
+                key={tab.id}
                 type="button"
-                className={`nav-link ${activeTab === 'home' || activeTab === 'admin-dashboard' ? 'active' : ''}`}
-                onClick={() => handleTabClick('admin-dashboard')}
+                className={`nav-tab ${isActive ? 'nav-tab--active' : ''}`}
+                onClick={() => handleTab(tab.id)}
+                aria-current={isActive ? 'page' : undefined}
               >
-                <span className="nav-icon">📊</span>
-                <span>Admin Dashboard</span>
+                <span className="nav-tab-icon">{tab.icon}</span>
+                <span className="nav-tab-label">{tab.label}</span>
+                {isActive && <span className="nav-tab-indicator" />}
               </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'map' ? 'active' : ''}`}
-                onClick={() => handleTabClick('map')}
-              >
-                <span className="nav-icon">🅿️</span>
-                <span>Parking Map</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'register' ? 'active' : ''}`}
-                onClick={() => handleTabClick('register')}
-              >
-                <span className="nav-icon">📋</span>
-                <span>Student &amp; Vehicle Registration</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'vehicle-entry' ? 'active' : ''}`}
-                onClick={() => handleTabClick('vehicle-entry')}
-              >
-                <span className="nav-icon">🚗</span>
-                <span>Vehicle Entry</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'vehicle-exit' ? 'active' : ''}`}
-                onClick={() => handleTabClick('vehicle-exit')}
-              >
-                <span className="nav-icon">🛑</span>
-                <span>Vehicle Exit</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'reports-history' ? 'active' : ''}`}
-                onClick={() => handleTabClick('reports-history')}
-              >
-                <span className="nav-icon">📜</span>
-                <span>Reports &amp; Parking History</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'wrong-parking' ? 'active' : ''}`}
-                onClick={() => handleTabClick('wrong-parking')}
-              >
-                <span className="nav-icon">⚠️</span>
-                <span>Wrong Parking Management</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'gate-scanner' ? 'active' : ''}`}
-                onClick={() => handleTabClick('gate-scanner')}
-              >
-                <span className="nav-icon">🛡️</span>
-                <span>Gate QR Scanner</span>
-              </button>
-            </>
-          ) : (
-            /* STUDENT SIDE — 5 PAGES */
-            <>
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'home' || activeTab === 'student-dashboard' ? 'active' : ''}`}
-                onClick={() => handleTabClick('student-dashboard')}
-              >
-                <span className="nav-icon">🏠</span>
-                <span>Student Dashboard</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'student-available-parking' ? 'active' : ''}`}
-                onClick={() => handleTabClick('student-available-parking')}
-              >
-                <span className="nav-icon">🅿️</span>
-                <span>Available Parking</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'student-my-vehicle' ? 'active' : ''}`}
-                onClick={() => handleTabClick('student-my-vehicle')}
-              >
-                <span className="nav-icon">🛵</span>
-                <span>My Vehicle</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'student-my-status' ? 'active' : ''}`}
-                onClick={() => handleTabClick('student-my-status')}
-              >
-                <span className="nav-icon">📍</span>
-                <span>My Parking Status</span>
-              </button>
-
-              <button
-                type="button"
-                className={`nav-link ${activeTab === 'student-my-history' ? 'active' : ''}`}
-                onClick={() => handleTabClick('student-my-history')}
-              >
-                <span className="nav-icon">📜</span>
-                <span>My Parking History/Profile</span>
-              </button>
-            </>
-          )}
+            )
+          })}
         </nav>
 
-        {/* Right: Profile & Explicit Sign Out & Mobile Toggle */}
-        <div className="nav-actions">
-          {/* User Profile Info */}
-          <div className="user-profile-chip hide-mobile">
-            <div className="user-avatar">
-              {displayName.slice(0, 2).toUpperCase()}
-            </div>
-            <div className="user-details">
-              <span className="user-name">{displayName}</span>
-              <span className="user-role">{displayRole}</span>
+        <div className="nav-right">
+          <div className="nav-user-chip" title={`${displayName} · ${displayRole}`}>
+            <div className="nav-avatar">{initials}</div>
+            <div className="nav-user-info">
+              <span className="nav-user-name">{displayName}</span>
+              <span className="nav-user-role">{displayRole}</span>
             </div>
           </div>
 
-          {/* Prominent Sign Out Button */}
           <button
             type="button"
-            className="sign-out-btn"
+            className="nav-signout-btn"
             onClick={handleLogout}
             disabled={isLoggingOut}
-            title="Sign Out of Session"
-            aria-label="Sign Out"
+            aria-label="Sign out"
           >
             <LogOutIcon className="w-4 h-4" />
-            <span className="sign-out-text">{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
+            <span className="nav-signout-label">
+              {isLoggingOut ? 'Signing out…' : 'Sign Out'}
+            </span>
           </button>
 
-          {/* Mobile Hamburger Menu Toggle Button */}
           <button
             type="button"
-            className="mobile-nav-toggle"
-            onClick={() => setMobileMenuOpen(prev => !prev)}
-            aria-label={mobileMenuOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
-            aria-expanded={mobileMenuOpen}
+            className={`nav-hamburger ${menuOpen ? 'nav-hamburger--open' : ''}`}
+            onClick={() => setMenuOpen((p) => !p)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={menuOpen}
           >
-            <span className="mobile-nav-icon">{mobileMenuOpen ? '✕' : '☰'}</span>
+            <span className="bar bar-1" />
+            <span className="bar bar-2" />
+            <span className="bar bar-3" />
           </button>
         </div>
+      </div>
+
+      <div className={`nav-mobile-drawer ${menuOpen ? 'nav-mobile-drawer--open' : ''}`}>
+        <div className="drawer-user-row">
+          <div className="nav-avatar nav-avatar--lg">{initials}</div>
+          <div>
+            <p className="drawer-user-name">{displayName}</p>
+            <p className="drawer-user-role">{displayRole}</p>
+          </div>
+        </div>
+        <div className="drawer-divider" />
+        <nav className="drawer-nav" aria-label="Mobile navigation">
+          {tabs.map((tab) => {
+            const isActive =
+              activeTab === tab.id ||
+              (tab.id === 'admin-dashboard' && activeTab === 'home') ||
+              (tab.id === 'student-dashboard' && activeTab === 'home')
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={`drawer-nav-item ${isActive ? 'drawer-nav-item--active' : ''}`}
+                onClick={() => handleTab(tab.id)}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <span className="drawer-nav-icon">{tab.icon}</span>
+                <span className="drawer-nav-label">{tab.label}</span>
+                {isActive && <span className="drawer-active-dot" />}
+              </button>
+            )
+          })}
+        </nav>
+        <div className="drawer-divider" />
+        <button
+          type="button"
+          className="drawer-signout"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+        >
+          <LogOutIcon className="w-4 h-4" />
+          {isLoggingOut ? 'Signing out…' : 'Sign Out'}
+        </button>
       </div>
     </header>
   )

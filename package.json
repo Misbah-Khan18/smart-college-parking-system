@@ -5,6 +5,8 @@
   "description": "Smart College Parking System - Root Runner",
   "scripts": {
     "dev": "npm --prefix frontend run dev",
+    "server": "npm --prefix backend run start",
+    "dev:backend": "npm --prefix backend run dev",
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview",
