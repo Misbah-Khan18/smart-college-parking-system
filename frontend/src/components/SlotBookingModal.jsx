@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { XIcon, QrIcon, CheckIcon, ShieldIcon } from './Icons'
+import { XIcon, ShieldIcon } from './Icons'
+import { createPermitCheckoutSession, simulateStripeWebhookPayment } from '../services/parkingApiService'
+
+const PERMIT_TIERS = [
+  { id: 'Daily', name: 'Daily Permit', price: 20, duration: '1 Day', desc: 'Valid for current date. Single entry/exit session.' },
+  { id: 'Monthly', name: '30-Day Monthly Pass', price: 300, duration: '30 Days', desc: 'Unlimited gate entries during the 30-day validity window.' },
+  { id: 'Semester', name: 'Semester Term Pass', price: 1200, duration: '180 Days', desc: 'Full academic term access with zero repeated payments.' }
+]
 
 export default function SlotBookingModal({
   isOpen,
   onClose,
-  initialSlot,
-  availableSlots = [],
   registeredVehicles = [],
-  prefilledData = null,
-  initialBookingType = 'slot', // 'slot' | 'monthly'
-  onConfirmBooking,
-  currentRole = 'Student',
+  onPermitActivated,
   user,
   userProfile
 }) {
@@ -18,15 +20,9 @@ export default function SlotBookingModal({
 
   return (
     <SlotBookingContent
-      key={initialSlot?.id || prefilledData?.vehicleNumber || initialBookingType || 'default-booking'}
       onClose={onClose}
-      initialSlot={initialSlot}
-      availableSlots={availableSlots}
       registeredVehicles={registeredVehicles}
-      prefilledData={prefilledData}
-      initialBookingType={initialBookingType}
-      onConfirmBooking={onConfirmBooking}
-      currentRole={currentRole}
+      onPermitActivated={onPermitActivated}
       user={user}
       userProfile={userProfile}
     />
@@ -35,36 +31,26 @@ export default function SlotBookingModal({
 
 function SlotBookingContent({
   onClose,
-  initialSlot,
-  availableSlots = [],
   registeredVehicles = [],
-  prefilledData = null,
-  initialBookingType = 'slot',
-  onConfirmBooking,
-  currentRole,
+  onPermitActivated,
   user,
   userProfile
 }) {
-  const [bookingMode, setBookingMode] = useState(initialBookingType || 'slot') // 'slot' | 'monthly'
-  const defaultSlotId = initialSlot?.id || availableSlots[0]?.id || ''
-  const defaultSlot = initialSlot || availableSlots.find((s) => s.id === defaultSlotId)
-
-  const [slotId, setSlotId] = useState(defaultSlotId)
+  const [selectedTier, setSelectedTier] = useState('Monthly')
   const [vehicleNumber, setVehicleNumber] = useState(
-    prefilledData?.vehicleNumber || userProfile?.defaultPlate || ''
+    userProfile?.defaultPlate || userProfile?.vehicleNumber || 'MH-12-AB-1234'
   )
   const [ownerName, setOwnerName] = useState(
-    prefilledData?.ownerName || userProfile?.displayName || user?.displayName || ''
+    userProfile?.displayName || user?.displayName || 'Student Member'
   )
-  const [category, setCategory] = useState(
-    prefilledData?.category || userProfile?.role || (currentRole === 'Faculty' ? 'Faculty' : 'Student')
-  )
-  const [durationHours, setDurationHours] = useState('2')
-  const [passDuration, setPassDuration] = useState('30') // 30 days | 90 days | 180 days
   const [vehicleType, setVehicleType] = useState(
-    prefilledData?.vehicleType || defaultSlot?.type || 'scooty'
+    userProfile?.vehicleType || 'scooty'
   )
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [pendingCheckout, setPendingCheckout] = useState(null)
   const [errorMsg, setErrorMsg] = useState('')
+
+  const tier = PERMIT_TIERS.find(t => t.id === selectedTier) || PERMIT_TIERS[1]
 
   const handleSelectRegistered = (regId) => {
     if (!regId) return
@@ -73,277 +59,290 @@ function SlotBookingContent({
       setOwnerName(found.studentName)
       setVehicleNumber(found.vehicleNumber)
       setVehicleType(found.vehicleType || 'scooty')
-      setCategory(found.category || 'Student')
-
-      // Auto pick suitable slot
-      const preferred = availableSlots.find(
-        (s) => s.floor === found.preferredFloor
-      )
-      if (preferred) {
-        setSlotId(preferred.id)
-      }
     }
   }
 
-  const handleSlotSelect = (selectedId) => {
-    setSlotId(selectedId)
-    const selected = availableSlots.find((s) => s.id === selectedId)
-    if (selected?.type) {
-      setVehicleType(selected.type)
-    }
-  }
-
-  const handleSubmit = (e) => {
+  const handleCreateCheckout = async (e) => {
     e.preventDefault()
-    if (!slotId) {
-      setErrorMsg('Please select an available parking slot.')
-      return
-    }
     if (!vehicleNumber.trim()) {
-      setErrorMsg('Please enter vehicle registration plate number.')
-      return
-    }
-    if (!ownerName.trim()) {
-      setErrorMsg('Please enter student / faculty / driver name.')
+      setErrorMsg('Vehicle number is required.')
       return
     }
 
-    const now = new Date()
-    let formattedExpiry = ''
-    let reservedLabel = ''
+    setIsProcessing(true)
+    setErrorMsg('')
 
-    if (bookingMode === 'monthly') {
-      const days = parseInt(passDuration, 10) || 30
-      const expDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
-      formattedExpiry = `${days} Days (Valid until ${expDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })})`
-      reservedLabel = `Monthly Pass (${days} Days)`
-    } else {
-      const expTime = new Date(now.getTime() + parseInt(durationHours, 10) * 60 * 60 * 1000)
-      formattedExpiry = expTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      reservedLabel = `Session Pass (${durationHours}h)`
+    try {
+      const studentId = userProfile?.campusId || user?.uid || 'student-demo'
+      const res = await createPermitCheckoutSession({
+        studentId,
+        studentName: ownerName.trim(),
+        rollNumber: userProfile?.campusId || 'S2410701',
+        stream: userProfile?.stream || 'School of Commerce',
+        phoneNumber: userProfile?.phoneNumber || '+91 98765 43210',
+        vehiclePlate: vehicleNumber.toUpperCase().trim(),
+        vehicleType,
+        permitType: selectedTier
+      })
+
+      if (res.checkoutUrl) {
+        // Live Stripe Checkout session
+        window.location.href = res.checkoutUrl
+        return
+      }
+
+      // Test Mode session
+      setPendingCheckout(res)
+      setIsProcessing(false)
+    } catch (err) {
+      console.error('Checkout creation error:', err)
+      setErrorMsg(err.message || 'Failed to initialize permit checkout.')
+      setIsProcessing(false)
     }
+  }
 
-    onConfirmBooking({
-      slotId,
-      vehicleNumber: vehicleNumber.toUpperCase().trim(),
-      ownerName: ownerName.trim(),
-      category,
-      vehicleType,
-      durationHours: bookingMode === 'monthly' ? parseInt(passDuration, 10) * 24 : parseInt(durationHours, 10),
-      reservedUntil: formattedExpiry,
-      passType: bookingMode === 'monthly' ? 'Monthly Pass' : 'Hourly Slot',
-      reservedLabel
-    })
-
-    onClose()
+  const handleCompleteWebhookPayment = async () => {
+    if (!pendingCheckout) return
+    setIsProcessing(true)
+    try {
+      const res = await simulateStripeWebhookPayment(pendingCheckout.permitId)
+      setIsProcessing(false)
+      if (onPermitActivated) {
+        onPermitActivated(res.permit)
+      }
+      onClose()
+    } catch (err) {
+      console.error('Webhook execution error:', err)
+      setErrorMsg(err.message || 'Payment verification failed.')
+      setIsProcessing(false)
+    }
   }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-content glass-card" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal-content glass-card slot-booking-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buy Parking Permit"
+      >
         <div className="modal-header">
           <div className="modal-title-wrap">
-            <QrIcon className="w-5 h-5 text-cyan" />
-            <h3 className="modal-title">
-              {bookingMode === 'monthly' ? 'Book Monthly Campus Pass' : 'Reserve Parking Slot'}
-            </h3>
+            <ShieldIcon className="w-5 h-5 text-cyan" />
+            <h3 className="modal-title">Campus Parking Permit</h3>
           </div>
-          <button type="button" className="close-btn" onClick={onClose} aria-label="Close booking modal">
+          <button type="button" className="close-btn" onClick={onClose} aria-label="Close modal">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Mode Selector Pill */}
-        <div className="modal-mode-tabs">
-          <button
-            type="button"
-            className={`modal-tab-pill ${bookingMode === 'slot' ? 'active' : ''}`}
-            onClick={() => {
-              setBookingMode('slot')
-              setErrorMsg('')
-            }}
-          >
-            <span>🅿️ Book Slot (Daily)</span>
-          </button>
-          <button
-            type="button"
-            className={`modal-tab-pill ${bookingMode === 'monthly' ? 'active' : ''}`}
-            onClick={() => {
-              setBookingMode('monthly')
-              setErrorMsg('')
-            }}
-          >
-            <span>🎫 Book Monthly Pass</span>
-          </button>
-        </div>
+        {!pendingCheckout ? (
+          <form onSubmit={handleCreateCheckout} className="booking-modal-body">
+            {/* Explainer banner: Dynamic allocation */}
+            <div style={{
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              marginBottom: '16px'
+            }}>
+              <p style={{ margin: 0, fontSize: '13px', color: '#e2e8f0', lineHeight: '1.4' }}>
+                🛡️ <strong>Dynamic Bay Allocation:</strong> Permits belong to your vehicle profile. Physical parking bays are not locked permanently — your nearest compatible bay ({vehicleType === 'bike' ? 'Basement' : 'Ground Floor'}) is dynamically assigned each time you arrive at the gate.
+              </p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="booking-form">
-          {errorMsg && <div className="error-banner">{errorMsg}</div>}
-
-          {/* Monthly Pass Highlight Banner */}
-          {bookingMode === 'monthly' && (
-            <div className="monthly-pass-badge-banner">
-              <ShieldIcon className="w-5 h-5 text-indigo" />
-              <div>
-                <strong>School of Commerce Monthly Permit</strong>
-                <p>Guaranteed designated floor slot &bull; Unlimited campus barrier entry</p>
+            {/* Select Permit Tier */}
+            <div className="form-group">
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '13px', color: '#cbd5e1' }}>
+                Select Permit Tier
+              </label>
+              <div className="permit-tier-grid">
+                {PERMIT_TIERS.map(t => {
+                  const isSelected = selectedTier === t.id
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => setSelectedTier(t.id)}
+                      style={{
+                        cursor: 'pointer',
+                        padding: '12px 10px',
+                        borderRadius: '10px',
+                        border: isSelected ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                        background: isSelected ? 'rgba(37, 99, 235, 0.25)' : 'rgba(15, 23, 42, 0.6)',
+                        transition: 'all 0.2s ease',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div style={{ fontSize: '18px', fontWeight: 800, color: '#f8fafc' }}>
+                        ₹{t.price}
+                      </div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: isSelected ? '#38bdf8' : '#94a3b8', marginTop: '2px' }}>
+                        {t.name}
+                      </div>
+                      <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '4px' }}>
+                        {t.duration}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
+              <p style={{ margin: '6px 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                {tier.desc}
+              </p>
             </div>
-          )}
 
-          {/* Quick Select from Registered Students */}
-          {registeredVehicles.length > 0 && !prefilledData && (
-            <div className="form-group">
-              <label>Auto-fill from Registered Student Directory</label>
-              <select
-                className="form-control"
-                onChange={(e) => handleSelectRegistered(e.target.value)}
-                defaultValue=""
-              >
-                <option value="">-- Choose Registered Student (Optional) --</option>
-                {registeredVehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.studentName} ({v.rollNumber}) &bull; {v.vehicleNumber} [{v.vehicleType.toUpperCase()}]
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+            {/* Quick select registered student */}
+            {registeredVehicles.length > 0 && (
+              <div className="form-group" style={{ marginTop: '14px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                  Autofill from Registered Vehicle
+                </label>
+                <select
+                  className="form-control"
+                  onChange={(e) => handleSelectRegistered(e.target.value)}
+                  defaultValue=""
+                >
+                  <option value="">-- Choose Registered Vehicle --</option>
+                  {registeredVehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.vehicleNumber} &bull; {v.studentName} ({v.vehicleType})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          {/* Select Slot */}
-          <div className="form-group">
-            <label htmlFor="slot-select">
-              {bookingMode === 'monthly' ? 'Select Designated Bay *' : 'Select Available Bay *'}
-            </label>
-            <select
-              id="slot-select"
-              value={slotId}
-              onChange={(e) => handleSlotSelect(e.target.value)}
-              className="form-control"
-              required
-            >
-              {availableSlots.length === 0 ? (
-                <option value="">No bays currently available</option>
-              ) : (
-                availableSlots.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    Bay {s.id} &bull; {s.floor} ({s.section}) [{s.type.toUpperCase()}]
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-
-          <div className="form-row">
-            {/* Owner Name */}
-            <div className="form-group">
-              <label htmlFor="owner-name">Student / Driver Name *</label>
+            {/* Vehicle Number Input */}
+            <div className="form-group" style={{ marginTop: '14px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                Vehicle License Plate *
+              </label>
               <input
-                id="owner-name"
                 type="text"
-                placeholder="Driver or Student Name"
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
-                className="form-control"
-                required
-              />
-            </div>
-
-            {/* Vehicle Number */}
-            <div className="form-group">
-              <label htmlFor="vehicle-plate">Vehicle Plate *</label>
-              <input
-                id="vehicle-plate"
-                type="text"
-                placeholder="MH-04-AB-1234"
+                placeholder="e.g. MH-12-AB-1234"
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value)}
                 className="form-control uppercase-input font-mono font-bold"
                 required
               />
             </div>
-          </div>
 
-          <div className="form-row">
-            {/* Category */}
-            <div className="form-group">
-              <label htmlFor="user-category">Role / Category</label>
-              <select
-                id="user-category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="form-control"
-              >
-                <option value="Student">Student</option>
-                <option value="Faculty">Faculty / Professor</option>
-                <option value="Staff">College Staff</option>
-                <option value="Security Admin">Security Admin</option>
-                <option value="Visitor">Visitor</option>
-              </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                  Student Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Student Name"
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  className="form-control"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                  Vehicle Type *
+                </label>
+                <select
+                  value={vehicleType}
+                  onChange={(e) => setVehicleType(e.target.value)}
+                  className="form-control"
+                >
+                  <option value="scooty">🛵 Scooty (Ground Floor)</option>
+                  <option value="bike">🏍️ Bike (Basement)</option>
+                </select>
+              </div>
             </div>
 
-            {/* Vehicle Model */}
-            <div className="form-group">
-              <label htmlFor="vehicle-model">Two-Wheeler Type</label>
-              <select
-                id="vehicle-model"
-                value={vehicleType}
-                onChange={(e) => setVehicleType(e.target.value)}
-                className="form-control"
-              >
-                <option value="scooty">🛵 Scooty (Ground Floor)</option>
-                <option value="bike">🏍️ Bike (Basement)</option>
-                <option value="scooty-ev">⚡ EV Scooty (Ground Floor)</option>
-                <option value="bike-ev">⚡ EV Bike (Basement)</option>
-              </select>
-            </div>
-          </div>
+            {errorMsg && (
+              <div style={{ marginTop: '14px', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '12.5px' }}>
+                {errorMsg}
+              </div>
+            )}
 
-          {/* Duration Choice: Hourly vs Monthly */}
-          {bookingMode === 'slot' ? (
-            <div className="form-group">
-              <label htmlFor="duration-select">Stay Duration</label>
-              <select
-                id="duration-select"
-                value={durationHours}
-                onChange={(e) => setDurationHours(e.target.value)}
-                className="form-control"
+            <div className="modal-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+              <button
+                type="submit"
+                disabled={isProcessing}
+                className="btn btn-primary w-full"
               >
-                <option value="1">1 Hour</option>
-                <option value="2">2 Hours</option>
-                <option value="4">4 Hours</option>
-                <option value="8">Full Day (8 Hours)</option>
-              </select>
-            </div>
-          ) : (
-            <div className="form-group">
-              <label htmlFor="monthly-pass-select">Monthly Permit Validity</label>
-              <select
-                id="monthly-pass-select"
-                value={passDuration}
-                onChange={(e) => setPassDuration(e.target.value)}
-                className="form-control"
+                {isProcessing ? 'Connecting to Stripe…' : `Proceed to Stripe Payment (₹${tier.price}) &rarr;`}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onClose}
               >
-                <option value="30">1 Month (30 Days) - Standard Campus Pass</option>
-                <option value="90">3 Months (Quarterly Semester Permit)</option>
-                <option value="180">6 Months (Full Semester Permit)</option>
-              </select>
+                Cancel
+              </button>
             </div>
-          )}
+          </form>
+        ) : (
+          /* Stripe Test Simulation Card */
+          <div style={{ padding: '20px', textAlign: 'center' }}>
+            <div style={{ fontSize: '42px', marginBottom: '10px' }}>💳</div>
+            <h4 style={{ margin: '0 0 6px', color: '#f8fafc', fontSize: '18px' }}>
+              Stripe Checkout (Test Mode)
+            </h4>
+            <p style={{ margin: '0 0 16px', color: '#94a3b8', fontSize: '13px' }}>
+              Permit created with session: <code style={{ color: '#38bdf8' }}>{pendingCheckout.sessionId}</code>
+            </p>
 
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.7)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px',
+              padding: '16px',
+              marginBottom: '20px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: '#94a3b8', fontSize: '13px' }}>Permit Tier:</span>
+                <strong style={{ color: '#f1f5f9', fontSize: '13px' }}>{selectedTier} ({tier.duration})</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: '#94a3b8', fontSize: '13px' }}>Vehicle:</span>
+                <strong style={{ color: '#38bdf8', fontFamily: 'monospace', fontSize: '13px' }}>{vehicleNumber.toUpperCase()}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#94a3b8', fontSize: '13px' }}>Amount Due:</span>
+                <strong style={{ color: '#10b981', fontSize: '16px' }}>₹{tier.price}</strong>
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '20px',
+              fontSize: '12px',
+              color: '#6ee7b7'
+            }}>
+              ⚡ <strong>Webhook Verification:</strong> Clicking below triggers the verified backend Stripe webhook handler to mark the permit as PAID and generate your real secure QR code.
+            </div>
+
+            {errorMsg && (
+              <div style={{ marginBottom: '14px', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#fca5a5', fontSize: '12.5px' }}>
+                {errorMsg}
+              </div>
+            )}
+
             <button
-              type="submit"
-              className={`btn ${bookingMode === 'monthly' ? 'btn-indigo' : 'btn-primary'}`}
+              type="button"
+              disabled={isProcessing}
+              className="btn btn-primary w-full"
+              style={{ padding: '12px', fontSize: '15px' }}
+              onClick={handleCompleteWebhookPayment}
             >
-              <CheckIcon className="w-4 h-4" />
-              <span>{bookingMode === 'monthly' ? 'Confirm Monthly Pass' : 'Confirm Slot Reservation'}</span>
+              {isProcessing ? 'Verifying Webhook…' : '✅ Verify Stripe Webhook & Issue Active QR'}
             </button>
           </div>
-        </form>
+        )}
       </div>
     </div>
   )
