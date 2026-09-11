@@ -1,4 +1,4 @@
-﻿import {
+import {
   CheckIcon,
   ShieldIcon,
   PlusCircleIcon
@@ -11,7 +11,8 @@ export default function StudentDashboardView({
   activePermit,
   onViewPass,
   onNavigateTab,
-  onOpenBooking
+  onOpenBooking,
+  onCancelPermit
 }) {
   const displayName = userProfile?.displayName || user?.displayName || 'Alzuni Shaikh'
   const firstName = displayName.split(' ')[0] || 'Alzuni'
@@ -70,7 +71,7 @@ export default function StudentDashboardView({
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -84,6 +85,15 @@ export default function StudentDashboardView({
               onClick={() => onOpenBooking && onOpenBooking(null, 'permit')}
             >
               🔄 Change / Renew
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5' }}
+              onClick={() => onCancelPermit && onCancelPermit(activePermit)}
+              title="Cancel this permit"
+            >
+              🗑️ Cancel
             </button>
           </div>
         </div>

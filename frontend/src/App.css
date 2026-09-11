@@ -2185,12 +2185,26 @@
 
 .qr-section {
   display: flex;
-  justify-content: center;
-  padding: 12px 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
   border-top: 1px dashed rgba(255, 255, 255, 0.1);
   border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
 }
 
+/* White-background wrapper around the QR image */
+.qr-image-wrap {
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Legacy .qr-box — kept for other uses */
 .qr-box {
   width: 110px;
   height: 110px;
@@ -2207,9 +2221,50 @@
   height: 100%;
 }
 
-.pass-footer-btn {
+/* Hint text below QR */
+.qr-hint {
+  font-size: 11.5px;
+  color: #94a3b8;
+  text-align: center;
+  margin: 0;
+  max-width: 260px;
+  line-height: 1.4;
+}
+
+/* Token display row */
+.qr-token-row {
   display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.qr-token-code {
+  font-size: 10.5px;
+  font-family: var(--font-mono, monospace);
+  background: rgba(255, 255, 255, 0.08);
+  color: #38bdf8;
+  padding: 4px 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+  display: block;
+}
+
+/* Pending QR placeholder */
+.qr-pending-placeholder {
+  width: 200px;
+  height: 200px;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+  padding: 16px;
+  line-height: 1.5;
 }
 
 .btn-print {

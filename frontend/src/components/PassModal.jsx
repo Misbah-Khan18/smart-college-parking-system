@@ -97,34 +97,32 @@ export default function PassModal({ pass, onClose }) {
 
             {/* Real QR Section */}
             <div className="qr-section">
-              <div className="qr-box" style={{ background: '#ffffff', padding: '8px', borderRadius: '12px', display: 'inline-block' }}>
+              <div className="qr-image-wrap">
                 {qrSrc ? (
                   <img
                     src={qrSrc}
                     alt="Campus Permit Verification QR Code"
-                    width={180}
-                    height={180}
-                    style={{ display: 'block', borderRadius: '6px' }}
+                    width={200}
+                    height={200}
+                    style={{ display: 'block', borderRadius: '8px' }}
                   />
                 ) : (
-                  <div style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '12px' }}>
-                    Payment verification pending. Complete Stripe checkout to generate QR.
+                  <div className="qr-pending-placeholder">
+                    🔒 Payment verification pending.<br/>Complete Stripe checkout to generate QR.
                   </div>
                 )}
               </div>
               <p className="qr-hint">
-                Scan at School of Commerce Boom Barrier Reader for Contactless Ingress
+                Scan at School of Commerce Boom Barrier for contactless gate ingress
               </p>
               {qrToken && (
-                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                  <code style={{ fontSize: '11px', background: 'rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '4px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {qrToken}
-                  </code>
+                <div className="qr-token-row">
+                  <code className="qr-token-code">{qrToken}</code>
                   <button
                     type="button"
                     onClick={handleCopyToken}
                     className="btn btn-sm btn-secondary"
-                    style={{ padding: '3px 8px', fontSize: '11px' }}
+                    style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}
                     title="Copy Token to Gate Simulator"
                   >
                     {copied ? <CheckIcon className="w-3 h-3 text-emerald" /> : '📋 Copy'}

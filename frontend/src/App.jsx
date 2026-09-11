@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
@@ -249,21 +249,13 @@ export default function App() {
 
   // Modals
   const [isBookingOpen, setIsBookingOpen] = useState(false)
-  const [bookingSlotTarget, setBookingSlotTarget] = useState(null)
-  const [bookingType, setBookingType] = useState('slot')
   const [confirmationData, setConfirmationData] = useState(null)
   const [activePass, setActivePass] = useState(null)
   // Payment gate: holds pending booking until user pays ₹10
   const [paymentPendingData, setPaymentPendingData] = useState(null)
 
-  const availableSlots = useMemo(() => {
-    return slots.filter((s) => s.status === 'available')
-  }, [slots])
-
-  // Open booking modal with specific mode (slot vs monthly)
-  const handleOpenBookingModal = (slot = null, type = 'slot') => {
-    setBookingSlotTarget(slot)
-    setBookingType(type)
+  // Open booking modal (slot/type params available for future pre-selection)
+  const handleOpenBookingModal = () => {
     setIsBookingOpen(true)
   }
 
@@ -389,8 +381,9 @@ export default function App() {
   }
 
   // ==========================================
-  // BOOKING / PARKING HANDLER
+  // BOOKING / PARKING HANDLER (wired to gate simulator — kept for future slot booking UI)
   // ==========================================
+  // eslint-disable-next-line no-unused-vars
   const handleConfirmBooking = ({
     slotId,
     vehicleNumber,
@@ -725,6 +718,13 @@ export default function App() {
                   onNavigateTab={setActiveTab}
                   onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'permit')}
                   onViewPass={(pass) => setActivePass(pass)}
+                  onCancelPermit={(permit) => {
+                    if (window.confirm(`Cancel ${permit?.permitType || ''} permit for ${permit?.vehiclePlate || 'this vehicle'}? This cannot be undone.`)) {
+                      setActivePermit(null)
+                      localStorage.removeItem('student_active_permit')
+                      showToast('Permit Cancelled', 'Your permit has been removed.', 'info')
+                    }
+                  }}
                 />
               )}
 
@@ -778,7 +778,6 @@ export default function App() {
         isOpen={isBookingOpen}
         onClose={() => {
           setIsBookingOpen(false)
-          setBookingSlotTarget(null)
         }}
         registeredVehicles={getRegisteredVehicles()}
         onPermitActivated={(permit) => {
