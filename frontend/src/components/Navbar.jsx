@@ -7,8 +7,7 @@ export default function Navbar({
   userProfile,
   onLogout,
   activeTab,
-  setActiveTab,
-  onOpenQuickPark
+  setActiveTab
 }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -143,6 +142,15 @@ export default function Navbar({
               >
                 <span className="nav-icon">⚠️</span>
                 <span>Wrong Parking Management</span>
+              </button>
+
+              <button
+                type="button"
+                className={`nav-link ${activeTab === 'gate-scanner' ? 'active' : ''}`}
+                onClick={() => handleTabClick('gate-scanner')}
+              >
+                <span className="nav-icon">🛡️</span>
+                <span>Gate QR Scanner</span>
               </button>
             </>
           ) : (

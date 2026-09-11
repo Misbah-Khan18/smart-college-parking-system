@@ -4,7 +4,6 @@ import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
 import {
   INITIAL_SLOTS,
-  INITIAL_REGISTERED_VEHICLES,
   INITIAL_PARKING_HISTORY
 } from './data/initialSlots'
 
@@ -20,11 +19,16 @@ import Login from './pages/Login'
 import RegistrationPage from './pages/RegistrationPage'
 import ParkingHistoryView from './components/ParkingHistoryView'
 
-// Admin Views (7 pages)
+// Admin Views (8 pages)
 import AdminDashboardView from './components/admin/AdminDashboardView'
 import VehicleEntryView from './components/admin/VehicleEntryView'
 import VehicleExitView from './components/admin/VehicleExitView'
 import WrongParkingView from './components/admin/WrongParkingView'
+import GatePermitScannerView from './components/admin/GatePermitScannerView'
+
+// Payment Return Pages
+import PaymentSuccessPage from './pages/PaymentSuccessPage'
+import PaymentCancelPage from './pages/PaymentCancelPage'
 
 // Student Views (5 pages)
 import StudentDashboardView from './components/student/StudentDashboardView'
@@ -450,6 +454,21 @@ export default function App() {
   }
 
   // ==========================================
+  // PAYMENT RETURN PAGES (Stripe Checkout Return)
+  // ==========================================
+  const currentPath = window.location.pathname
+  const isPaymentSuccess = currentPath.includes('payment-success') || window.location.search.includes('session_id')
+  const isPaymentCancel = currentPath.includes('payment-cancel')
+
+  if (isPaymentSuccess) {
+    return <PaymentSuccessPage />
+  }
+
+  if (isPaymentCancel) {
+    return <PaymentCancelPage />
+  }
+
+  // ==========================================
   // 1. FIRST PAGE: AUTHENTICATION / LOGIN VIEW
   // ==========================================
   if (!user) {
@@ -491,7 +510,6 @@ export default function App() {
         onLogout={handleLogout}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenQuickPark={(type) => handleOpenBookingModal(null, type || 'slot')}
       />
 
       {/* Main Content Area with 150-250ms Smooth Page Transitions */}
@@ -573,6 +591,11 @@ export default function App() {
                   onReleaseSlot={handleReleaseSlot}
                   showToast={showToast}
                 />
+              )}
+
+              {/* PAGE 8: GATE QR PERMIT SCANNER & VERIFICATION */}
+              {activeTab === 'gate-scanner' && (
+                <GatePermitScannerView showToast={showToast} />
               )}
             </>
           )}

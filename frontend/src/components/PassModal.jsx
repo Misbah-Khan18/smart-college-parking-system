@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { XIcon, ShieldIcon } from './Icons'
 
 export default function PassModal({ pass, onClose }) {
@@ -5,6 +6,7 @@ export default function PassModal({ pass, onClose }) {
 
   const displayPassId = pass.passId || `SMP-${String(pass.slotId || '00').replace(/[^a-zA-Z0-9]/g, '')}-PERMIT`
   const isMonthly = pass.passType === 'Monthly Pass' || pass.reservedLabel?.includes('Monthly')
+  const qrImage = pass.qrCodeDataUrl || ''
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -65,56 +67,56 @@ export default function PassModal({ pass, onClose }) {
               </div>
             </div>
 
-            {/* QR Code Simulation */}
+            {/* Dynamic Real QR Code with Security Watermark */}
             <div className="qr-section">
               <div className="qr-box">
-                <svg viewBox="0 0 100 100" className="qr-svg" fill="currentColor">
-                  {/* Corner 1 */}
-                  <rect x="5" y="5" width="26" height="26" fill="#000" rx="3" />
-                  <rect x="9" y="9" width="18" height="18" fill="#fff" />
-                  <rect x="13" y="13" width="10" height="10" fill="#000" />
-                  {/* Corner 2 */}
-                  <rect x="69" y="5" width="26" height="26" fill="#000" rx="3" />
-                  <rect x="73" y="9" width="18" height="18" fill="#fff" />
-                  <rect x="77" y="13" width="10" height="10" fill="#000" />
-                  {/* Corner 3 */}
-                  <rect x="5" y="69" width="26" height="26" fill="#000" rx="3" />
-                  <rect x="9" y="73" width="18" height="18" fill="#fff" />
-                  <rect x="13" y="77" width="10" height="10" fill="#000" />
-                  {/* Simulated QR data */}
-                  <rect x="36" y="8" width="6" height="6" fill="#000" />
-                  <rect x="46" y="8" width="6" height="6" fill="#000" />
-                  <rect x="56" y="8" width="6" height="6" fill="#000" />
-                  <rect x="36" y="18" width="6" height="6" fill="#000" />
-                  <rect x="46" y="24" width="6" height="6" fill="#000" />
-                  <rect x="56" y="18" width="6" height="6" fill="#000" />
-                  <rect x="8" y="36" width="6" height="6" fill="#000" />
-                  <rect x="18" y="36" width="6" height="6" fill="#000" />
-                  <rect x="28" y="36" width="6" height="6" fill="#000" />
-                  <rect x="38" y="36" width="6" height="6" fill="#000" />
-                  <rect x="48" y="36" width="6" height="6" fill="#000" />
-                  <rect x="58" y="36" width="6" height="6" fill="#000" />
-                  <rect x="68" y="36" width="6" height="6" fill="#000" />
-                  <rect x="78" y="36" width="6" height="6" fill="#000" />
-                  <rect x="88" y="36" width="6" height="6" fill="#000" />
-                  <rect x="36" y="46" width="6" height="6" fill="#000" />
-                  <rect x="52" y="46" width="6" height="6" fill="#000" />
-                  <rect x="68" y="46" width="6" height="6" fill="#000" />
-                  <rect x="82" y="46" width="6" height="6" fill="#000" />
-                  <rect x="36" y="58" width="6" height="6" fill="#000" />
-                  <rect x="48" y="58" width="6" height="6" fill="#000" />
-                  <rect x="62" y="58" width="6" height="6" fill="#000" />
-                  <rect x="76" y="58" width="6" height="6" fill="#000" />
-                  <rect x="36" y="70" width="6" height="6" fill="#000" />
-                  <rect x="50" y="70" width="6" height="6" fill="#000" />
-                  <rect x="64" y="70" width="6" height="6" fill="#000" />
-                  <rect x="80" y="70" width="6" height="6" fill="#000" />
-                  <rect x="36" y="82" width="6" height="6" fill="#000" />
-                  <rect x="48" y="82" width="6" height="6" fill="#000" />
-                  <rect x="60" y="82" width="6" height="6" fill="#000" />
-                  <rect x="74" y="82" width="6" height="6" fill="#000" />
-                  <rect x="86" y="82" width="6" height="6" fill="#000" />
-                </svg>
+                {qrImage ? (
+                  <img src={qrImage} alt="Encrypted Permit QR Code" className="qr-svg" />
+                ) : (
+                  <svg viewBox="0 0 100 100" className="qr-svg" fill="currentColor">
+                    <rect x="5" y="5" width="26" height="26" fill="#000" rx="3" />
+                    <rect x="9" y="9" width="18" height="18" fill="#fff" />
+                    <rect x="13" y="13" width="10" height="10" fill="#000" />
+                    <rect x="69" y="5" width="26" height="26" fill="#000" rx="3" />
+                    <rect x="73" y="9" width="18" height="18" fill="#fff" />
+                    <rect x="77" y="13" width="10" height="10" fill="#000" />
+                    <rect x="5" y="69" width="26" height="26" fill="#000" rx="3" />
+                    <rect x="9" y="73" width="18" height="18" fill="#fff" />
+                    <rect x="13" y="77" width="10" height="10" fill="#000" />
+                    <rect x="36" y="8" width="6" height="6" fill="#000" />
+                    <rect x="46" y="8" width="6" height="6" fill="#000" />
+                    <rect x="56" y="8" width="6" height="6" fill="#000" />
+                    <rect x="36" y="18" width="6" height="6" fill="#000" />
+                    <rect x="46" y="24" width="6" height="6" fill="#000" />
+                    <rect x="56" y="18" width="6" height="6" fill="#000" />
+                    <rect x="8" y="36" width="6" height="6" fill="#000" />
+                    <rect x="18" y="36" width="6" height="6" fill="#000" />
+                    <rect x="28" y="36" width="6" height="6" fill="#000" />
+                    <rect x="38" y="36" width="6" height="6" fill="#000" />
+                    <rect x="48" y="36" width="6" height="6" fill="#000" />
+                    <rect x="58" y="36" width="6" height="6" fill="#000" />
+                    <rect x="68" y="36" width="6" height="6" fill="#000" />
+                    <rect x="78" y="36" width="6" height="6" fill="#000" />
+                    <rect x="88" y="36" width="6" height="6" fill="#000" />
+                    <rect x="36" y="46" width="6" height="6" fill="#000" />
+                    <rect x="52" y="46" width="6" height="6" fill="#000" />
+                    <rect x="68" y="46" width="6" height="6" fill="#000" />
+                    <rect x="82" y="46" width="6" height="6" fill="#000" />
+                    <rect x="36" y="58" width="6" height="6" fill="#000" />
+                    <rect x="48" y="58" width="6" height="6" fill="#000" />
+                    <rect x="62" y="58" width="6" height="6" fill="#000" />
+                    <rect x="76" y="58" width="6" height="6" fill="#000" />
+                    <rect x="36" y="70" width="6" height="6" fill="#000" />
+                    <rect x="50" y="70" width="6" height="6" fill="#000" />
+                    <rect x="64" y="70" width="6" height="6" fill="#000" />
+                    <rect x="80" y="70" width="6" height="6" fill="#000" />
+                    <rect x="36" y="82" width="6" height="6" fill="#000" />
+                    <rect x="48" y="82" width="6" height="6" fill="#000" />
+                    <rect x="60" y="82" width="6" height="6" fill="#000" />
+                    <rect x="74" y="82" width="6" height="6" fill="#000" />
+                    <rect x="86" y="82" width="6" height="6" fill="#000" />
+                  </svg>
+                )}
               </div>
               <p className="qr-hint">Scan at School of Commerce Gate Reader for Contactless Entry</p>
             </div>
