@@ -47,10 +47,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`====================================================`);
-  console.log(`  Smart College Parking Backend listening on :${PORT}`);
-  console.log(`  Client URL: ${CLIENT_URL}`);
-  console.log(`  Stripe Key: ${process.env.STRIPE_SECRET_KEY ? 'Configured' : 'Missing'}`);
-  console.log(`====================================================`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`====================================================`);
+    console.log(`  Smart College Parking Backend listening on :${PORT}`);
+    console.log(`  Client URL: ${CLIENT_URL}`);
+    console.log(`  Stripe Key: ${process.env.STRIPE_SECRET_KEY ? 'Configured' : 'Missing'}`);
+    console.log(`====================================================`);
+  });
+}
+
+export default app;
