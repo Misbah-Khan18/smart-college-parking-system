@@ -67,8 +67,8 @@ export default function PassModal({ pass, onClose }) {
               </span>
               <span className="slot-hero-zone">
                 {currentSlotId
-                  ? `${pass.floor || 'Campus Level'} &bull; In Active Session`
-                  : 'Nearest bay dynamically allocated at Gate Ingress (Scooty &rarr; Ground Floor, Bike &rarr; Basement)'}
+                  ? `${pass.floor || 'Campus Level'} • In Active Session`
+                  : 'Nearest bay dynamically allocated at Gate Ingress (Scooty → Ground Floor, Bike → Basement)'}
               </span>
             </div>
 

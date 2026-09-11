@@ -1,12 +1,12 @@
-﻿{
+{
   "name": "smart-college-parking-backend",
   "version": "1.0.0",
-  "description": "Express Backend for Smart College Parking System",
+  "description": "Secure Stripe Payment & Permit Verification API for Smart College Parking System",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node src/server.js"
+    "dev": "node --watch src/server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

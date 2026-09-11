@@ -18,6 +18,7 @@ const ADMIN_TABS = [
   { id: 'vehicle-exit',     icon: '🛑', label: 'Exit' },
   { id: 'reports-history',  icon: '📜', label: 'Reports' },
   { id: 'wrong-parking',    icon: '⚠️', label: 'Violations' },
+  { id: 'gate-scanner',     icon: '🛡️', label: 'Gate Scanner' },
 ]
 
 export default function Navbar({ user, userProfile, onLogout, activeTab, setActiveTab }) {
