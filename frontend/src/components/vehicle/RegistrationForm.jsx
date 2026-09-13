@@ -11,9 +11,9 @@ import {
   COMMON_STREAMS,
   getFloorForVehicleType,
   validateVehicleInput,
-  normalizePlate
+  normalizePlate,
+  registerVehicle
 } from '../../services/vehicleService'
-import { createCheckoutSession } from '../../services/paymentService'
 
 const PERMIT_TIERS = [
   {
@@ -94,9 +94,11 @@ export default function RegistrationForm({
     }
   }
 
-  const handlePayAndRegister = async (e) => {
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault()
     setServerError('')
+
+    const selectedPlan = PERMIT_TIERS.find((p) => p.id === selectedPlanId) || PERMIT_TIERS[1]
 
     const formData = {
       studentName: studentName.trim(),
@@ -104,7 +106,9 @@ export default function RegistrationForm({
       stream: stream.trim(),
       phoneNumber: phoneNumber.trim(),
       vehicleNumber: normalizePlate(vehicleNumber),
-      vehicleType
+      vehicleType,
+      category: 'Student',
+      passType: selectedPlan.name
     }
 
     const validation = validateVehicleInput(formData, registeredVehicles)
@@ -117,30 +121,39 @@ export default function RegistrationForm({
     setIsSubmitting(true)
 
     try {
-      if (showToast) {
-        showToast('Initializing Stripe', 'Connecting to secure campus payment gateway...', 'info')
+      const newRecord = await registerVehicle(formData)
+
+      // Clear form on success
+      setStudentName('')
+      setRollNumber('')
+      setStream(COMMON_STREAMS[0])
+      setPhoneNumber('')
+      setVehicleNumber('')
+      setVehicleType('scooty')
+      setErrors({})
+
+      if (onRegisterSuccess) {
+        onRegisterSuccess(newRecord)
       }
 
-      const sessionResponse = await createCheckoutSession({
-        ...formData,
-        planId: selectedPlanId
-      })
-
-      if (sessionResponse?.checkoutUrl) {
-        if (showToast) {
-          showToast('Redirecting', 'Opening Stripe Checkout terminal...', 'success')
-        }
-        // Redirect user to Stripe Hosted Checkout or Sandbox return
-        window.location.href = sessionResponse.checkoutUrl
-      } else {
-        throw new Error('No checkout URL returned from server.')
+      if (showToast) {
+        showToast(
+          'Vehicle Registered',
+          `${newRecord.studentName} (${newRecord.vehicleNumber}) registered in Firestore! 🎉`,
+          'success'
+        )
       }
     } catch (err) {
-      console.error('Checkout error:', err)
-      setServerError(err.message || 'Payment initiation failed. Please try again.')
-      if (showToast) {
-        showToast('Payment Error', err.message || 'Could not initiate checkout.', 'error')
+      console.error('Registration error:', err)
+      if (err.validationErrors) {
+        setErrors(err.validationErrors)
+      } else {
+        setServerError(err.message || 'Registration failed. Please check form details.')
       }
+      if (showToast) {
+        showToast('Registration Error', err.message || 'Could not register vehicle.', 'error')
+      }
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -155,9 +168,9 @@ export default function RegistrationForm({
           <ShieldIcon className="w-5 h-5 text-cyan" />
         </div>
         <div>
-          <h3 className="form-card-title">Pay &amp; Register Parking Permit</h3>
+          <h3 className="form-card-title">Register Student &amp; Vehicle</h3>
           <p className="form-card-subtitle">
-            Official vehicle registration &amp; Stripe Checkout with encrypted QR Gate Pass issuance
+            Official vehicle registration with designated floor allocation &amp; QR Gate Pass issuance
           </p>
         </div>
       </div>
@@ -172,7 +185,7 @@ export default function RegistrationForm({
         </div>
       )}
 
-      <form onSubmit={handlePayAndRegister} className="vehicle-reg-form" noValidate>
+      <form onSubmit={handleRegisterSubmit} className="vehicle-reg-form" noValidate>
         {/* Row 1: Student Name & Roll Number */}
         <div className="form-grid-2">
           <div className="input-group">
@@ -268,10 +281,10 @@ export default function RegistrationForm({
             <div className="vehicle-choice-row">
               {VEHICLE_TYPE_OPTIONS.map((opt) => (
                 <button
-                  key={opt.value}
+                  key={opt.id}
                   type="button"
-                  className={`vehicle-choice-btn ${vehicleType === opt.value ? 'active' : ''}`}
-                  onClick={() => handleInputChange('vehicleType', opt.value)}
+                  className={`vehicle-choice-btn ${vehicleType === opt.id ? 'active' : ''}`}
+                  onClick={() => handleInputChange('vehicleType', opt.id)}
                   disabled={isSubmitting}
                 >
                   <span className="v-icon">{opt.emoji}</span>
@@ -308,7 +321,7 @@ export default function RegistrationForm({
         {/* Permit Tier Selection */}
         <div className="permit-plans-section">
           <label className="section-subhead">
-            Select Parking Permit Plan &bull; <span className="text-cyan">Stripe Checkout</span>
+            Select Parking Permit Pass Plan &bull; <span className="text-cyan">Academic Duration</span>
           </label>
           <div className="plans-grid-three">
             {PERMIT_TIERS.map((tier) => (
@@ -347,10 +360,10 @@ export default function RegistrationForm({
           </div>
         </div>
 
-        {/* Submit & Pay Button */}
+        {/* Submit Button */}
         <div className="form-submit-row">
           <div className="payment-security-note">
-            <span>🔒 256-Bit Encrypted &bull; Verified Stripe Webhook Protection</span>
+            <span>🔒 Campus Verified &bull; Automatic {designatedFloor} Allocation</span>
           </div>
           <button
             type="submit"
@@ -360,11 +373,12 @@ export default function RegistrationForm({
             {isSubmitting ? (
               <>
                 <span className="spinner-dots"></span>
-                <span>Connecting to Stripe...</span>
+                <span>Registering Vehicle...</span>
               </>
             ) : (
               <>
-                <span>💳 Pay {selectedPlan.price} &amp; Register</span>
+                <CheckIcon className="w-5 h-5" />
+                <span>Register Vehicle &amp; Issue Pass</span>
                 <span className="pay-arrow">&rarr;</span>
               </>
             )}

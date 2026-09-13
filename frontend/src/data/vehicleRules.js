@@ -56,3 +56,43 @@ export function getFloorForVehicleType(vehicleType) {
   const normalized = (vehicleType || '').toLowerCase().trim()
   return VEHICLE_FLOOR_LABELS[normalized] || (normalized === 'bike' ? 'Basement' : 'Ground Floor')
 }
+
+/**
+ * Helper to get bay slot prefix for a vehicle type ('G-' for Scooty, 'B-' for Bike)
+ * @param {string} vehicleType 
+ * @returns {string} Slot prefix ('G-' | 'B-')
+ */
+export function getSlotPrefixForVehicleType(vehicleType) {
+  const normalized = (vehicleType || '').toLowerCase().trim()
+  return normalized === 'bike' ? 'B-' : 'G-'
+}
+
+/**
+ * Normalize and clean vehicle license plate number
+ * @param {string} plate 
+ * @returns {string} Uppercase, trimmed plate
+ */
+export function normalizePlate(plate) {
+  if (!plate) return ''
+  return plate
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+
+/**
+ * Validates if a specific slot ID matches the vehicle type's designated floor
+ * @param {string} slotId e.g. 'G-12' or 'B-45'
+ * @param {string} vehicleType e.g. 'scooty' or 'bike'
+ * @returns {boolean}
+ */
+export function isSlotAllowedForVehicleType(slotId, vehicleType) {
+  if (!slotId) return false
+  const expectedPrefix = getSlotPrefixForVehicleType(vehicleType)
+  return slotId.toUpperCase().startsWith(expectedPrefix)
+}
+
+
+
+

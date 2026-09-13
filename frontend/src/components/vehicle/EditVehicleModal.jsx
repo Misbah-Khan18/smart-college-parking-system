@@ -79,7 +79,7 @@ export default function EditVehicleModal({
     }
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
 
@@ -102,7 +102,7 @@ export default function EditVehicleModal({
 
     try {
       if (onSave) {
-        onSave(vehicle.id, formData)
+        await onSave(vehicle.id, formData)
       }
       onClose()
     } catch (err) {

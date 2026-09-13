@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   getRegisteredVehicles,
+  subscribeToRegisteredVehicles,
   updateVehicle,
   deleteVehicle
 } from '../services/vehicleService'
@@ -11,18 +12,29 @@ import DeleteConfirmModal from '../components/vehicle/DeleteConfirmModal'
 
 export default function RegistrationPage({
   slots = [],
+  registeredVehicles = [],
   showToast
 }) {
-  // Registered vehicles state
-  const [vehicles, setVehicles] = useState(() => getRegisteredVehicles())
+  // Registered vehicles state (synced with props or service listener)
+  const [vehicles, setVehicles] = useState(() => registeredVehicles.length > 0 ? registeredVehicles : getRegisteredVehicles())
 
   // Modals state
   const [editingVehicle, setEditingVehicle] = useState(null)
   const [deletingVehicle, setDeletingVehicle] = useState(null)
 
-  // Refresh vehicle list on mount
+  // Keep synced with registeredVehicles prop
   useEffect(() => {
-    setVehicles(getRegisteredVehicles())
+    if (registeredVehicles && registeredVehicles.length > 0) {
+      setVehicles(registeredVehicles)
+    }
+  }, [registeredVehicles])
+
+  // Real-time subscription fallback
+  useEffect(() => {
+    const unsubscribe = subscribeToRegisteredVehicles((liveVehicles) => {
+      setVehicles(liveVehicles)
+    })
+    return () => unsubscribe()
   }, [])
 
   // Handle successful new vehicle registration
@@ -31,10 +43,9 @@ export default function RegistrationPage({
   }
 
   // Handle Edit Save from EditVehicleModal
-  const handleSaveEdit = (id, updatedData) => {
+  const handleSaveEdit = async (id, updatedData) => {
     try {
-      const updatedRecord = updateVehicle(id, updatedData)
-      setVehicles(getRegisteredVehicles())
+      const updatedRecord = await updateVehicle(id, updatedData)
       if (showToast) {
         showToast(
           'Registration Updated',
@@ -51,11 +62,10 @@ export default function RegistrationPage({
   }
 
   // Handle Delete Confirmation from DeleteConfirmModal
-  const handleConfirmDelete = (id) => {
+  const handleConfirmDelete = async (id) => {
     try {
       const target = vehicles.find((v) => v.id === id)
-      deleteVehicle(id, slots)
-      setVehicles(getRegisteredVehicles())
+      await deleteVehicle(id, slots)
       if (showToast) {
         showToast(
           'Registration Removed',

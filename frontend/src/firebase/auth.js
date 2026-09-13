@@ -122,33 +122,34 @@ export const registerWithEmail = async ({
       console.warn('Local storage cache error:', e)
     }
 
-    // If vehicle plate is provided, auto-register vehicle into registry list
+    // If vehicle plate is provided, auto-register vehicle into Firestore registered_vehicles collection
     if (defaultPlate.trim()) {
       try {
-        const savedVehicles = localStorage.getItem('registered_vehicles_list')
-        const currentList = savedVehicles ? JSON.parse(savedVehicles) : []
-        const newVehicleRecord = {
-          id: `REG-2026-${String(currentList.length + 1).padStart(3, '0')}`,
-          studentName: name.trim(),
-          rollNumber: campusId.trim().toUpperCase() || `ID-${user.uid.slice(0, 6).toUpperCase()}`,
+        const cleanPlate = defaultPlate.trim().toUpperCase()
+        const cleanRoll = campusId.trim().toUpperCase() || `ID-${user.uid.slice(0, 6).toUpperCase()}`
+        const vType = vehicleType || 'scooty'
+        const docId = `REG-${user.uid.slice(0, 8).toUpperCase()}`
+
+        await setDoc(doc(db, 'registered_vehicles', docId), {
+          id: docId,
+          studentName: name.trim() || 'Campus Member',
+          rollNumber: cleanRoll,
+          campusId: cleanRoll,
           stream: role === 'Student' ? 'Registered Student' : `${role} Member`,
           phoneNumber: phoneNumber.trim(),
-          vehicleNumber: defaultPlate.trim().toUpperCase(),
-          vehicleType: vehicleType || 'scooty',
+          vehicleNumber: cleanPlate,
+          vehicleType: vType,
           isEv: Boolean(isEv),
           category: role || 'Student',
           preferredFloor,
           registeredAt: new Date().toISOString().split('T')[0],
           status: 'Active',
-          passId: `SMP-${campusId.trim().toUpperCase() || 'PASS'}-${String(currentList.length + 1).padStart(2, '0')}`
-        }
-
-        // Avoid duplicate vehicle plate
-        if (!currentList.some(v => v.vehicleNumber === newVehicleRecord.vehicleNumber)) {
-          localStorage.setItem('registered_vehicles_list', JSON.stringify([newVehicleRecord, ...currentList]))
-        }
+          passId: `SMP-${cleanRoll}-${Date.now().toString().slice(-4)}`,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true })
       } catch (regErr) {
-        console.warn('Auto vehicle registration cache warning:', regErr)
+        console.warn('Auto vehicle registration Firestore sync warning:', regErr)
       }
     }
 

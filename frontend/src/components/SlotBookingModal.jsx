@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { XIcon, ShieldIcon } from './Icons'
-import { createPermitCheckoutSession, simulateStripeWebhookPayment } from '../services/parkingApiService'
 
 const PERMIT_TIERS = [
-  { id: 'Daily', name: 'Daily Permit', price: 20, duration: '1 Day', desc: 'Valid for current date. Single entry/exit session.' },
-  { id: 'Monthly', name: '30-Day Monthly Pass', price: 300, duration: '30 Days', desc: 'Unlimited gate entries during the 30-day validity window.' },
-  { id: 'Semester', name: 'Semester Term Pass', price: 1200, duration: '180 Days', desc: 'Full academic term access with zero repeated payments.' }
+  { id: 'Daily', name: 'Daily Permit', price: 20, duration: '1 Day', days: 1, desc: 'Valid for current date. Single entry/exit session.' },
+  { id: 'Monthly', name: '30-Day Monthly Pass', price: 300, duration: '30 Days', days: 30, desc: 'Unlimited gate entries during the 30-day validity window.' },
+  { id: 'Semester', name: 'Semester Term Pass', price: 1200, duration: '180 Days', days: 180, desc: 'Full academic term access with zero repeated payments.' }
 ]
 
 export default function SlotBookingModal({
@@ -62,7 +61,7 @@ function SlotBookingContent({
     }
   }
 
-  const handleCreateCheckout = async (e) => {
+  const handleCreateCheckout = (e) => {
     e.preventDefault()
     if (!vehicleNumber.trim()) {
       setErrorMsg('Vehicle number is required.')
@@ -72,51 +71,54 @@ function SlotBookingContent({
     setIsProcessing(true)
     setErrorMsg('')
 
-    try {
-      const studentId = userProfile?.campusId || user?.uid || 'student-demo'
-      const res = await createPermitCheckoutSession({
-        studentId,
-        studentName: ownerName.trim(),
-        rollNumber: userProfile?.campusId || 'S2410701',
-        stream: userProfile?.stream || 'School of Commerce',
-        phoneNumber: userProfile?.phoneNumber || '+91 98765 43210',
-        vehiclePlate: vehicleNumber.toUpperCase().trim(),
-        vehicleType,
-        permitType: selectedTier
-      })
+    const cleanPlate = vehicleNumber.toUpperCase().trim()
+    const allocatedFloor = vehicleType === 'bike' ? 'Basement' : 'Ground Floor'
+    const days = tier.days || 30
+    const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
 
-      if (res.checkoutUrl) {
-        // Live Stripe Checkout session
-        window.location.href = res.checkoutUrl
-        return
-      }
-
-      // Test Mode session
-      setPendingCheckout(res)
-      setIsProcessing(false)
-    } catch (err) {
-      console.error('Checkout creation error:', err)
-      setErrorMsg(err.message || 'Failed to initialize permit checkout.')
-      setIsProcessing(false)
+    const permitData = {
+      passId: `SOC-PRM-${cleanPlate.replace(/[^A-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`,
+      sessionId: `STRIPE-TEST-${Date.now().toString().slice(-6)}`,
+      permitType: selectedTier,
+      planName: tier.name,
+      amountPaidINR: tier.price,
+      vehiclePlate: cleanPlate,
+      vehicleNumber: cleanPlate,
+      studentName: ownerName.trim(),
+      rollNumber: userProfile?.campusId || userProfile?.rollNumber || 'S2410701',
+      stream: userProfile?.stream || 'School of Commerce',
+      phoneNumber: userProfile?.phoneNumber || '+91 98765 43210',
+      vehicleType,
+      allocatedFloor,
+      floor: allocatedFloor,
+      validUntil: expiryDate,
+      paymentStatus: 'PAID',
+      status: 'ACTIVE',
+      secureToken: `SOC-TOK-${cleanPlate.replace(/[^A-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`
     }
+
+    // Set checkout simulation state
+    setPendingCheckout(permitData)
+    setIsProcessing(false)
   }
 
-  const handleCompleteWebhookPayment = async () => {
+  const handleCompleteWebhookPayment = () => {
     if (!pendingCheckout) return
     setIsProcessing(true)
-    try {
-      const res = await simulateStripeWebhookPayment(pendingCheckout.permitId)
+    
+    setTimeout(() => {
       setIsProcessing(false)
       if (onPermitActivated) {
-        onPermitActivated(res.permit)
+        onPermitActivated(pendingCheckout)
       }
       onClose()
-    } catch (err) {
-      console.error('Webhook execution error:', err)
-      setErrorMsg(err.message || 'Payment verification failed.')
-      setIsProcessing(false)
-    }
+    }, 400)
   }
+
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

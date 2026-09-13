@@ -22,83 +22,95 @@ export default function VehicleEntryView({
   const [gateStatus, setGateStatus] = useState('closed') // 'closed' | 'opening' | 'open' | 'closing'
   const [lastActionMsg, setLastActionMsg] = useState(null)
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   // Handle Quick Select from Registered Students
   const handleStudentSelect = (studentId) => {
     setSelectedStudentId(studentId)
     const st = registeredVehicles.find((v) => v.id === studentId)
     if (st) {
       setEntryPlate(st.vehicleNumber)
-      setEntryDriver(st.studentName)
-      setEntryRoll(st.rollNumber)
+      setEntryDriver(st.studentName || '')
+      setEntryRoll(st.rollNumber || '')
       setEntryStream(st.stream || '')
       setEntryType(st.vehicleType || 'scooty')
     }
   }
 
-  const handleSimulateEntry = (e) => {
+  // Auto-detect registered student when typing plate
+  const handlePlateChange = (val) => {
+    const uppercaseVal = val.toUpperCase()
+    setEntryPlate(uppercaseVal)
+
+    const cleanInput = uppercaseVal.replace(/[^A-Z0-9]/g, '')
+    if (cleanInput.length >= 4) {
+      const match = registeredVehicles.find((v) => {
+        if (!v.vehicleNumber) return false
+        return v.vehicleNumber.replace(/[^A-Z0-9]/g, '') === cleanInput
+      })
+      if (match) {
+        setEntryDriver(match.studentName || '')
+        setEntryRoll(match.rollNumber || '')
+        setEntryStream(match.stream || '')
+        setEntryType(match.vehicleType || 'scooty')
+        setSelectedStudentId(match.id)
+      }
+    }
+  }
+
+  const handleSimulateEntry = async (e) => {
     e.preventDefault()
-    if (!entryPlate.trim()) return
+    if (!entryPlate.trim() || isSubmitting) return
+
+    setLastActionMsg(null)
+    setIsSubmitting(true)
 
     const cleanPlate = entryPlate.toUpperCase().trim()
-    const st = registeredVehicles.find((v) => v.vehicleNumber === cleanPlate) || {}
+    const preferredFloor = getFloorForVehicleType(entryType)
 
-    // Check if vehicle is already parked inside
-    const alreadyParked = slots.find(
-      (s) => s.status === 'occupied' && s.plate && s.plate.replace(/[^A-Z0-9]/g, '') === cleanPlate.replace(/[^A-Z0-9]/g, '')
-    )
-
-    if (alreadyParked) {
-      setLastActionMsg({
-        type: 'error',
-        title: 'Vehicle Already Inside Campus',
-        detail: `Vehicle ${cleanPlate} is already occupying Bay ${alreadyParked.id} (${alreadyParked.floor}). Exit vehicle first.`
+    if (onVehicleEntry) {
+      const result = await onVehicleEntry({
+        plate: cleanPlate,
+        owner: entryDriver.trim(),
+        rollNumber: entryRoll.trim(),
+        stream: entryStream.trim(),
+        type: entryType,
+        category: 'Student',
+        preferredFloor
       })
-      return
-    }
 
-    setGateStatus('opening')
-    setTimeout(() => {
-      setGateStatus('open')
+      if (result && result.success) {
+        setGateStatus('opening')
+        setTimeout(() => setGateStatus('open'), 500)
 
-      const preferredFloor = getFloorForVehicleType(entryType)
-
-      if (onVehicleEntry) {
-        const result = onVehicleEntry({
-          plate: cleanPlate,
-          owner: entryDriver.trim() || st.studentName || 'Student Member',
-          rollNumber: entryRoll || st.rollNumber || 'S2410701',
-          stream: entryStream || st.stream || 'BCA',
-          type: entryType,
-          category: 'Student',
-          preferredFloor
+        setLastActionMsg({
+          type: 'success',
+          title: 'Vehicle Admitted & Slot Allocated',
+          detail: `Vehicle ${cleanPlate} (${entryDriver || 'Student'}) dynamically allocated to Bay ${result.slotId} on ${result.floor}.`,
+          passData: result.passData
         })
 
-        if (result && result.success) {
-          setLastActionMsg({
-            type: 'success',
-            title: 'Vehicle Admitted & Slot Allocated',
-            detail: `Vehicle ${cleanPlate} assigned to Bay ${result.slotId} on ${result.floor}.`,
-            passData: result.passData
-          })
-          setEntryPlate('')
-          setEntryDriver('')
-          setEntryRoll('')
-          setEntryStream('')
-          setSelectedStudentId('')
-        } else {
-          setLastActionMsg({
-            type: 'error',
-            title: 'Entry Denied',
-            detail: result?.message || 'No available parking bays for this vehicle type on designated floor.'
-          })
-        }
-      }
+        setEntryPlate('')
+        setEntryDriver('')
+        setEntryRoll('')
+        setEntryStream('')
+        setSelectedStudentId('')
 
-      setTimeout(() => {
-        setGateStatus('closing')
-        setTimeout(() => setGateStatus('closed'), 600)
-      }, 3500)
-    }, 600)
+        setTimeout(() => {
+          setGateStatus('closing')
+          setTimeout(() => setGateStatus('closed'), 600)
+        }, 3500)
+      } else {
+        setGateStatus('closed')
+        setLastActionMsg({
+          type: 'error',
+          title: 'Entry Denied',
+          detail: result?.message || 'Vehicle entry could not be processed.'
+        })
+      }
+    }
+
+    setIsSubmitting(false)
   }
 
   return (
@@ -148,7 +160,7 @@ export default function VehicleEntryView({
                 type="text"
                 placeholder="e.g. MH-12-AB-1234"
                 value={entryPlate}
-                onChange={(e) => setEntryPlate(e.target.value.toUpperCase())}
+                onChange={(e) => handlePlateChange(e.target.value)}
                 className="form-control font-mono font-bold uppercase-input"
                 required
               />
