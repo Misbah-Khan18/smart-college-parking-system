@@ -3,11 +3,16 @@ import {
   ShieldIcon,
   CheckIcon,
   AlertCircleIcon,
-  SearchIcon,
   QrIcon
 } from '../Icons'
+import {
+  normalizePlate,
+  getFloorForVehicleType,
+  getRegisteredVehicles,
+  getRegisteredVehiclesAsync
+} from '../../services/vehicleService'
 
-export default function GatePermitScannerView({ showToast }) {
+export default function GatePermitScannerView({ showToast, registeredVehicles = [] }) {
   const [tokenInput, setTokenInput] = useState('')
   const [gateFloor, setGateFloor] = useState('Ground Floor')
   const [scannedPlate, setScannedPlate] = useState('')
@@ -17,32 +22,114 @@ export default function GatePermitScannerView({ showToast }) {
 
   const handleVerify = async (e) => {
     if (e) e.preventDefault()
-    if (!tokenInput.trim() && !scannedPlate.trim()) return
+
+    const rawInput = tokenInput.trim()
+    const rawPlate = scannedPlate.trim()
+
+    if (!rawInput && !rawPlate) {
+      setVerificationResult({
+        access: 'DENIED',
+        reason: 'Please enter a permit token, pass ID, roll number, or license plate to verify.',
+        message: 'Input Required • Access Denied'
+      })
+      return
+    }
 
     setIsVerifying(true)
     setVerificationResult(null)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 400))
+      // 1. Retrieve registered vehicles (from prop, in-memory cache, or Firestore async)
+      let list = Array.isArray(registeredVehicles) && registeredVehicles.length > 0
+        ? registeredVehicles
+        : getRegisteredVehicles()
 
-      const cleanInput = tokenInput.trim()
-      const cleanPlate = scannedPlate.toUpperCase().trim()
-      const isBasement = gateFloor === 'Basement'
-      const allocatedFloor = isBasement ? 'Basement' : 'Ground Floor'
+      if (!list || list.length === 0) {
+        list = await getRegisteredVehiclesAsync()
+      }
 
-      const passIdDisplay = cleanInput || `SOC-PRM-${cleanPlate.replace(/[^A-Z0-9]/g, '') || '8821'}`
-      const vehicleDisplay = cleanPlate || 'MH-12-AB-1234'
+      // 2. Clean inputs for exact and substring matching
+      const cleanInputComp = rawInput.toUpperCase().replace(/[^A-Z0-9]/g, '')
+      const cleanPlateComp = normalizePlate(rawPlate).replace(/[^A-Z0-9]/g, '')
+
+      // 3. Find matching registered vehicle in Firestore records
+      const matchedVehicle = (list || []).find((v) => {
+        const vPlateComp = normalizePlate(v.vehicleNumber || '').replace(/[^A-Z0-9]/g, '')
+        const vRollComp = (v.rollNumber || v.campusId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const vPassComp = (v.passId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const vIdComp = (v.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const vStudentId = (v.studentId || '').trim()
+
+        // Match simulated plate input if provided
+        if (cleanPlateComp && vPlateComp === cleanPlateComp) {
+          return true
+        }
+
+        // Match token / pass ID / roll number input
+        if (cleanInputComp) {
+          if (vPlateComp && (vPlateComp === cleanInputComp || cleanInputComp.includes(vPlateComp))) {
+            return true
+          }
+          if (vRollComp && (vRollComp === cleanInputComp || cleanInputComp.includes(vRollComp))) {
+            return true
+          }
+          if (vPassComp && (vPassComp === cleanInputComp || cleanInputComp.includes(vPassComp))) {
+            return true
+          }
+          if (vIdComp && (vIdComp === cleanInputComp || cleanInputComp.includes(vIdComp))) {
+            return true
+          }
+          if (vStudentId && (vStudentId === rawInput || cleanInputComp.includes(vStudentId.toUpperCase().replace(/[^A-Z0-9]/g, '')))) {
+            return true
+          }
+        }
+
+        return false
+      })
+
+      // 4. Handle Unregistered / Unknown Vehicle
+      if (!matchedVehicle) {
+        setVerificationResult({
+          access: 'DENIED',
+          reason: `No campus registration record found for "${rawInput || rawPlate}". Vehicle is unauthorized.`,
+          message: 'Vehicle Not Registered • Access Denied',
+          verifiedAt: new Date().toISOString()
+        })
+        if (showToast) {
+          showToast('Access Denied', `No registration found for "${rawInput || rawPlate}".`, 'error')
+        }
+        return
+      }
+
+      // 5. Handle Registered Vehicle — Determine designated floor and compatibility
+      const vehicleType = (matchedVehicle.vehicleType || 'scooty').toLowerCase()
+      const designatedFloor = getFloorForVehicleType(vehicleType)
+      const isFloorMismatch = (gateFloor === 'Ground Floor' && vehicleType === 'bike') || (gateFloor === 'Basement' && vehicleType === 'scooty')
+
+      const passIdDisplay = matchedVehicle.passId || `SOC-${matchedVehicle.rollNumber || 'REG'}-PASS`
+      const studentNameDisplay = matchedVehicle.studentName || 'Campus Member'
+      const vehicleNumberDisplay = matchedVehicle.vehicleNumber || rawPlate || rawInput
+      const rollNumberDisplay = matchedVehicle.rollNumber || matchedVehicle.campusId || 'N/A'
+      const streamDisplay = matchedVehicle.stream || 'School of Commerce'
+      const planDisplay = matchedVehicle.category ? `${matchedVehicle.category} Parking Permit` : 'Campus Parking Permit (Active)'
 
       const result = {
         access: 'GRANTED',
-        reason: 'Cryptographic permit verified. Valid through academic term.',
-        message: 'Authorized Campus Permit • Boom Barrier Activated',
+        reason: isFloorMismatch
+          ? `Vehicle authorized for ${designatedFloor}. (Gate Notice: Please proceed to ${designatedFloor}).`
+          : `Verified campus registration for ${studentNameDisplay} (${rollNumberDisplay}). Valid for ${designatedFloor}.`,
+        message: isFloorMismatch
+          ? `Authorized • Assigned Floor: ${designatedFloor}`
+          : 'Authorized Campus Permit • Boom Barrier Activated',
         permitDetails: {
           passId: passIdDisplay,
-          studentName: 'Authorized Student Member',
-          vehicleNumber: vehicleDisplay,
-          allocatedFloor: allocatedFloor,
-          planName: 'Campus Parking Permit (Active)',
+          studentName: studentNameDisplay,
+          rollNumber: rollNumberDisplay,
+          vehicleNumber: vehicleNumberDisplay,
+          vehicleType: vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1),
+          allocatedFloor: designatedFloor,
+          stream: streamDisplay,
+          planName: planDisplay,
           validUntil: 'Active Academic Term'
         },
         verifiedAt: new Date().toISOString()
@@ -50,31 +137,38 @@ export default function GatePermitScannerView({ showToast }) {
 
       setVerificationResult(result)
 
-      if (result.access === 'GRANTED') {
-        setBarrierState('opening')
+      // Trigger boom barrier animation on success
+      setBarrierState('opening')
+      setTimeout(() => {
+        setBarrierState('open')
         setTimeout(() => {
-          setBarrierState('open')
-          setTimeout(() => {
-            setBarrierState('closing')
-            setTimeout(() => setBarrierState('closed'), 800)
-          }, 4000)
-        }, 600)
+          setBarrierState('closing')
+          setTimeout(() => setBarrierState('closed'), 800)
+        }, 4000)
+      }, 600)
 
-        if (showToast) {
-          showToast('Access Granted', `Permit verified for ${result.permitDetails.vehicleNumber}. Barrier opened.`, 'success')
-        }
+      if (showToast) {
+        showToast('Access Granted', `Permit verified for ${vehicleNumberDisplay} (${studentNameDisplay}). Barrier opened.`, 'success')
       }
     } catch (err) {
       console.error('Gate check error:', err)
       setVerificationResult({
         access: 'DENIED',
-        reason: 'Internal gate scanner validation error.'
+        reason: err.message || 'Internal gate scanner validation error.',
+        message: 'Validation Error • Access Denied'
       })
+      if (showToast) {
+        showToast('Validation Error', err.message || 'Could not verify permit.', 'error')
+      }
     } finally {
       setIsVerifying(false)
     }
   }
 
+  // Quick test items from currently loaded vehicles
+  const testVehicles = Array.isArray(registeredVehicles) && registeredVehicles.length > 0
+    ? registeredVehicles.slice(0, 4)
+    : getRegisteredVehicles().slice(0, 4)
 
   return (
     <div className="admin-page-container">
@@ -88,7 +182,7 @@ export default function GatePermitScannerView({ showToast }) {
           Gate QR Permit <span className="gradient-text">Verification Terminal</span>
         </h1>
         <p className="psh-subtitle">
-          Real-time security gate ingress scanner. Validates cryptographic permit tokens, verifies Stripe payment status, checks expiration windows, and triggers automated barrier access.
+          Real-time security gate ingress scanner. Validates registered vehicles against Firestore directory, verifies assigned parking floor rules, and triggers automated boom barrier access.
         </p>
       </div>
 
@@ -110,13 +204,13 @@ export default function GatePermitScannerView({ showToast }) {
             {/* Input: Token / Pass ID */}
             <div className="form-group">
               <label htmlFor="gate-token-input">
-                Permit Token or Pass ID <span className="required-star">*</span>
+                Permit Token, Pass ID, Roll Number, or Plate <span className="required-star">*</span>
               </label>
               <div className="input-wrapper">
                 <input
                   id="gate-token-input"
                   type="text"
-                  placeholder="Paste secure token (e.g. e4f7... or SOC-G-1234)"
+                  placeholder="e.g. MH-12-AB-1234, S2410701, or SOC-PRM-..."
                   value={tokenInput}
                   onChange={(e) => setTokenInput(e.target.value)}
                   className="font-mono"
@@ -157,12 +251,36 @@ export default function GatePermitScannerView({ showToast }) {
                 className="btn btn-primary submit-verify-btn"
                 disabled={isVerifying}
               >
-                {isVerifying ? 'Verifying Permit...' : '⚡ Verify & Trigger Barrier'}
+                {isVerifying ? 'Verifying with Firestore...' : '⚡ Verify & Trigger Barrier'}
               </button>
             </div>
+
+            {/* Quick Test Chips for Loaded Registered Vehicles */}
+            {testVehicles.length > 0 && (
+              <div className="recent-permits-box mt-3">
+                <span className="recent-label">Quick Test Registered Vehicles:</span>
+                <div className="recent-permits-scroll">
+                  {testVehicles.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      className="recent-permit-chip"
+                      onClick={() => {
+                        setTokenInput(v.vehicleNumber)
+                        setScannedPlate(v.vehicleNumber)
+                      }}
+                      title={`Click to test ${v.studentName} (${v.vehicleNumber})`}
+                    >
+                      <span className="chip-pass">{v.rollNumber}</span>
+                      <span className="chip-plate">{v.vehicleNumber}</span>
+                      <span className="chip-tier">{v.vehicleType}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </form>
         </div>
-
 
         {/* Right: Real-time Telemetry & Boom Barrier Simulation */}
         <div className="terminal-status-card glass-card">
@@ -208,10 +326,10 @@ export default function GatePermitScannerView({ showToast }) {
               {verificationResult.permitDetails && (
                 <div className="vbc-details-grid font-mono text-xs">
                   <div><strong>Pass:</strong> {verificationResult.permitDetails.passId}</div>
-                  <div><strong>Student:</strong> {verificationResult.permitDetails.studentName}</div>
-                  <div><strong>Vehicle:</strong> {verificationResult.permitDetails.vehicleNumber}</div>
+                  <div><strong>Student:</strong> {verificationResult.permitDetails.studentName} ({verificationResult.permitDetails.rollNumber})</div>
+                  <div><strong>Vehicle:</strong> {verificationResult.permitDetails.vehicleNumber} ({verificationResult.permitDetails.vehicleType})</div>
                   <div><strong>Floor:</strong> {verificationResult.permitDetails.allocatedFloor}</div>
-                  <div><strong>Plan:</strong> {verificationResult.permitDetails.planName}</div>
+                  <div><strong>Stream:</strong> {verificationResult.permitDetails.stream}</div>
                   <div><strong>Validity:</strong> {verificationResult.permitDetails.validUntil}</div>
                 </div>
               )}

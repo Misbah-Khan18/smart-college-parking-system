@@ -17,6 +17,7 @@ export default function RegistrationPage({
 }) {
   // Registered vehicles state (synced with props or service listener)
   const [vehicles, setVehicles] = useState(() => registeredVehicles.length > 0 ? registeredVehicles : getRegisteredVehicles())
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Modals state
   const [editingVehicle, setEditingVehicle] = useState(null)
@@ -31,9 +32,13 @@ export default function RegistrationPage({
 
   // Real-time subscription fallback
   useEffect(() => {
-    const unsubscribe = subscribeToRegisteredVehicles((liveVehicles) => {
-      setVehicles(liveVehicles)
-    })
+    const unsubscribe = subscribeToRegisteredVehicles(
+      (liveVehicles) => {
+        setVehicles(liveVehicles)
+      },
+      (err) => console.warn('[RegistrationPage] Vehicle subscription notice:', err?.message),
+      { isAdmin: true }
+    )
     return () => unsubscribe()
   }, [])
 
@@ -137,6 +142,9 @@ export default function RegistrationPage({
             vehicles={vehicles}
             onEditVehicle={(vehicle) => setEditingVehicle(vehicle)}
             onDeleteVehicle={(vehicle) => setDeletingVehicle(vehicle)}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            showSearch={true}
           />
         </div>
       </div>

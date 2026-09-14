@@ -28,10 +28,7 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
 
   const isAdmin =
     userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin' ||
-    user?.email?.includes('admin') ||
-    user?.role === 'Security Admin' ||
-    user?.role === 'Admin'
+    userProfile?.role === 'Admin'
 
   const tabs = isAdmin ? ADMIN_TABS : STUDENT_TABS
   const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'

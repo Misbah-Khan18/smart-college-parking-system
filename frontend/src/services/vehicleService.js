@@ -8,11 +8,12 @@ import {
   deleteDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   serverTimestamp,
   writeBatch
 } from 'firebase/firestore'
-import { db } from '../firebase/firebase.js'
+import { auth, db } from '../firebase/firebase.js'
 import { INITIAL_REGISTERED_VEHICLES } from '../data/initialSlots.js'
 import {
   VEHICLE_FLOOR_RULES,
@@ -195,15 +196,36 @@ export async function seedRegisteredVehiclesIfEmpty() {
 
 /**
  * Real-time subscription to registered vehicles collection via Firestore onSnapshot
+ * Role-aware: Admins receive campus-wide list; students query only their own registered vehicle.
  * @param {Function} onUpdate - callback receiving updated array of vehicles
  * @param {Function} onError - optional error callback
+ * @param {Object} filter - optional filter { isAdmin, studentId, rollNumber, vehicleNumber }
  * @returns {Function} Unsubscribe function
  */
-export function subscribeToRegisteredVehicles(onUpdate, onError) {
+export function subscribeToRegisteredVehicles(onUpdate, onError, filter = {}) {
   try {
     const vehRef = collection(db, VEHICLES_COLLECTION)
+    let vehQuery = null
+
+    if (filter && filter.isAdmin) {
+      vehQuery = query(vehRef)
+    } else if (filter) {
+      if (filter.studentId) {
+        vehQuery = query(vehRef, where('studentId', '==', filter.studentId))
+      } else if (filter.rollNumber) {
+        vehQuery = query(vehRef, where('rollNumber', '==', filter.rollNumber))
+      } else if (filter.vehicleNumber) {
+        vehQuery = query(vehRef, where('vehicleNumber', '==', filter.vehicleNumber))
+      }
+    }
+
+    if (!vehQuery) {
+      onUpdate([])
+      return () => {}
+    }
+
     const unsubscribe = onSnapshot(
-      vehRef,
+      vehQuery,
       (snapshot) => {
         const vehicles = []
         snapshot.forEach((docSnap) => {
@@ -282,6 +304,7 @@ export async function registerVehicle(vehicleData) {
 
   const newRecord = {
     id: docId,
+    studentId: vehicleData.studentId || (auth.currentUser ? auth.currentUser.uid : ''),
     studentName: vehicleData.studentName.trim(),
     rollNumber: cleanRoll,
     campusId: cleanRoll,

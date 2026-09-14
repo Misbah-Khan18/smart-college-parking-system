@@ -279,10 +279,7 @@ export default function App() {
 
   const isAdminUser =
     userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin' ||
-    user?.email?.includes('admin') ||
-    user?.role === 'Security Admin' ||
-    user?.role === 'Admin'
+    userProfile?.role === 'Admin'
 
   // ==========================================
   // REAL-TIME FIRESTORE SUBSCRIPTIONS (PHASE 2 & 5)
@@ -294,6 +291,14 @@ export default function App() {
     let unsubVehicles = () => {}
     let unsubHistory = () => {}
     let unsubSessions = () => {}
+
+    // Role-aware subscription filters
+    const commonFilter = {
+      isAdmin: Boolean(isAdminUser),
+      studentId: user?.uid || '',
+      rollNumber: userProfile?.campusId || userProfile?.rollNumber || '',
+      vehicleNumber: userProfile?.defaultPlate || userProfile?.vehicleNumber || ''
+    }
 
     // 1. Live Parking Slots subscription (160 bays)
     unsubSlots = subscribeToSlots(
@@ -316,7 +321,8 @@ export default function App() {
       },
       (err) => {
         console.warn('[Firestore] Registered vehicles subscription notice:', err?.message)
-      }
+      },
+      commonFilter
     )
 
     // 3. Live Active Parking Sessions subscription
@@ -328,15 +334,11 @@ export default function App() {
       },
       (err) => {
         console.warn('[Firestore] Active sessions subscription notice:', err?.message)
-      }
+      },
+      commonFilter
     )
 
     // 4. Live Parking History subscription (role-aware query)
-    const historyFilter = {
-      isAdmin: Boolean(isAdminUser),
-      rollNumber: userProfile?.campusId || userProfile?.rollNumber || ''
-    }
-
     unsubHistory = subscribeToParkingHistory(
       (liveHistory) => {
         if (Array.isArray(liveHistory)) {
@@ -346,12 +348,14 @@ export default function App() {
       (err) => {
         console.warn('[Firestore] History subscription notice:', err?.message)
       },
-      historyFilter
+      commonFilter
     )
 
-    // Idempotent Firestore collections seed on login
-    seedParkingSlotsIfEmpty().catch(() => {})
-    seedRegisteredVehiclesIfEmpty().catch(() => {})
+    // Idempotent Firestore collections seed on login (Admin / Security Admin ONLY)
+    if (isAdminUser) {
+      seedParkingSlotsIfEmpty().catch(() => {})
+      seedRegisteredVehiclesIfEmpty().catch(() => {})
+    }
 
     return () => {
       unsubSlots()
@@ -359,7 +363,7 @@ export default function App() {
       unsubHistory()
       unsubSessions()
     }
-  }, [user, user?.uid, isAdminUser, userProfile?.campusId, userProfile?.rollNumber])
+  }, [user, user?.uid, isAdminUser, userProfile?.campusId, userProfile?.rollNumber, userProfile?.defaultPlate, userProfile?.vehicleNumber, userProfile?.role])
 
   // ==========================================
   // GATE 1: VEHICLE ENTRY HANDLER (DYNAMIC ALLOCATION)
@@ -734,10 +738,7 @@ export default function App() {
   // ==========================================
   const isAdmin =
     userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin' ||
-    user?.email?.includes('admin') ||
-    user?.role === 'Security Admin' ||
-    user?.role === 'Admin'
+    userProfile?.role === 'Admin'
 
   const isHomeActive =
     activeTab === 'home' ||
@@ -775,7 +776,6 @@ export default function App() {
                   slots={slots}
                   onNavigateTab={setActiveTab}
                   onReleaseSlot={handleReleaseSlot}
-                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
                 />
               )}
 
@@ -851,7 +851,10 @@ export default function App() {
 
               {/* PAGE 8: GATE QR PERMIT SCANNER & VERIFICATION */}
               {activeTab === 'gate-scanner' && (
-                <GatePermitScannerView showToast={showToast} />
+                <GatePermitScannerView
+                  showToast={showToast}
+                  registeredVehicles={registeredVehicles}
+                />
               )}
             </>
           )}

@@ -1,22 +1,16 @@
 import { useMemo } from 'react'
 import {
   CheckIcon,
-  ShieldIcon,
   BikeIcon,
-  AlertCircleIcon,
-  ActivityIcon,
-  SearchIcon,
-  PlusCircleIcon
+  AlertCircleIcon
 } from '../Icons'
-import { formatLiveDurationCompact } from '../../utils/timerUtils'
 
 export default function AdminDashboardView({
   user,
   userProfile,
   slots = [],
   onNavigateTab,
-  onReleaseSlot,
-  onOpenBooking
+  onReleaseSlot
 }) {
   const displayName = userProfile?.displayName || user?.displayName || 'Campus Admin'
   const firstName = displayName.split(' ')[0] || 'Admin'
@@ -115,7 +109,7 @@ export default function AdminDashboardView({
         </div>
       </div>
 
-      {/* 6 Quick Admin Feature Tiles */}
+      {/* 7 Quick Admin Feature Tiles */}
       <div className="admin-features-grid mb-4">
         <div
           className="admin-feature-tile glass-card"
@@ -182,6 +176,17 @@ export default function AdminDashboardView({
             <p>Floor mismatch &amp; rule violations</p>
           </div>
         </div>
+
+        <div
+          className="admin-feature-tile glass-card"
+          onClick={() => onNavigateTab && onNavigateTab('gate-scanner')}
+        >
+          <span className="aft-icon">🛡️</span>
+          <div className="aft-text">
+            <h4>Gate QR Permit Scanner</h4>
+            <p>Gate ingress token &amp; barrier verification</p>
+          </div>
+        </div>
       </div>
 
       {/* Active Parked Table Snapshot */}
@@ -198,48 +203,64 @@ export default function AdminDashboardView({
         </div>
 
         <div className="table-responsive-wrapper mt-2">
-          <table className="reg-data-table">
-            <thead>
-              <tr>
-                <th>Bay ID</th>
-                <th>Floor</th>
-                <th>Student / Driver</th>
-                <th>Vehicle Plate</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeVehicles.slice(0, 6).map((slot) => (
-                <tr key={slot.id} className="reg-table-row">
-                  <td>
-                    <strong className="slot-id-pill font-mono">{slot.id}</strong>
-                  </td>
-                  <td>
-                    <span className="floor-tag floor-ground">{slot.floor}</span>
-                  </td>
-                  <td>
-                    <strong>{slot.owner || 'Student Member'}</strong>
-                  </td>
-                  <td>
-                    <span className="plate-badge-mono font-mono font-bold">{slot.plate}</span>
-                  </td>
-                  <td>
-                    <span className="status-pill occupied">🔴 Parked</span>
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-rose btn-xs"
-                      onClick={() => onReleaseSlot && onReleaseSlot(slot.id)}
-                    >
-                      Checkout ↲
-                    </button>
-                  </td>
+          {activeVehicles.length === 0 ? (
+            <div className="empty-state p-5 text-center">
+              <span className="empty-icon">🟢</span>
+              <h4>No vehicles currently occupying bays</h4>
+              <p className="text-muted">
+                Parking activity will appear here when a vehicle enters the campus.
+              </p>
+            </div>
+          ) : (
+            <table className="reg-data-table">
+              <thead>
+                <tr>
+                  <th>Bay ID</th>
+                  <th>Floor</th>
+                  <th>Student / Driver</th>
+                  <th>Vehicle Plate</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {activeVehicles.slice(0, 6).map((slot) => {
+                  const isGround = (slot.floor && slot.floor.toLowerCase().includes('ground')) || (slot.id && slot.id.startsWith('G-'))
+                  const floorClass = isGround ? 'floor-ground' : 'floor-basement'
+                  const floorLabel = slot.floor || (isGround ? 'Ground Floor' : 'Basement')
+
+                  return (
+                    <tr key={slot.id} className="reg-table-row">
+                      <td>
+                        <strong className="slot-id-pill font-mono">{slot.id}</strong>
+                      </td>
+                      <td>
+                        <span className={`floor-tag ${floorClass}`}>{floorLabel}</span>
+                      </td>
+                      <td>
+                        <strong>{slot.owner || 'Student Member'}</strong>
+                      </td>
+                      <td>
+                        <span className="plate-badge-mono font-mono font-bold">{slot.plate}</span>
+                      </td>
+                      <td>
+                        <span className="status-pill occupied">🔴 Parked</span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn btn-rose btn-xs"
+                          onClick={() => onReleaseSlot && onReleaseSlot(slot.id)}
+                        >
+                          Checkout ↲
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

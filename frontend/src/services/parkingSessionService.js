@@ -11,7 +11,7 @@ import {
   serverTimestamp,
   writeBatch
 } from 'firebase/firestore'
-import { db } from '../firebase/firebase.js'
+import { auth, db } from '../firebase/firebase.js'
 import { normalizePlate } from './vehicleService.js'
 import { calculateAuthoritativeDuration } from '../utils/timerUtils.js'
 
@@ -55,11 +55,12 @@ export async function createParkingSession({
     minute: '2-digit',
     hour12: true
   })
+  const currentUid = auth.currentUser ? auth.currentUser.uid : ''
 
   const sessionData = {
     id: sessionId,
     vehicleId,
-    studentId,
+    studentId: studentId || currentUid,
     vehicleNumber: cleanPlate,
     studentName: studentName || 'Campus Member',
     rollNumber: rollNumber || '',
@@ -188,6 +189,7 @@ export async function endParkingSession({
   const historyId = `HIST-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
   const historyRecord = {
     id: historyId,
+    studentId: sessionData.studentId || (auth.currentUser ? auth.currentUser.uid : ''),
     studentName: finalOwner,
     rollNumber: finalRoll,
     stream: finalStream,
@@ -222,6 +224,7 @@ export async function endParkingSession({
     const newSessRef = doc(db, SESSIONS_COLLECTION, `SESS-${finalSlotId.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now()}`)
     batch.set(newSessRef, {
       id: newSessRef.id,
+      studentId: sessionData.studentId || (auth.currentUser ? auth.currentUser.uid : ''),
       vehicleNumber: finalPlate,
       studentName: finalOwner,
       rollNumber: finalRoll,
@@ -282,11 +285,30 @@ export async function endParkingSession({
 
 /**
  * Subscribe to active parking sessions in real time via Firestore onSnapshot
+ * Role-aware: Admins query campus-wide; students query only their own active sessions.
  */
-export function subscribeToActiveSessions(onUpdate, onError) {
+export function subscribeToActiveSessions(onUpdate, onError, filter = {}) {
   try {
     const sessionsRef = collection(db, SESSIONS_COLLECTION)
-    const activeQuery = query(sessionsRef, where('status', '==', 'active'))
+    let activeQuery = null
+
+    if (filter && filter.isAdmin) {
+      activeQuery = query(sessionsRef, where('status', '==', 'active'))
+    } else if (filter) {
+      if (filter.studentId) {
+        activeQuery = query(sessionsRef, where('studentId', '==', filter.studentId), where('status', '==', 'active'))
+      } else if (filter.rollNumber) {
+        activeQuery = query(sessionsRef, where('rollNumber', '==', filter.rollNumber), where('status', '==', 'active'))
+      } else if (filter.vehicleNumber) {
+        activeQuery = query(sessionsRef, where('vehicleNumber', '==', filter.vehicleNumber), where('status', '==', 'active'))
+      }
+    }
+
+    if (!activeQuery) {
+      onUpdate([])
+      return () => {}
+    }
+
     return onSnapshot(
       activeQuery,
       (snapshot) => {
@@ -307,15 +329,28 @@ export function subscribeToActiveSessions(onUpdate, onError) {
 
 /**
  * Subscribe to real-time completed parking history from Firestore
- * Supports role-based filtering so students query only their own history
+ * Role-aware: Admins query full history; students query only their own records.
  */
 export function subscribeToParkingHistory(onUpdate, onError, filter = {}) {
   try {
     const historyRef = collection(db, HISTORY_COLLECTION)
-    let historyQuery = historyRef
+    let historyQuery = null
 
-    if (filter && filter.rollNumber && !filter.isAdmin) {
-      historyQuery = query(historyRef, where('rollNumber', '==', filter.rollNumber))
+    if (filter && filter.isAdmin) {
+      historyQuery = query(historyRef)
+    } else if (filter) {
+      if (filter.studentId) {
+        historyQuery = query(historyRef, where('studentId', '==', filter.studentId))
+      } else if (filter.rollNumber) {
+        historyQuery = query(historyRef, where('rollNumber', '==', filter.rollNumber))
+      } else if (filter.vehicleNumber) {
+        historyQuery = query(historyRef, where('vehicleNumber', '==', filter.vehicleNumber))
+      }
+    }
+
+    if (!historyQuery) {
+      onUpdate([])
+      return () => {}
     }
 
     return onSnapshot(

@@ -3,6 +3,7 @@ import {
   signInWithGoogle,
   registerWithEmail,
   loginWithEmail,
+  signInDemoStudent,
   resetPassword,
 } from '../firebase/auth'
 import {
@@ -150,19 +151,25 @@ export default function Login({ onDemoLogin }) {
     }
   }
 
-  const handleQuickDemo = (role = 'Student') => {
-    if (onDemoLogin) {
-      onDemoLogin({
-        uid: role === 'Admin' ? 'demo-admin-01' : 'demo-student-01',
-        displayName: role === 'Admin' ? 'Campus Admin' : 'Alzuni Shaikh',
-        email: role === 'Admin' ? 'admin@college.edu' : 'alzuni.shaikh@college.edu',
-        role: role === 'Admin' ? 'Security Admin' : 'Student',
-        campusId: role === 'Admin' ? 'ADM-101' : 'S2410701',
-        vehicleType: 'scooty',
-        defaultPlate: role === 'Admin' ? 'MH-04-AD-001' : 'MH-12-AB-1234',
-        stream: 'BCA (Bachelor of Computer Applications)',
-        phoneNumber: '+91 98765 43210'
-      })
+  const handleQuickDemo = async (role = 'Student') => {
+    setError('')
+    setSuccess('')
+
+    if (role === 'Student') {
+      setLoading(true)
+      try {
+        await signInDemoStudent()
+      } catch (err) {
+        console.error('Student Demo Auth Error:', err)
+        setError(formatAuthError(err))
+      } finally {
+        setLoading(false)
+      }
+    } else {
+      // Admin authentication requires a real registered administrator account
+      setMode('login')
+      setLoginEmail('shaikhalzuni123@gmail.com')
+      setError('Administrator access requires signing in with an authorized Admin account configured in Firestore.')
     }
   }
 

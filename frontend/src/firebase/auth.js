@@ -4,6 +4,7 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInAnonymously,
   updateProfile,
   sendPasswordResetEmail,
 } from 'firebase/auth'
@@ -105,10 +106,13 @@ export const registerWithEmail = async ({
       email: user.email,
       role: role || 'Student',
       campusId: campusId || '',
+      rollNumber: campusId || '',
       phoneNumber: phoneNumber || '',
       vehicleType: vehicleType || 'scooty',
       isEv: Boolean(isEv),
       defaultPlate: defaultPlate || '',
+      vehiclePlate: defaultPlate || '',
+      vehicleNumber: defaultPlate || '',
       preferredFloor,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
@@ -132,6 +136,7 @@ export const registerWithEmail = async ({
 
         await setDoc(doc(db, 'registered_vehicles', docId), {
           id: docId,
+          studentId: user.uid,
           studentName: name.trim() || 'Campus Member',
           rollNumber: cleanRoll,
           campusId: cleanRoll,
@@ -180,6 +185,64 @@ export const loginWithEmail = async (email, password) => {
     return userCredential.user
   } catch (error) {
     console.error('Email Sign-In Error:', error)
+    throw error
+  }
+}
+
+/**
+ * Sign in as Demo Student using Firebase Anonymous Authentication
+ * Attaches a real request.auth identity and creates a Student Firestore profile
+ */
+export const signInDemoStudent = async () => {
+  try {
+    const cred = await signInAnonymously(auth)
+    const user = cred.user
+
+    const userProfileData = {
+      uid: user.uid,
+      displayName: 'Alzuni Shaikh',
+      email: 'alzuni.shaikh@college.edu',
+      role: 'Student',
+      campusId: 'S2410701',
+      rollNumber: 'S2410701',
+      vehicleType: 'scooty',
+      isEv: false,
+      defaultPlate: 'MH-12-AB-1234',
+      vehiclePlate: 'MH-12-AB-1234',
+      vehicleNumber: 'MH-12-AB-1234',
+      stream: 'BCA (Bachelor of Computer Applications)',
+      phoneNumber: '+91 98765 43210',
+      preferredFloor: 'Ground Floor',
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+    }
+
+    // Cache locally
+    try {
+      localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(userProfileData))
+      localStorage.setItem('demo_user_session', JSON.stringify(userProfileData))
+    } catch (e) {
+      console.warn('Local storage cache error:', e)
+    }
+
+    // Save profile to Firestore
+    try {
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          ...userProfileData,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+        },
+        { merge: true }
+      )
+    } catch (fsErr) {
+      console.warn('Firestore demo student profile save warning:', fsErr)
+    }
+
+    return user
+  } catch (error) {
+    console.error('Demo Student Sign-In Error:', error)
     throw error
   }
 }
@@ -240,4 +303,4 @@ export const logout = async () => {
     localStorage.removeItem('demo_user_session')
     throw error
   }
-}
+}

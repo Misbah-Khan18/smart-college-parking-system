@@ -21,11 +21,11 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
     
-    // Check if user is an Admin or Security Admin
+    // Check if user is an Admin or Security Admin based exclusively on their Firestore /users/{uid}.role
     function isAdmin() {
-      return isAuthenticated() && (
-        (request.auth.token.email != null && request.auth.token.email.matches('(?i).*admin.*')) ||
-        (userDocExists() && (getUserData().role == 'Admin' || getUserData().role == 'Security Admin'))
+      return userDocExists() && (
+        getUserData().role == 'Admin' ||
+        getUserData().role == 'Security Admin'
       );
     }
     
@@ -112,16 +112,24 @@ service cloud.firestore {
     // 3. REGISTERED VEHICLES COLLECTION
     // =========================================================
     match /registered_vehicles/{vehicleId} {
-      // Authenticated users can read vehicle directory needed by the app
-      allow read: if isAuthenticated();
+      // Students/Faculty can read their own registered vehicle; Admin/Security Admin can read all
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        resource.data.rollNumber == getCampusId() ||
+        resource.data.vehicleNumber == getDefaultPlate() ||
+        resource.data.studentName == getDisplayName()
+      );
       
       // Create:
       // - Admin/Security Admin can create any vehicle
-      // - Students/Faculty can only register a vehicle matching their own studentName/rollNumber
+      // - Students/Faculty can only register a vehicle matching their own identity
       allow create: if isAuthenticated() && (
         isAdmin() || (
+          request.resource.data.studentId == request.auth.uid ||
           request.resource.data.rollNumber == getCampusId() ||
-          request.resource.data.studentName == getDisplayName()
+          request.resource.data.studentName == getDisplayName() ||
+          request.resource.data.vehicleNumber == getDefaultPlate()
         )
       );
       
@@ -130,8 +138,10 @@ service cloud.firestore {
       // - Students/Faculty can only update their own registered vehicle
       allow update: if isAuthenticated() && (
         isAdmin() || (
+          resource.data.studentId == request.auth.uid ||
           resource.data.rollNumber == getCampusId() ||
-          resource.data.studentName == getDisplayName()
+          resource.data.studentName == getDisplayName() ||
+          resource.data.vehicleNumber == getDefaultPlate()
         )
       );
       
@@ -176,6 +186,7 @@ service cloud.firestore {
       // Students/Faculty can read their own history; Admin/Security Admin can read all
       allow read: if isAuthenticated() && (
         isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
         resource.data.rollNumber == getCampusId() ||
         resource.data.vehicleNumber == getDefaultPlate() ||
         resource.data.studentName == getDisplayName()
@@ -205,3 +216,4 @@ service cloud.firestore {
     }
   }
 }
+
