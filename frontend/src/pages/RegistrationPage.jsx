@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   getRegisteredVehicles,
   updateVehicle,
@@ -19,11 +19,6 @@ export default function RegistrationPage({
   // Modals state
   const [editingVehicle, setEditingVehicle] = useState(null)
   const [deletingVehicle, setDeletingVehicle] = useState(null)
-
-  // Refresh vehicle list on mount
-  useEffect(() => {
-    setVehicles(getRegisteredVehicles())
-  }, [])
 
   // Handle successful new vehicle registration
   const handleRegisterSuccess = () => {

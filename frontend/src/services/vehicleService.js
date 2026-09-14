@@ -41,9 +41,9 @@ export function normalizePlate(plate) {
  */
 export function isValidIndianPhone(phone) {
   if (!phone) return false
-  const cleaned = phone.replace(/[\s\-\(\)]/g, '')
+  const cleaned = phone.replace(/[\s\-()]/g, '')
   // Match 10 digits starting with 6, 7, 8, 9, or with +91 or 0 prefix
-  const regex = /^(?:(?:\+|0{0,2})91(\s*[\-]\s*)?|[0]?)?[6789]\d{9}$/
+  const regex = /^(?:(?:\+|0{0,2})91(\s*-\s*)?|[0]?)?[6789]\d{9}$/
   return regex.test(cleaned)
 }
 
@@ -306,14 +306,14 @@ export function deleteVehicle(id, currentSlots = []) {
  * @param {string} query 
  * @returns {Array} Matched vehicle records
  */
-export function searchVehicle(query) {
+export function searchVehicle(query, vehicleList = null) {
+  const list = vehicleList !== null ? vehicleList : getRegisteredVehicles()
   if (!query || !query.trim()) {
-    return getRegisteredVehicles()
+    return list
   }
 
   const q = query.toLowerCase().trim()
   const cleanQ = q.replace(/[^a-z0-9]/g, '')
-  const list = getRegisteredVehicles()
 
   return list.filter((v) => {
     const sName = (v.studentName || '').toLowerCase()

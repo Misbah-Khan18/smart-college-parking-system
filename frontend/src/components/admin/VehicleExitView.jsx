@@ -1,9 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
   CheckIcon,
-  AlertCircleIcon,
-  SearchIcon,
-  LogOutIcon
+  SearchIcon
 } from '../Icons'
 import { formatLiveDurationCompact } from '../../utils/timerUtils'
 

@@ -150,6 +150,11 @@ export default function StudentAvailableParkingView({
         <div className="sabh-count-pill">
           <CheckIcon className="w-4 h-4 text-emerald" />
           <span>{filteredSlots.length} Open Bays Available</span>
+          {userProfile?.vehicleType && (
+            <span className="text-xs opacity-80 font-normal">
+              &bull; Assigned: {userProfile.vehicleType === 'scooty' ? 'Ground' : 'Basement'}
+            </span>
+          )}
         </div>
       </div>
 

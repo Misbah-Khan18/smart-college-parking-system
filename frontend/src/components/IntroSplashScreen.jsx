@@ -2,17 +2,24 @@ import { useState, useEffect } from 'react'
 
 export default function IntroSplashScreen({ onComplete }) {
   const [fadingOut, setFadingOut] = useState(false)
-  const [phase, setPhase] = useState(1) // 1: Point appear, 2: Layout & Radar expand, 3: College Name Reveal
+  const [phase, setPhase] = useState(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return 3
+    }
+    return 1
+  })
 
   useEffect(() => {
-    // Check if user has prefers-reduced-motion enabled
     const prefersReducedMotion =
       typeof window !== 'undefined' &&
       window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     if (prefersReducedMotion) {
-      setPhase(3)
       // Fast transition for reduced-motion users (550ms)
       const tFastDone = setTimeout(() => {
         try {

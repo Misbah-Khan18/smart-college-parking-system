@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   CheckIcon,
   ShieldIcon,
-  BikeIcon,
   SearchIcon,
   PlusCircleIcon
 } from './Icons'

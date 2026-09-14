@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
-  ShieldIcon,
   CheckIcon,
   AlertCircleIcon,
-  SearchIcon,
   QrIcon
 } from '../Icons'
 import { verifyPermitAccess, fetchAllVerifiedPermits } from '../../services/paymentService'

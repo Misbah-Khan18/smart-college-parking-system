@@ -287,6 +287,17 @@ export default function StudentVehicleRegistration({
                             </button>
                           )}
 
+                          {onQuickBook && (
+                            <button
+                              type="button"
+                              className="btn-action-sm book-action-btn"
+                              onClick={() => onQuickBook(item)}
+                              title="Quick Book Slot"
+                            >
+                              ⚡ Book
+                            </button>
+                          )}
+
                           {onDeleteVehicle && (
                             <button
                               type="button"

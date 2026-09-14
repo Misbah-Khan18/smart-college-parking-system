@@ -7,10 +7,12 @@ export default function StudentMyVehicleView({
   onUpdateProfile,
   onViewPass
 }) {
+  const activeUid = user?.uid || userProfile?.uid || 'demo'
+
   // Helper to load persistent storage
   const getStoredProfile = () => {
     try {
-      const saved = localStorage.getItem('custom_student_vehicle_profile')
+      const saved = localStorage.getItem(`custom_student_vehicle_profile_${activeUid}`)
       if (saved) return JSON.parse(saved)
     } catch (e) {
       console.warn('Could not parse stored profile', e)
@@ -23,7 +25,7 @@ export default function StudentMyVehicleView({
 
   // Combined active profile (custom user edits take highest priority)
   const profile = {
-    displayName: localProfile?.displayName || userProfile?.displayName || user?.displayName || 'Alzuni Shaikh',
+    displayName: localProfile?.displayName || userProfile?.displayName || user?.displayName || 'Campus Student',
     rollNumber: localProfile?.campusId || localProfile?.rollNumber || userProfile?.campusId || userProfile?.rollNumber || 'S2410701',
     vehiclePlate: localProfile?.defaultPlate || localProfile?.vehiclePlate || localProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehicleNumber || 'MH-12-AB-1234',
     vehicleType: localProfile?.vehicleType || userProfile?.vehicleType || 'scooty',
@@ -72,9 +74,9 @@ export default function StudentMyVehicleView({
       phone: cleanPhone
     }
 
-    // 1. Permanent Local Storage persistence (survives refresh and logout)
+    // 1. Permanent Local Storage persistence (scoped to user UID)
     try {
-      localStorage.setItem('custom_student_vehicle_profile', JSON.stringify(updated))
+      localStorage.setItem(`custom_student_vehicle_profile_${activeUid}`, JSON.stringify(updated))
       const savedDemo = localStorage.getItem('demo_user_session')
       if (savedDemo) {
         const parsed = JSON.parse(savedDemo)

@@ -43,7 +43,7 @@ export const generatePassId = () => {
 // Strips all special categories (EV, Staff, VIP, Faculty, Disabled, etc.)
 // =====================================================================
 export const normalizeSlotBay = (rawBay) => {
-  let status = 'available'
+  let status
   if (
     rawBay.status === 'booked' ||
     rawBay.status === 'occupied' ||
