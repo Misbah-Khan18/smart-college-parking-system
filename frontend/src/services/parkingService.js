@@ -9,6 +9,7 @@ import {
   runTransaction,
   onSnapshot,
   query,
+  where,
   orderBy,
   serverTimestamp,
   deleteDoc
@@ -22,8 +23,25 @@ import {
 } from '../data/vehicleRules.js'
 
 const SLOTS_COLLECTION = 'parking_slots'
+const RESERVATIONS_COLLECTION = 'reservations'
 const WRONG_PARKING_COLLECTION = 'wrong_parking_reports'
 const LOCAL_SLOTS_KEY = 'parking_slots_state'
+
+/**
+ * Canonical slot ID normalizer so IDs like 'g-05', 'G-5', 'g5', 'G-05'
+ * always map to the exact canonical Firestore Document ID 'G-05'.
+ */
+export function normalizeSlotId(rawId) {
+  if (!rawId || typeof rawId !== 'string') return ''
+  const trimmed = rawId.trim().toUpperCase()
+  const match = trimmed.match(/^([GB])[-_ ]?0*(\d+)$/)
+  if (match) {
+    const prefix = match[1]
+    const num = parseInt(match[2], 10)
+    return `${prefix}-${String(num).padStart(2, '0')}`
+  }
+  return trimmed
+}
 
 /**
  * Natural sort helper for parking slots (e.g. G-01..G-80, B-01..B-80)
@@ -34,70 +52,116 @@ export function sortSlots(slotsArray) {
     if (a.floor !== b.floor) {
       return a.floor === 'Ground Floor' ? -1 : 1
     }
-    const numA = parseInt(a.id.replace(/[^0-9]/g, ''), 10) || 0
-    const numB = parseInt(b.id.replace(/[^0-9]/g, ''), 10) || 0
+    const numA = parseInt((a.id || '').replace(/[^0-9]/g, ''), 10) || 0
+    const numB = parseInt((b.id || '').replace(/[^0-9]/g, ''), 10) || 0
     return numA - numB
   })
 }
 
 /**
- * Idempotently seed 160 parking slots in Firestore if collection is empty.
- * Uses slot ID as Firestore Document ID (e.g., 'G-01', 'B-01').
+ * Idempotently seed ONLY missing parking slots into Firestore.
+ * - Identifies missing slot IDs from the 160 expected bays (G-01..G-80, B-01..B-80).
+ * - Writes ONLY missing slot documents with status: 'available'.
+ * - NEVER overwrites existing slots or active reservations.
  */
 export async function seedParkingSlotsIfEmpty() {
   const currentUser = auth.currentUser
-  console.log('[SEED] Checking parking slots seed status...')
+  const currentUid = currentUser ? currentUser.uid : 'NOT AUTHENTICATED'
+  console.log('[SEED DEBUG] authenticated UID:', currentUid)
 
   try {
     const slotsRef = collection(db, SLOTS_COLLECTION)
     const snapshot = await getDocs(slotsRef)
-    console.log(`[SEED] Existing slot count: ${snapshot.size}`)
+    const existingCount = snapshot.size
+    console.log('[SEED DEBUG] parking_slots count:', existingCount)
 
-    // If slots are already populated in Firestore, do not overwrite
-    if (!snapshot.empty && snapshot.size >= 160) {
-      console.log(`[SEED] Parking slots already fully seeded (${snapshot.size} slots present).`)
-      return { seeded: false, count: snapshot.size }
+    const existingDocIds = new Set()
+    snapshot.forEach((docSnap) => {
+      existingDocIds.add(normalizeSlotId(docSnap.id))
+    })
+
+    // Identify ONLY the missing slot IDs from the 160 expected bays
+    const missingSlots = INITIAL_SLOTS.filter((templateSlot) => {
+      const normalizedId = normalizeSlotId(templateSlot.id)
+      return !existingDocIds.has(normalizedId)
+    })
+
+    console.log('[SEED DEBUG] missing slot count:', missingSlots.length)
+    console.log('[SEED DEBUG] attempting seed:', missingSlots.length > 0)
+
+    if (missingSlots.length === 0) {
+      console.log('[SEED DEBUG] seed success: All 160 slots already exist in Firestore.')
+      return { seeded: false, count: existingCount }
     }
 
-    console.log(`[SEED] Creating slots: Writing 160 parking slots (G-01..G-80, B-01..B-80)...`)
     const batch = writeBatch(db)
 
-    INITIAL_SLOTS.forEach((slot) => {
-      const slotDocRef = doc(db, SLOTS_COLLECTION, slot.id)
+    missingSlots.forEach((templateSlot) => {
+      const normalizedId = normalizeSlotId(templateSlot.id)
+      const slotDocRef = doc(db, SLOTS_COLLECTION, normalizedId)
       batch.set(slotDocRef, {
-        ...slot,
+        id: normalizedId,
+        floor: templateSlot.floor || (normalizedId.startsWith('G') ? 'Ground Floor' : 'Basement'),
+        section: templateSlot.section || `${normalizedId.startsWith('G') ? 'Ground Floor' : 'Basement'} Parking Area`,
+        zone: templateSlot.zone || `${normalizedId.startsWith('G') ? 'Ground Floor' : 'Basement'} - General`,
+        type: templateSlot.type || (normalizedId.startsWith('G') ? 'scooty' : 'bike'),
+        isEv: Boolean(templateSlot.isEv),
+        status: 'available',
+        plate: '',
+        owner: '',
+        rollNumber: '',
+        stream: '',
+        phoneNumber: '',
+        category: '',
+        reservedBy: '',
+        reservedByName: '',
+        reservedByEmail: '',
+        reservedAt: null,
+        studentId: '',
+        userId: '',
+        passId: '',
+        passType: null,
+        reservedUntil: null,
+        entryTime: null,
+        entryTimestamp: null,
         updatedAt: serverTimestamp()
-      }, { merge: true })
+      })
     })
 
     await batch.commit()
-    console.log('[SEED] Seed completed successfully (160 slots written to Firestore)')
-    return { seeded: true, count: INITIAL_SLOTS.length }
+    console.log('[SEED DEBUG] seed success: true, created ' + missingSlots.length + ' missing slot documents.')
+    return { seeded: true, count: missingSlots.length }
   } catch (err) {
-    console.warn('[SEED] Seed notice (may require Admin role):', err.message)
+    console.error('[SEED DEBUG] seed error code:', err?.code || 'UNKNOWN')
+    console.error('[SEED DEBUG] seed error message:', err?.message || err)
     return { seeded: false, error: err }
   }
 }
 
+let hasReceivedFirestoreSlots = false
+
 /**
  * Real-time subscription to all parking slots via Firestore onSnapshot.
+ * Firestore is the authoritative source of truth.
  *
  * @param {Function} onUpdate - callback receiving sorted array of 160 slots
  * @param {Function} onError - optional error callback
  * @returns {Function} Unsubscribe function
  */
 export function subscribeToSlots(onUpdate, onError) {
-  // First hydrate immediately from localStorage cache for instant zero-flicker UI
-  try {
-    const cached = localStorage.getItem(LOCAL_SLOTS_KEY)
-    if (cached) {
-      const parsed = JSON.parse(cached)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        onUpdate(sortSlots(parsed))
+  // Only hydrate from cache if we have not yet received live Firestore data
+  if (!hasReceivedFirestoreSlots) {
+    try {
+      const cached = localStorage.getItem(LOCAL_SLOTS_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          onUpdate(sortSlots(parsed))
+        }
       }
+    } catch {
+      // ignore cache parsing error
     }
-  } catch {
-    // ignore cache parsing error
   }
 
   try {
@@ -105,17 +169,46 @@ export function subscribeToSlots(onUpdate, onError) {
     const unsubscribe = onSnapshot(
       slotsRef,
       (snapshot) => {
+        hasReceivedFirestoreSlots = true
+
         if (snapshot.empty) {
-          console.log('[Firestore] parking_slots snapshot is currently empty.')
+          console.log('[Firestore] parking_slots collection is currently empty.')
           return
         }
 
-        const slots = []
+        const firestoreMap = new Map()
         snapshot.forEach((docSnap) => {
-          slots.push({ id: docSnap.id, ...docSnap.data() })
+          const docId = normalizeSlotId(docSnap.id)
+          firestoreMap.set(docId, { id: docId, ...docSnap.data() })
         })
 
-        const sorted = sortSlots(slots)
+        // Authoritative merge with 160-bay template:
+        // Any slot in Firestore uses the live Firestore document data.
+        // Any bay not yet created in Firestore defaults to available template.
+        const mergedSlots = INITIAL_SLOTS.map((templateSlot) => {
+          const normId = normalizeSlotId(templateSlot.id)
+          if (firestoreMap.has(normId)) {
+            return firestoreMap.get(normId)
+          }
+          return {
+            ...templateSlot,
+            id: normId,
+            status: 'available',
+            plate: '',
+            owner: '',
+            reservedBy: '',
+            userId: ''
+          }
+        })
+
+        // Also include any extra slots from Firestore
+        firestoreMap.forEach((val, key) => {
+          if (!mergedSlots.some((s) => normalizeSlotId(s.id) === key)) {
+            mergedSlots.push(val)
+          }
+        })
+
+        const sorted = sortSlots(mergedSlots)
         try {
           localStorage.setItem(LOCAL_SLOTS_KEY, JSON.stringify(sorted))
         } catch {
@@ -269,6 +362,7 @@ export async function allocateSlot({
   entryTime = null,
   entryTimestamp = null
 }) {
+  const cleanSlotId = normalizeSlotId(slotId)
   const cleanPlate = (plate || '').toUpperCase().trim()
   const nowTimestamp = entryTimestamp || Date.now()
   const nowTime = entryTime || new Date().toLocaleTimeString([], {
@@ -293,7 +387,7 @@ export async function allocateSlot({
     updatedAt: serverTimestamp()
   }
 
-  const slotDocRef = doc(db, SLOTS_COLLECTION, slotId)
+  const slotDocRef = doc(db, SLOTS_COLLECTION, cleanSlotId)
 
   try {
     await runTransaction(db, async (transaction) => {
@@ -302,21 +396,21 @@ export async function allocateSlot({
         const currentData = slotSnap.data()
         // If slot is occupied by a different vehicle, reject
         if (currentData.status === 'occupied' && currentData.plate && currentData.plate !== cleanPlate) {
-          throw new Error(`Bay ${slotId} is already occupied by ${currentData.plate}.`)
+          throw new Error(`Bay ${cleanSlotId} is already occupied by ${currentData.plate}.`)
         }
       }
-      transaction.set(slotDocRef, { id: slotId, ...updateData }, { merge: true })
+      transaction.set(slotDocRef, { id: cleanSlotId, ...updateData }, { merge: true })
     })
   } catch (txErr) {
     if (txErr.message && txErr.message.includes('already occupied')) {
       throw txErr
     }
-    console.warn(`Transaction allocation fallback for slot ${slotId}:`, txErr.message)
-    await setDoc(slotDocRef, { id: slotId, ...updateData }, { merge: true })
+    console.warn(`Transaction allocation fallback for slot ${cleanSlotId}:`, txErr.message)
+    await setDoc(slotDocRef, { id: cleanSlotId, ...updateData }, { merge: true })
   }
 
   return {
-    slotId,
+    slotId: cleanSlotId,
     ...updateData
   }
 }
@@ -336,6 +430,7 @@ export async function reserveSlot({
   passType = 'Hourly Slot',
   reservedUntil = null
 }) {
+  const cleanSlotId = normalizeSlotId(slotId)
   const cleanPlate = (plate || '').toUpperCase().trim()
   const nowTimestamp = Date.now()
   const nowTime = new Date().toLocaleTimeString([], {
@@ -360,7 +455,7 @@ export async function reserveSlot({
     updatedAt: serverTimestamp()
   }
 
-  const slotDocRef = doc(db, SLOTS_COLLECTION, slotId)
+  const slotDocRef = doc(db, SLOTS_COLLECTION, cleanSlotId)
 
   try {
     await runTransaction(db, async (transaction) => {
@@ -368,28 +463,397 @@ export async function reserveSlot({
       if (slotSnap.exists()) {
         const currentData = slotSnap.data()
         if (currentData.status === 'occupied') {
-          throw new Error(`Bay ${slotId} is currently occupied and cannot be reserved.`)
+          throw new Error(`Bay ${cleanSlotId} is currently occupied and cannot be reserved.`)
         }
       }
-      transaction.set(slotDocRef, { id: slotId, ...updateData }, { merge: true })
+      transaction.set(slotDocRef, { id: cleanSlotId, ...updateData }, { merge: true })
     })
   } catch (txErr) {
     if (txErr.message && txErr.message.includes('cannot be reserved')) {
       throw txErr
     }
-    console.warn(`Firestore reserve update failed for slot ${slotId}:`, txErr.message)
-    await setDoc(slotDocRef, { id: slotId, ...updateData }, { merge: true })
+    console.warn(`Firestore reserve update failed for slot ${cleanSlotId}:`, txErr.message)
+    await setDoc(slotDocRef, { id: cleanSlotId, ...updateData }, { merge: true })
   }
 
-  return { slotId, ...updateData }
+  return { slotId: cleanSlotId, ...updateData }
+}
+
+/**
+ * Concurrency-Safe: Atomically reserve a parking bay using a Firestore Transaction.
+ * 
+ * - Verifies user does NOT already have an active reservation (prevents multiple active slots).
+ * - Reads slot inside transaction: verifies status === 'available'.
+ * - Atomically updates parking_slots/{slotId} -> status: 'reserved'.
+ * - Atomically creates reservations/{reservationId} -> status: 'active'.
+ * - Rejects race conditions with user-friendly errors.
+ */
+export async function reserveSlotWithTransaction({
+  slotId,
+  userId,
+  userName = 'Campus Member',
+  userEmail = '',
+  plate = '',
+  rollNumber = '',
+  stream = '',
+  phoneNumber = '',
+  category = 'Student',
+  type = 'scooty',
+  floor = null,
+  section = null,
+  zone = null,
+  passType = 'Campus Parking Pass',
+  reservedUntil = null,
+  amountPaidINR = 0
+}) {
+  if (!slotId) {
+    throw new Error('Please select a parking slot before activating your pass.')
+  }
+  if (!userId) {
+    throw new Error('User must be authenticated to reserve a parking slot.')
+  }
+
+  const cleanPlate = (plate || '').toUpperCase().trim()
+  const cleanSlotId = normalizeSlotId(slotId)
+  const nowTimestamp = Date.now()
+  const nowTime = new Date().toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+  const nowDate = new Date().toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  })
+
+  // 1. Guard against duplicate active reservations for the same user
+  try {
+    const reservationsRef = collection(db, RESERVATIONS_COLLECTION)
+    const activeQuery = query(
+      reservationsRef,
+      where('userId', '==', userId),
+      where('status', '==', 'active')
+    )
+    const snap = await getDocs(activeQuery)
+    if (!snap.empty) {
+      const existing = snap.docs[0].data()
+      throw new Error(`You already have an active parking reservation in Bay ${existing.slotId || 'allocated bay'}.`)
+    }
+  } catch (chkErr) {
+    if (chkErr.message && chkErr.message.includes('already have an active')) {
+      throw chkErr
+    }
+    console.warn('[Firestore] Pre-check reservation notice:', chkErr?.message)
+  }
+
+  const slotDocRef = doc(db, SLOTS_COLLECTION, cleanSlotId)
+  const reservationId = `RES-${cleanSlotId.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now()}`
+  const reservationDocRef = doc(db, RESERVATIONS_COLLECTION, reservationId)
+  const passId = `SOC-${cleanSlotId.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`
+  const defaultFloor = cleanSlotId.startsWith('G') ? 'Ground Floor' : 'Basement'
+  const finalFloor = floor || defaultFloor
+
+  let committedSlotData = null
+  let committedReservationData = null
+
+  // 2. Concurrency-Safe Firestore Transaction
+  try {
+    await runTransaction(db, async (transaction) => {
+      const slotSnap = await transaction.get(slotDocRef)
+
+      if (!slotSnap.exists()) {
+        throw new Error('Parking slot data is not initialized. Please refresh and try again.')
+      }
+
+      const currentSlotData = slotSnap.data()
+      // Crucial Check: Status MUST be 'available'
+      if (currentSlotData.status !== 'available') {
+        throw new Error('This slot has just been reserved by another user.')
+      }
+
+      const finalSection = section || currentSlotData.section || `${finalFloor} Parking Area`
+      const finalZone = zone || currentSlotData.zone || `${finalFloor} - ${finalSection}`
+      const finalVehicleType = type || currentSlotData.type || (cleanSlotId.startsWith('G') ? 'scooty' : 'bike')
+
+      const slotUpdateData = {
+        status: 'reserved',
+        reservedBy: userId,
+        reservedByName: userName,
+        reservedByEmail: userEmail,
+        reservedAt: serverTimestamp(),
+        studentId: userId,
+        userId: userId,
+        plate: cleanPlate,
+        owner: userName,
+        rollNumber: rollNumber || '',
+        stream: stream || '',
+        phoneNumber: phoneNumber || '',
+        category: category || 'Student',
+        type: finalVehicleType,
+        floor: finalFloor,
+        section: finalSection,
+        zone: finalZone,
+        passType: passType || 'Campus Parking Pass',
+        passId,
+        reservedUntil: reservedUntil || 'Active Session',
+        entryTime: nowTime,
+        entryTimestamp: nowTimestamp,
+        updatedAt: serverTimestamp()
+      }
+
+      const reservationRecord = {
+        id: reservationId,
+        reservationId,
+        slotId: cleanSlotId,
+        userId,
+        reservedBy: userId,
+        studentId: userId,
+        userName,
+        userEmail,
+        plate: cleanPlate,
+        vehiclePlate: cleanPlate,
+        vehicleNumber: cleanPlate,
+        vehicleType: finalVehicleType,
+        rollNumber: rollNumber || '',
+        stream: stream || '',
+        phoneNumber: phoneNumber || '',
+        category: category || 'Student',
+        floor: finalFloor,
+        section: finalSection,
+        zone: finalZone,
+        passType: passType || 'Campus Parking Pass',
+        passId,
+        status: 'active',
+        reservedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        entryTime: nowTime,
+        entryTimestamp: nowTimestamp,
+        date: nowDate,
+        validUntil: reservedUntil || 'Active Session',
+        paymentStatus: 'PAID',
+        amountPaidINR: amountPaidINR || 0,
+        qrToken: `SOC-RES-${cleanSlotId}-${cleanPlate.replace(/[^A-Z0-9]/g, '') || Date.now()}`
+      }
+
+      transaction.update(slotDocRef, slotUpdateData)
+      transaction.set(reservationDocRef, reservationRecord)
+
+      committedSlotData = { id: cleanSlotId, ...slotUpdateData }
+      committedReservationData = reservationRecord
+    })
+  } catch (txError) {
+    console.error('[Firestore] Reservation Transaction Error:', txError)
+    if (txError.message && (
+      txError.message.includes('just been reserved') ||
+      txError.message.includes('already have an active') ||
+      txError.message.includes('Please select') ||
+      txError.message.includes('authenticated')
+    )) {
+      throw txError
+    }
+    throw new Error(txError.message || 'Failed to complete slot reservation. Please try again.')
+  }
+
+  // 3. Construct authoritative Pass object for immediate UI presentation
+  const passData = {
+    passId,
+    id: passId,
+    reservationId,
+    slotId: cleanSlotId,
+    vehiclePlate: cleanPlate,
+    plate: cleanPlate,
+    vehicleNumber: cleanPlate,
+    studentName: userName,
+    owner: userName,
+    rollNumber: rollNumber || '',
+    stream: stream || '',
+    phoneNumber: phoneNumber || '',
+    category: category || 'Student',
+    vehicleType: committedSlotData?.type || type || 'scooty',
+    floor: finalFloor,
+    section: committedSlotData?.section || `${finalFloor} Parking Area`,
+    zone: committedSlotData?.zone || `${finalFloor} - General`,
+    passType: passType || 'Campus Parking Pass',
+    permitType: passType || 'Campus Parking Pass',
+    reservedUntil: reservedUntil || 'Active Session',
+    validUntil: reservedUntil || 'Active Session',
+    paymentStatus: 'PAID',
+    status: 'ACTIVE',
+    reservationStatus: 'Reserved',
+    entryTime: nowTime,
+    entryTimestamp: nowTimestamp,
+    qrToken: committedReservationData?.qrToken || `SOC-RES-${cleanSlotId}-${cleanPlate}`
+  }
+
+  return {
+    success: true,
+    slotId: cleanSlotId,
+    reservationId,
+    slot: committedSlotData,
+    reservation: committedReservationData,
+    passData
+  }
+}
+
+/**
+ * Subscribe to the authenticated user's active reservation in real time.
+ */
+export function subscribeToUserReservation(userId, onUpdate, onError) {
+  if (!userId) {
+    onUpdate(null)
+    return () => {}
+  }
+
+  try {
+    const reservationsRef = collection(db, RESERVATIONS_COLLECTION)
+    const activeQuery = query(
+      reservationsRef,
+      where('userId', '==', userId),
+      where('status', '==', 'active')
+    )
+
+    return onSnapshot(
+      activeQuery,
+      (snapshot) => {
+        if (snapshot.empty) {
+          onUpdate(null)
+          return
+        }
+        const docSnap = snapshot.docs[0]
+        const data = { id: docSnap.id, ...docSnap.data() }
+        onUpdate(data)
+      },
+      (err) => {
+        console.warn('[Firestore] subscribeToUserReservation warning:', err?.message)
+        if (onError) onError(err)
+      }
+    )
+  } catch (err) {
+    console.warn('[Firestore] Could not establish user reservation listener:', err?.message)
+    return () => {}
+  }
+}
+
+/**
+ * Cancel / Release an active user reservation.
+ * Strictly verifies that the authenticated user UID owns the reservation before modifying Firestore.
+ * Atomically marks reservation cancelled and restores slot back to 'available'.
+ */
+export async function cancelUserReservation({ reservationId, slotId, userId }) {
+  const currentUid = userId || auth.currentUser?.uid
+  if (!currentUid) {
+    throw new Error('Authentication required to cancel a reservation.')
+  }
+
+  const cleanSlotId = normalizeSlotId(slotId)
+
+  // Verify ownership before cancellation
+  if (cleanSlotId) {
+    const slotRef = doc(db, SLOTS_COLLECTION, cleanSlotId)
+    const slotSnap = await getDoc(slotRef)
+    if (slotSnap.exists()) {
+      const slotData = slotSnap.data()
+      if (
+        slotData.reservedBy &&
+        slotData.reservedBy !== currentUid &&
+        slotData.userId !== currentUid &&
+        slotData.studentId !== currentUid
+      ) {
+        throw new Error('Unauthorized: You can only cancel your own parking reservation.')
+      }
+    }
+  }
+
+  if (reservationId) {
+    const resRef = doc(db, RESERVATIONS_COLLECTION, reservationId)
+    const resSnap = await getDoc(resRef)
+    if (resSnap.exists()) {
+      const resData = resSnap.data()
+      if (
+        resData.userId &&
+        resData.userId !== currentUid &&
+        resData.reservedBy !== currentUid &&
+        resData.studentId !== currentUid
+      ) {
+        throw new Error('Unauthorized: You can only cancel your own parking reservation.')
+      }
+    }
+  }
+
+  const batch = writeBatch(db)
+
+  // 1. Release slot back to available
+  if (cleanSlotId) {
+    const slotDocRef = doc(db, SLOTS_COLLECTION, cleanSlotId)
+    batch.update(slotDocRef, {
+      status: 'available',
+      reservedBy: '',
+      reservedByName: '',
+      reservedByEmail: '',
+      reservedAt: null,
+      studentId: '',
+      userId: '',
+      plate: '',
+      owner: '',
+      rollNumber: '',
+      stream: '',
+      phoneNumber: '',
+      category: '',
+      reservedUntil: null,
+      passType: null,
+      passId: '',
+      entryTime: null,
+      entryTimestamp: null,
+      updatedAt: serverTimestamp()
+    })
+  }
+
+  // 2. Mark reservation document cancelled
+  if (reservationId) {
+    const resDocRef = doc(db, RESERVATIONS_COLLECTION, reservationId)
+    batch.update(resDocRef, {
+      status: 'cancelled',
+      cancelledAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    })
+  } else if (currentUid) {
+    try {
+      const q = query(
+        collection(db, RESERVATIONS_COLLECTION),
+        where('userId', '==', currentUid),
+        where('status', '==', 'active')
+      )
+      const snap = await getDocs(q)
+      snap.forEach((d) => {
+        batch.update(d.ref, {
+          status: 'cancelled',
+          cancelledAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })
+      })
+    } catch {
+      // ignore
+    }
+  }
+
+  await batch.commit()
+  return { success: true, slotId: cleanSlotId }
 }
 
 /**
  * Release a parking slot in Firestore back to available status.
  */
 export async function releaseSlot(slotId) {
+  const cleanSlotId = normalizeSlotId(slotId)
   const resetData = {
     status: 'available',
+    reservedBy: '',
+    reservedByName: '',
+    reservedByEmail: '',
+    reservedAt: null,
+    studentId: '',
+    userId: '',
     plate: '',
     owner: '',
     rollNumber: '',
@@ -398,25 +862,26 @@ export async function releaseSlot(slotId) {
     category: '',
     reservedUntil: null,
     passType: null,
+    passId: '',
     entryTime: null,
     entryTimestamp: null,
     updatedAt: serverTimestamp()
   }
 
-  const slotDocRef = doc(db, SLOTS_COLLECTION, slotId)
+  const slotDocRef = doc(db, SLOTS_COLLECTION, cleanSlotId)
 
   try {
     await updateDoc(slotDocRef, resetData)
   } catch (err) {
-    console.warn(`Firestore release update failed for slot ${slotId}:`, err.message)
+    console.warn(`Firestore release update failed for slot ${cleanSlotId}:`, err.message)
     try {
-      await setDoc(slotDocRef, { id: slotId, ...resetData }, { merge: true })
+      await setDoc(slotDocRef, { id: cleanSlotId, ...resetData }, { merge: true })
     } catch (fallbackErr) {
       console.error('Slot release error:', fallbackErr)
     }
   }
 
-  return { slotId, ...resetData }
+  return { slotId: cleanSlotId, ...resetData }
 }
 
 /**

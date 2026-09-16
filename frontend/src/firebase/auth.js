@@ -29,26 +29,22 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, googleProvider)
     const user = result.user
 
-    const userProfileData = {
-      uid: user.uid,
-      displayName: user.displayName || 'Campus User',
-      email: user.email,
-      photoURL: user.photoURL || '',
-      role: 'Student',
-      lastLogin: new Date().toISOString(),
-    }
-
-    // Cache locally for offline/fast UI hydration
+    // Fetch existing authoritative profile from Firestore if it exists
     try {
-      const existing = localStorage.getItem(`user_profile_${user.uid}`)
-      if (!existing) {
-        localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(userProfileData))
+      const userDoc = await getDoc(doc(db, 'users', user.uid))
+      if (userDoc.exists()) {
+        const firestoreData = userDoc.data()
+        try {
+          localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(firestoreData))
+        } catch (e) {
+          console.warn('Local storage cache warning:', e)
+        }
       }
-    } catch (e) {
-      console.warn('Local storage cache warning:', e)
+    } catch (fsCheckErr) {
+      console.warn('Firestore user profile lookup warning (Google Auth):', fsCheckErr)
     }
 
-    // Save/update user profile in Firestore
+    // Save/update basic user metadata in Firestore WITHOUT overriding or setting a client role
     try {
       await setDoc(
         doc(db, 'users', user.uid),
@@ -265,26 +261,30 @@ export const resetPassword = async (email) => {
 export const getUserProfile = async (uid) => {
   if (!uid) return null
 
-  // Check local cache first
-  try {
-    const local = localStorage.getItem(`user_profile_${uid}`)
-    if (local) {
-      return JSON.parse(local)
-    }
-  } catch {
-    // Ignore cache error
-  }
-
-  // Check Firestore
+  // 1. PRIMARY / AUTHORITATIVE SOURCE: Live Firestore users/{uid}
   try {
     const userDoc = await getDoc(doc(db, 'users', uid))
     if (userDoc.exists()) {
       const data = userDoc.data()
-      localStorage.setItem(`user_profile_${uid}`, JSON.stringify(data))
+      // Update/refresh local cache with the authoritative Firestore data
+      try {
+        localStorage.setItem(`user_profile_${uid}`, JSON.stringify(data))
+      } catch (cacheErr) {
+        console.warn('Could not update user_profile cache in localStorage:', cacheErr)
+      }
       return data
     }
   } catch (err) {
-    console.warn('Could not fetch user profile from Firestore:', err)
+    console.warn('Could not fetch user profile from Firestore, attempting offline cache fallback:', err)
+    // 2. FALLBACK ONLY ON GENUINE FIRESTORE READ / NETWORK ERROR
+    try {
+      const local = localStorage.getItem(`user_profile_${uid}`)
+      if (local) {
+        return JSON.parse(local)
+      }
+    } catch {
+      // Ignore cache error
+    }
   }
 
   return null

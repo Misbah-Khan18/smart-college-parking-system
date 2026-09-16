@@ -1,174 +1,164 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   ShieldIcon,
   CheckIcon,
   AlertCircleIcon,
-  QrIcon
+  QrIcon,
+  CameraIcon
 } from '../Icons'
+import { auth } from '../../firebase/firebase'
 import {
-  normalizePlate,
-  getFloorForVehicleType,
-  getRegisteredVehicles,
-  getRegisteredVehiclesAsync
-} from '../../services/vehicleService'
+  verifyAndAdmitGatePass,
+  GATE_REASON_CODES
+} from '../../services/guardGateService'
+import QRScanner from './QRScanner'
 
-export default function GatePermitScannerView({ showToast, registeredVehicles = [] }) {
+export default function GatePermitScannerView({
+  showToast,
+  registeredVehicles = [],
+  slots = [],
+  user = null,
+  userProfile = null
+}) {
+  const [scanMode, setScanMode] = useState('camera') // 'camera' | 'manual'
   const [tokenInput, setTokenInput] = useState('')
   const [gateFloor, setGateFloor] = useState('Ground Floor')
   const [scannedPlate, setScannedPlate] = useState('')
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationResult, setVerificationResult] = useState(null)
   const [barrierState, setBarrierState] = useState('closed') // 'closed' | 'opening' | 'open' | 'closing'
+  const lastScannedTokenRef = useRef('')
 
-  const handleVerify = async (e) => {
-    if (e) e.preventDefault()
-
-    const rawInput = tokenInput.trim()
-    const rawPlate = scannedPlate.trim()
+  // Authoritative Guard Ingress Verification Executor
+  const executeVerification = async (targetToken = '', targetPlate = '') => {
+    const rawInput = (targetToken || tokenInput).trim()
+    const rawPlate = (targetPlate || scannedPlate).trim()
 
     if (!rawInput && !rawPlate) {
       setVerificationResult({
-        access: 'DENIED',
-        reason: 'Please enter a permit token, pass ID, roll number, or license plate to verify.',
-        message: 'Input Required • Access Denied'
+        approved: false,
+        reason: GATE_REASON_CODES.INVALID_QR,
+        message: 'Please align QR code in camera view or enter a valid permit token.'
       })
       return
     }
+
+    if (isVerifying) return
 
     setIsVerifying(true)
     setVerificationResult(null)
 
     try {
-      // 1. Retrieve registered vehicles (from prop, in-memory cache, or Firestore async)
-      let list = Array.isArray(registeredVehicles) && registeredVehicles.length > 0
-        ? registeredVehicles
-        : getRegisteredVehicles()
+      const currentGuardUid = auth.currentUser ? auth.currentUser.uid : (user?.uid || '')
+      const guardDisplayName = userProfile?.displayName || user?.displayName || 'Security Guard'
 
-      if (!list || list.length === 0) {
-        list = await getRegisteredVehiclesAsync()
-      }
-
-      // 2. Clean inputs for exact and substring matching
-      const cleanInputComp = rawInput.toUpperCase().replace(/[^A-Z0-9]/g, '')
-      const cleanPlateComp = normalizePlate(rawPlate).replace(/[^A-Z0-9]/g, '')
-
-      // 3. Find matching registered vehicle in Firestore records
-      const matchedVehicle = (list || []).find((v) => {
-        const vPlateComp = normalizePlate(v.vehicleNumber || '').replace(/[^A-Z0-9]/g, '')
-        const vRollComp = (v.rollNumber || v.campusId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-        const vPassComp = (v.passId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-        const vIdComp = (v.id || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-        const vStudentId = (v.studentId || '').trim()
-
-        // Match simulated plate input if provided
-        if (cleanPlateComp && vPlateComp === cleanPlateComp) {
-          return true
-        }
-
-        // Match token / pass ID / roll number input
-        if (cleanInputComp) {
-          if (vPlateComp && (vPlateComp === cleanInputComp || cleanInputComp.includes(vPlateComp))) {
-            return true
-          }
-          if (vRollComp && (vRollComp === cleanInputComp || cleanInputComp.includes(vRollComp))) {
-            return true
-          }
-          if (vPassComp && (vPassComp === cleanInputComp || cleanInputComp.includes(vPassComp))) {
-            return true
-          }
-          if (vIdComp && (vIdComp === cleanInputComp || cleanInputComp.includes(vIdComp))) {
-            return true
-          }
-          if (vStudentId && (vStudentId === rawInput || cleanInputComp.includes(vStudentId.toUpperCase().replace(/[^A-Z0-9]/g, '')))) {
-            return true
-          }
-        }
-
-        return false
+      // Call authoritative Firestore Guard gate verification service
+      const result = await verifyAndAdmitGatePass({
+        qrToken: rawInput || rawPlate,
+        scannedPlate: rawPlate,
+        gateFloor,
+        guardUid: currentGuardUid
       })
 
-      // 4. Handle Unregistered / Unknown Vehicle
-      if (!matchedVehicle) {
+      if (result.approved) {
         setVerificationResult({
-          access: 'DENIED',
-          reason: `No campus registration record found for "${rawInput || rawPlate}". Vehicle is unauthorized.`,
-          message: 'Vehicle Not Registered • Access Denied',
-          verifiedAt: new Date().toISOString()
+          ...result,
+          guardName: guardDisplayName
         })
-        if (showToast) {
-          showToast('Access Denied', `No registration found for "${rawInput || rawPlate}".`, 'error')
-        }
-        return
-      }
 
-      // 5. Handle Registered Vehicle — Determine designated floor and compatibility
-      const vehicleType = (matchedVehicle.vehicleType || 'scooty').toLowerCase()
-      const designatedFloor = getFloorForVehicleType(vehicleType)
-      const isFloorMismatch = (gateFloor === 'Ground Floor' && vehicleType === 'bike') || (gateFloor === 'Basement' && vehicleType === 'scooty')
-
-      const passIdDisplay = matchedVehicle.passId || `SOC-${matchedVehicle.rollNumber || 'REG'}-PASS`
-      const studentNameDisplay = matchedVehicle.studentName || 'Campus Member'
-      const vehicleNumberDisplay = matchedVehicle.vehicleNumber || rawPlate || rawInput
-      const rollNumberDisplay = matchedVehicle.rollNumber || matchedVehicle.campusId || 'N/A'
-      const streamDisplay = matchedVehicle.stream || 'School of Commerce'
-      const planDisplay = matchedVehicle.category ? `${matchedVehicle.category} Parking Permit` : 'Campus Parking Permit (Active)'
-
-      const result = {
-        access: 'GRANTED',
-        reason: isFloorMismatch
-          ? `Vehicle authorized for ${designatedFloor}. (Gate Notice: Please proceed to ${designatedFloor}).`
-          : `Verified campus registration for ${studentNameDisplay} (${rollNumberDisplay}). Valid for ${designatedFloor}.`,
-        message: isFloorMismatch
-          ? `Authorized • Assigned Floor: ${designatedFloor}`
-          : 'Authorized Campus Permit • Boom Barrier Activated',
-        permitDetails: {
-          passId: passIdDisplay,
-          studentName: studentNameDisplay,
-          rollNumber: rollNumberDisplay,
-          vehicleNumber: vehicleNumberDisplay,
-          vehicleType: vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1),
-          allocatedFloor: designatedFloor,
-          stream: streamDisplay,
-          planName: planDisplay,
-          validUntil: 'Active Academic Term'
-        },
-        verifiedAt: new Date().toISOString()
-      }
-
-      setVerificationResult(result)
-
-      // Trigger boom barrier animation on success
-      setBarrierState('opening')
-      setTimeout(() => {
-        setBarrierState('open')
+        // Trigger barrier opening sequence: closed -> opening -> open (4s) -> closing -> closed
+        setBarrierState('opening')
         setTimeout(() => {
-          setBarrierState('closing')
-          setTimeout(() => setBarrierState('closed'), 800)
-        }, 4000)
-      }, 600)
+          setBarrierState('open')
+          setTimeout(() => {
+            setBarrierState('closing')
+            setTimeout(() => setBarrierState('closed'), 800)
+          }, 4000)
+        }, 600)
 
-      if (showToast) {
-        showToast('Access Granted', `Permit verified for ${vehicleNumberDisplay} (${studentNameDisplay}). Barrier opened.`, 'success')
+        if (showToast) {
+          showToast(
+            'Entry Approved 🎉',
+            `Bay ${result.slotId} (${result.floor}) is now OCCUPIED for ${result.vehicleNumber}. Barrier opened.`,
+            'success'
+          )
+        }
+      } else {
+        setBarrierState('closed')
+        setVerificationResult({
+          ...result,
+          guardName: guardDisplayName
+        })
+
+        if (showToast) {
+          showToast(
+            'Entry Denied 🛑',
+            result.message || `Validation failed: ${result.reason}`,
+            'error'
+          )
+        }
       }
     } catch (err) {
-      console.error('Gate check error:', err)
+      console.error('[GatePermitScannerView] Verification exception:', err)
+      setBarrierState('closed')
       setVerificationResult({
-        access: 'DENIED',
-        reason: err.message || 'Internal gate scanner validation error.',
-        message: 'Validation Error • Access Denied'
+        approved: false,
+        reason: GATE_REASON_CODES.TRANSACTION_FAILED,
+        message: err.message || 'An unexpected error occurred during Firestore gate verification.'
       })
       if (showToast) {
-        showToast('Validation Error', err.message || 'Could not verify permit.', 'error')
+        showToast('Verification Error', err.message || 'Could not verify pass.', 'error')
       }
     } finally {
       setIsVerifying(false)
     }
   }
 
-  // Quick test items from currently loaded vehicles
-  const testVehicles = Array.isArray(registeredVehicles) && registeredVehicles.length > 0
-    ? registeredVehicles.slice(0, 4)
-    : getRegisteredVehicles().slice(0, 4)
+  // Camera QR detection callback
+  const handleCameraScan = async (detectedToken) => {
+    if (isVerifying || !detectedToken) return
+    lastScannedTokenRef.current = detectedToken
+    setTokenInput(detectedToken)
+
+    // Automatically trigger authoritative verification for detected QR
+    await executeVerification(detectedToken, scannedPlate)
+  }
+
+  // Manual Form Submit Handler
+  const handleManualSubmit = (e) => {
+    if (e) e.preventDefault()
+    executeVerification(tokenInput, scannedPlate)
+  }
+
+  // Reset / Scan Next Vehicle
+  const handleReset = () => {
+    setTokenInput('')
+    setScannedPlate('')
+    setVerificationResult(null)
+    setBarrierState('closed')
+    setIsVerifying(false)
+    lastScannedTokenRef.current = ''
+  }
+
+  // Quick test items from currently active reserved slots or loaded vehicles
+  const reservedSlots = (slots || []).filter((s) => s.status === 'reserved')
+  const testItems = reservedSlots.length > 0
+    ? reservedSlots.slice(0, 4).map((s) => ({
+        id: s.id,
+        label: `Reserved Bay ${s.id}`,
+        token: s.passId || `SOC-RES-${s.id}-${s.plate}`,
+        plate: s.plate,
+        type: s.type,
+        owner: s.owner
+      }))
+    : (registeredVehicles || []).slice(0, 4).map((v) => ({
+        id: v.id,
+        label: `${v.studentName} (${v.rollNumber})`,
+        token: v.passId || v.vehicleNumber,
+        plate: v.vehicleNumber,
+        type: v.vehicleType,
+        owner: v.studentName
+      }))
 
   return (
     <div className="admin-page-container">
@@ -176,110 +166,204 @@ export default function GatePermitScannerView({ showToast, registeredVehicles = 
       <div className="page-section-header glass-card">
         <div className="psh-badge">
           <span className="badge-icon">🛡️</span>
-          <span>CAMPUS SECURITY RFID &amp; QR SCANNER</span>
+          <span>CAMPUS SECURITY RFID &amp; OPTICAL QR SCANNER</span>
         </div>
         <h1 className="psh-title">
           Gate QR Permit <span className="gradient-text">Verification Terminal</span>
         </h1>
         <p className="psh-subtitle">
-          Real-time security gate ingress scanner. Validates registered vehicles against Firestore directory, verifies assigned parking floor rules, and triggers automated boom barrier access.
+          Authoritative real-time security gate ingress scanner. Validates physical student passes and digital QR tokens directly against Firestore, verifies designated floor zoning rules, executes atomic bay status transition (Reserved &rarr; Occupied), and triggers automated boom barrier access.
         </p>
       </div>
 
       <div className="terminal-grid-two">
-        {/* Left: QR / Token Scanner Terminal */}
+        {/* Left: Live Camera & Token Scanner Terminal */}
         <div className="terminal-form-card glass-card">
           <div className="card-header-clean">
             <div className="flex items-center gap-2">
               <QrIcon className="w-5 h-5 text-cyan" />
-              <h3>Scan / Enter Permit Token</h3>
+              <h3>Scan / Verify Student Pass</h3>
             </div>
             <span className="telemetry-live-tag">
               <span className="live-dot-pulse"></span>
-              <span>GATE 1 ONLINE</span>
+              <span>GATE 1 &bull; INGRESS</span>
             </span>
           </div>
 
-          <form onSubmit={handleVerify} className="scanner-form mt-3">
-            {/* Input: Token / Pass ID */}
-            <div className="form-group">
-              <label htmlFor="gate-token-input">
-                Permit Token, Pass ID, Roll Number, or Plate <span className="required-star">*</span>
-              </label>
-              <div className="input-wrapper">
-                <input
-                  id="gate-token-input"
-                  type="text"
-                  placeholder="e.g. MH-12-AB-1234, S2410701, or SOC-PRM-..."
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  className="font-mono"
-                  required
-                />
-              </div>
-            </div>
+          {/* Mode Navigation Tabs */}
+          <div className="scanner-mode-nav mt-3">
+            <button
+              type="button"
+              className={`scanner-mode-tab ${scanMode === 'camera' ? 'active' : ''}`}
+              onClick={() => setScanMode('camera')}
+            >
+              <CameraIcon className="w-4 h-4" />
+              <span>📷 Live QR Camera</span>
+            </button>
+            <button
+              type="button"
+              className={`scanner-mode-tab ${scanMode === 'manual' ? 'active' : ''}`}
+              onClick={() => setScanMode('manual')}
+            >
+              <QrIcon className="w-4 h-4" />
+              <span>⌨️ Manual Token Entry</span>
+            </button>
+          </div>
 
-            {/* Optional Gate Sensor Inputs */}
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label>Gate Floor Sensor Location</label>
-                <select
-                  value={gateFloor}
-                  onChange={(e) => setGateFloor(e.target.value)}
-                  className="custom-select"
-                >
-                  <option value="Ground Floor">Ground Floor Gate (Scooties)</option>
-                  <option value="Basement">Basement Ramp Gate (Bikes)</option>
-                </select>
-              </div>
+          {/* TAB 1: LIVE QR CAMERA SCANNER */}
+          {scanMode === 'camera' && (
+            <div className="camera-mode-section">
+              <QRScanner
+                onScan={handleCameraScan}
+                isProcessing={isVerifying}
+                autoStart={false}
+                scannerId="gate-qr-reader"
+              />
 
-              <div className="form-group">
-                <label>Simulated ANPR Plate Camera</label>
-                <input
-                  type="text"
-                  placeholder="Optional plate camera input"
-                  value={scannedPlate}
-                  onChange={(e) => setScannedPlate(e.target.value.toUpperCase())}
-                  className="font-mono custom-input"
-                />
-              </div>
-            </div>
+              {/* Gate Floor & Plate Sensors */}
+              <div className="form-grid-2 mt-3">
+                <div className="form-group">
+                  <label>Physical Gate Location</label>
+                  <select
+                    value={gateFloor}
+                    onChange={(e) => setGateFloor(e.target.value)}
+                    className="custom-select"
+                    disabled={isVerifying}
+                  >
+                    <option value="Ground Floor">Ground Floor Gate (Scooties)</option>
+                    <option value="Basement">Basement Ramp Gate (Bikes)</option>
+                  </select>
+                </div>
 
-            <div className="scanner-actions-row">
-              <button
-                type="submit"
-                className="btn btn-primary submit-verify-btn"
-                disabled={isVerifying}
-              >
-                {isVerifying ? 'Verifying with Firestore...' : '⚡ Verify & Trigger Barrier'}
-              </button>
-            </div>
-
-            {/* Quick Test Chips for Loaded Registered Vehicles */}
-            {testVehicles.length > 0 && (
-              <div className="recent-permits-box mt-3">
-                <span className="recent-label">Quick Test Registered Vehicles:</span>
-                <div className="recent-permits-scroll">
-                  {testVehicles.map((v) => (
-                    <button
-                      key={v.id}
-                      type="button"
-                      className="recent-permit-chip"
-                      onClick={() => {
-                        setTokenInput(v.vehicleNumber)
-                        setScannedPlate(v.vehicleNumber)
-                      }}
-                      title={`Click to test ${v.studentName} (${v.vehicleNumber})`}
-                    >
-                      <span className="chip-pass">{v.rollNumber}</span>
-                      <span className="chip-plate">{v.vehicleNumber}</span>
-                      <span className="chip-tier">{v.vehicleType}</span>
-                    </button>
-                  ))}
+                <div className="form-group">
+                  <label>ANPR Camera Plate (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Optional plate sensor"
+                    value={scannedPlate}
+                    onChange={(e) => setScannedPlate(e.target.value.toUpperCase())}
+                    className="font-mono custom-input"
+                    disabled={isVerifying}
+                  />
                 </div>
               </div>
-            )}
-          </form>
+
+              {tokenInput && (
+                <div className="mt-2.5 p-2 rounded glass-card text-xs font-mono flex items-center justify-between">
+                  <span className="text-muted">Detected Token:</span>
+                  <span className="text-cyan font-bold truncate max-w-xs">{tokenInput}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: MANUAL TOKEN ENTRY FALLBACK */}
+          {scanMode === 'manual' && (
+            <form onSubmit={handleManualSubmit} className="scanner-form">
+              <div className="form-group">
+                <label htmlFor="gate-token-input">
+                  QR Permit Token, Pass ID, or Reservation Code <span className="required-star">*</span>
+                </label>
+                <div className="input-wrapper">
+                  <input
+                    id="gate-token-input"
+                    type="text"
+                    placeholder="e.g. SOC-RES-G-01-MH12AB1234, SOC-G01-1234, or RES-..."
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                    className="font-mono"
+                    disabled={isVerifying}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-grid-2">
+                <div className="form-group">
+                  <label>Physical Gate Location</label>
+                  <select
+                    value={gateFloor}
+                    onChange={(e) => setGateFloor(e.target.value)}
+                    className="custom-select"
+                    disabled={isVerifying}
+                  >
+                    <option value="Ground Floor">Ground Floor Gate (Scooties)</option>
+                    <option value="Basement">Basement Ramp Gate (Bikes)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Simulated ANPR Plate Camera</label>
+                  <input
+                    type="text"
+                    placeholder="Optional camera plate read"
+                    value={scannedPlate}
+                    onChange={(e) => setScannedPlate(e.target.value.toUpperCase())}
+                    className="font-mono custom-input"
+                    disabled={isVerifying}
+                  />
+                </div>
+              </div>
+
+              <div className="scanner-actions-row flex gap-2 mt-2">
+                <button
+                  type="submit"
+                  className="btn btn-primary submit-verify-btn flex-1"
+                  disabled={isVerifying || (!tokenInput.trim() && !scannedPlate.trim())}
+                >
+                  {isVerifying ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="live-dot-pulse" style={{ background: '#38bdf8' }}></span>
+                      Verifying with Firestore...
+                    </span>
+                  ) : (
+                    '⚡ Verify & Authorize Ingress'
+                  )}
+                </button>
+
+                {verificationResult && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-md"
+                    onClick={handleReset}
+                    disabled={isVerifying}
+                    title="Reset form for next vehicle"
+                  >
+                    🔄 Reset
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+
+          {/* Quick Test Chips (Available in both modes) */}
+          {testItems.length > 0 && (
+            <div className="recent-permits-box mt-3">
+              <span className="recent-label">
+                {reservedSlots.length > 0 ? 'Active Reserved Slots in Firestore:' : 'Sample Vehicle Passes:'}
+              </span>
+              <div className="recent-permits-scroll">
+                {testItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="recent-permit-chip"
+                    onClick={() => {
+                      setTokenInput(item.token)
+                      setScannedPlate(item.plate)
+                      executeVerification(item.token, item.plate)
+                    }}
+                    disabled={isVerifying}
+                    title={`Click to test pass for ${item.owner || item.label}`}
+                  >
+                    <span className="chip-pass">{item.id}</span>
+                    <span className="chip-plate">{item.plate}</span>
+                    <span className="chip-tier">{item.type}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Real-time Telemetry & Boom Barrier Simulation */}
@@ -306,38 +390,59 @@ export default function GatePermitScannerView({ showToast, registeredVehicles = 
 
           {/* Verification Result Output Display */}
           {verificationResult ? (
-            <div className={`verification-badge-card ${verificationResult.access === 'GRANTED' ? 'granted' : 'denied'}`}>
+            <div className={`verification-badge-card ${verificationResult.approved ? 'granted' : 'denied'}`}>
               <div className="vbc-header">
                 <div className="vbc-icon">
-                  {verificationResult.access === 'GRANTED' ? (
+                  {verificationResult.approved ? (
                     <CheckIcon className="w-6 h-6 text-emerald" />
                   ) : (
                     <AlertCircleIcon className="w-6 h-6 text-rose" />
                   )}
                 </div>
-                <div>
-                  <h3 className="vbc-title">
-                    ACCESS {verificationResult.access}
-                  </h3>
-                  <p className="vbc-subtitle">{verificationResult.message || verificationResult.reason}</p>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center">
+                    <h3 className="vbc-title">
+                      {verificationResult.approved ? '✓ ENTRY APPROVED' : '✕ ENTRY DENIED'}
+                    </h3>
+                    {verificationResult.reason && (
+                      <span className={`text-2xs font-mono px-2 py-0.5 rounded ${verificationResult.approved ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                        {verificationResult.reason}
+                      </span>
+                    )}
+                  </div>
+                  <p className="vbc-subtitle mt-0.5">
+                    {verificationResult.message || (verificationResult.approved ? 'Access granted. Boom barrier activated.' : 'Verification failed.')}
+                  </p>
                 </div>
               </div>
 
-              {verificationResult.permitDetails && (
-                <div className="vbc-details-grid font-mono text-xs">
-                  <div><strong>Pass:</strong> {verificationResult.permitDetails.passId}</div>
-                  <div><strong>Student:</strong> {verificationResult.permitDetails.studentName} ({verificationResult.permitDetails.rollNumber})</div>
-                  <div><strong>Vehicle:</strong> {verificationResult.permitDetails.vehicleNumber} ({verificationResult.permitDetails.vehicleType})</div>
-                  <div><strong>Floor:</strong> {verificationResult.permitDetails.allocatedFloor}</div>
-                  <div><strong>Stream:</strong> {verificationResult.permitDetails.stream}</div>
-                  <div><strong>Validity:</strong> {verificationResult.permitDetails.validUntil}</div>
+              {verificationResult.approved && (
+                <div className="vbc-details-grid font-mono text-xs mt-3">
+                  <div><strong>Student:</strong> {verificationResult.studentName || 'Campus Member'}</div>
+                  <div><strong>Vehicle:</strong> {verificationResult.vehicleNumber} ({verificationResult.vehicleType === 'bike' ? '🏍️ Bike' : '🛵 Scooty'})</div>
+                  <div><strong>Slot:</strong> <span className="text-cyan font-bold">{verificationResult.slotId}</span></div>
+                  <div><strong>Floor:</strong> {verificationResult.floor}</div>
+                  <div><strong>Zone:</strong> {verificationResult.zone || verificationResult.section || 'Campus Bay'}</div>
+                  <div><strong>Reservation:</strong> <span className="text-emerald font-bold">OCCUPIED (In Use)</span></div>
+                  <div><strong>Entry Time:</strong> {verificationResult.enteredAt || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</div>
+                  <div><strong>Guard:</strong> {verificationResult.guardName || 'Security Admin'}</div>
                 </div>
               )}
+
+              <div className="mt-3 pt-2 border-t border-slate-700/50 flex justify-end">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-xs"
+                  onClick={handleReset}
+                >
+                  Scan Next Vehicle &rarr;
+                </button>
+              </div>
             </div>
           ) : (
             <div className="gate-idle-placeholder">
               <span className="idle-icon">📡</span>
-              <p>Awaiting QR scan or permit token submission from security gate sensor...</p>
+              <p>Awaiting QR camera scan or permit token submission from security gate sensor...</p>
             </div>
           )}
         </div>

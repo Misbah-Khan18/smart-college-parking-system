@@ -6863,4 +6863,213 @@ svg.w-3, svg.w-4, svg.w-5, svg.w-6 {
   margin: 0;
 }
 
+/* =========================================================
+   PHASE 4: LIVE QR CAMERA SCANNER STYLES
+   ========================================================= */
+.scanner-mode-nav {
+  display: flex;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-cad-dim);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.scanner-mode-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.scanner-mode-tab:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.scanner-mode-tab.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+
+.qr-camera-scanner-wrapper {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+}
+
+.camera-viewfinder-container {
+  position: relative;
+  width: 100%;
+  min-height: 240px;
+  background: #050811;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.8);
+}
+
+.qr-reader-surface {
+  width: 100% !important;
+  max-width: 100% !important;
+  border: none !important;
+}
+
+.qr-reader-surface video {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 320px !important;
+  object-fit: cover !important;
+  border-radius: var(--radius-md);
+}
+
+/* html5-qrcode injected dashboard hiding */
+#gate-qr-reader__dashboard,
+#gate-qr-reader__header_message {
+  display: none !important;
+}
+
+.camera-idle-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.95), #050811);
+  z-index: 2;
+}
+
+.camera-idle-icon-wrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.viewfinder-hud-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 3px solid #38bdf8;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
+}
+
+.hud-corner.top-left {
+  top: 22%;
+  left: 20%;
+  border-right: none;
+  border-bottom: none;
+  border-top-left-radius: 6px;
+}
+
+.hud-corner.top-right {
+  top: 22%;
+  right: 20%;
+  border-left: none;
+  border-bottom: none;
+  border-top-right-radius: 6px;
+}
+
+.hud-corner.bottom-left {
+  bottom: 22%;
+  left: 20%;
+  border-right: none;
+  border-top: none;
+  border-bottom-left-radius: 6px;
+}
+
+.hud-corner.bottom-right {
+  bottom: 22%;
+  right: 20%;
+  border-left: none;
+  border-top: none;
+  border-bottom-right-radius: 6px;
+}
+
+.hud-laser-beam {
+  position: absolute;
+  top: 22%;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #38bdf8, #10b981, #38bdf8, transparent);
+  box-shadow: 0 0 12px #38bdf8, 0 0 20px #10b981;
+  animation: laserScan 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes laserScan {
+  0% { top: 22%; opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { top: 78%; opacity: 0.8; }
+}
+
+.hud-target-label {
+  position: absolute;
+  bottom: 12px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 3px 10px;
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+}
+
+.scanned-success-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  background: rgba(6, 78, 59, 0.9);
+  border: 1px solid #10b981;
+  border-radius: 8px;
+  padding: 8px 12px;
+  z-index: 4;
+  animation: slideUp 0.3s ease-out;
+  backdrop-filter: blur(6px);
+}
+
+.camera-error-banner {
+  padding: 12px 14px;
+  border-left: 3px solid #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+}
+
+
 

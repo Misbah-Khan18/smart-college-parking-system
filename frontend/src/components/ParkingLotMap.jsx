@@ -9,7 +9,9 @@ export default function ParkingLotMap({
   onSelectSlot,
   onOpenBooking,
   onReleaseSlot,
-  selectedSlotId: controlledSelectedId
+  selectedSlotId: controlledSelectedId,
+  currentUserId,
+  isAdmin = false
 }) {
   const [selectedFloor, setSelectedFloor] = useState('Ground Floor')
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'available' | 'occupied' | 'reserved'
@@ -31,14 +33,24 @@ export default function ParkingLotMap({
     const q = search.toLowerCase().trim()
     return floorSlots.filter((slot) => {
       const matchesStatus = statusFilter === 'all' || slot.status === statusFilter
-      const matchesSearch =
-        !q ||
-        slot.id.toLowerCase().includes(q) ||
-        (slot.plate && slot.plate.toLowerCase().includes(q)) ||
-        (slot.owner && slot.owner.toLowerCase().includes(q))
-      return matchesStatus && matchesSearch
+      if (!q) return matchesStatus
+
+      const isOwner = Boolean(
+        currentUserId && (
+          slot.reservedBy === currentUserId ||
+          slot.userId === currentUserId ||
+          slot.studentId === currentUserId
+        )
+      )
+      const canSeeDetails = isAdmin || isOwner
+
+      const matchesId = slot.id.toLowerCase().includes(q)
+      const matchesPlate = canSeeDetails && slot.plate && slot.plate.toLowerCase().includes(q)
+      const matchesOwner = canSeeDetails && slot.owner && slot.owner.toLowerCase().includes(q)
+
+      return matchesStatus && (matchesId || matchesPlate || matchesOwner)
     })
-  }, [floorSlots, statusFilter, search])
+  }, [floorSlots, statusFilter, search, currentUserId, isAdmin])
 
   // Count totals for badges
   const groundAvailable = slots.filter((s) => s.floor === 'Ground Floor' && s.status === 'available').length
@@ -87,7 +99,7 @@ export default function ParkingLotMap({
           <SearchIcon className="search-icon" />
           <input
             type="text"
-            placeholder="Search bay ID (e.g. G-05), plate, or student..."
+            placeholder="Search bay ID (e.g. G-05)..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="search-bar-input"
@@ -176,6 +188,16 @@ export default function ParkingLotMap({
             const isSelected = selectedSlotId === slot.id
             const isScooty = slot.type === 'scooty' || slot.floor === 'Ground Floor'
 
+            // Strict UID ownership check: Authenticated Firebase UID is single source of truth
+            const isOwner = Boolean(
+              currentUserId && (
+                slot.reservedBy === currentUserId ||
+                slot.userId === currentUserId ||
+                slot.studentId === currentUserId
+              )
+            )
+            const canManage = isAdmin || isOwner
+
             return (
               <div
                 key={slot.id}
@@ -200,21 +222,39 @@ export default function ParkingLotMap({
 
                   {isOccupied && (
                     <div className="slot-occupied-info">
-                      <strong className="slot-plate font-mono">{slot.plate}</strong>
-                      <span className="slot-owner">{slot.owner || 'Student'}</span>
+                      {isAdmin ? (
+                        <>
+                          <strong className="slot-plate font-mono">{slot.plate}</strong>
+                          <span className="slot-owner">{slot.owner || 'Student'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <strong className="slot-plate font-mono">OCCUPIED</strong>
+                          <span className="slot-owner">Parked Vehicle</span>
+                        </>
+                      )}
                     </div>
                   )}
 
                   {isReserved && (
                     <div className="slot-reserved-info">
-                      <strong className="slot-plate font-mono">{slot.plate || 'RESERVED'}</strong>
-                      <span className="slot-owner text-amber">{slot.owner || 'Pass Holder'}</span>
+                      {canManage ? (
+                        <>
+                          <strong className="slot-plate font-mono">{slot.plate || 'RESERVED'}</strong>
+                          <span className="slot-owner text-amber">{isOwner ? 'My Reservation' : (slot.owner || 'Pass Holder')}</span>
+                        </>
+                      ) : (
+                        <>
+                          <strong className="slot-plate font-mono">RESERVED</strong>
+                          <span className="slot-owner text-amber">Reserved Pass</span>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Card footer action for occupied/reserved slots */}
-                {!isAvailable && onReleaseSlot && (
+                {/* Card footer action for occupied/reserved slots - strictly only if admin or verified owner */}
+                {!isAvailable && onReleaseSlot && canManage && (
                   <div
                     className="slot-box-footer"
                     onClick={(e) => {
@@ -223,7 +263,7 @@ export default function ParkingLotMap({
                     }}
                   >
                     <button type="button" className="slot-release-btn">
-                      Checkout ↲
+                      {isOwner && !isAdmin ? 'Release ↲' : 'Checkout ↲'}
                     </button>
                   </div>
                 )}

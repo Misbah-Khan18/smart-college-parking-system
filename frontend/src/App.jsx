@@ -44,7 +44,11 @@ import {
   allocateSlot,
   allocateDynamicSlot,
   releaseSlot,
-  seedParkingSlotsIfEmpty
+  reserveSlotWithTransaction,
+  subscribeToUserReservation,
+  cancelUserReservation,
+  seedParkingSlotsIfEmpty,
+  normalizeSlotId
 } from './services/parkingService'
 import {
   subscribeToRegisteredVehicles,
@@ -59,6 +63,7 @@ import {
   endParkingSession,
   seedParkingHistoryIfEmpty
 } from './services/parkingSessionService'
+import { verifyAndCompleteGateExit } from './services/guardExitService'
 import { getFloorForVehicleType } from './data/vehicleRules'
 import './App.css'
 
@@ -90,28 +95,18 @@ export default function App() {
 
   const [userProfile, setUserProfile] = useState(() => {
     const savedDemo = localStorage.getItem('demo_user_session')
-    const savedCustom = localStorage.getItem('custom_student_vehicle_profile')
-    let base = null
     if (savedDemo) {
       try {
-        base = JSON.parse(savedDemo)
+        return JSON.parse(savedDemo)
       } catch {
         // ignore
       }
     }
-    if (savedCustom) {
-      try {
-        const custom = JSON.parse(savedCustom)
-        return base ? { ...base, ...custom } : custom
-      } catch {
-        // ignore
-      }
-    }
-    return base
+    return null
   })
 
   const [authLoading, setAuthLoading] = useState(() => {
-    return !localStorage.getItem('demo_user_session') && !localStorage.getItem('custom_student_vehicle_profile')
+    return !localStorage.getItem('demo_user_session')
   })
 
   // Listen to Firebase Auth state
@@ -122,20 +117,36 @@ export default function App() {
         try {
           const profile = await getUserProfile(currentUser.uid)
           const savedCustom = localStorage.getItem('custom_student_vehicle_profile')
-          let customData = {}
+          let customVehicleData = {}
           if (savedCustom) {
             try {
-              customData = JSON.parse(savedCustom)
+              const parsedCustom = JSON.parse(savedCustom)
+              // Strip role and core identity fields from customData so they cannot overwrite Firestore
+              const { role, uid, email, displayName, photoURL, campusId, ...vehicleProps } = parsedCustom || {}
+              customVehicleData = vehicleProps
             } catch {
               // ignore parse errors
             }
           }
 
           if (profile) {
-            setUserProfile({ ...profile, ...customData })
+            // If the user has Admin or Security Admin role, Firestore profile is 100% authoritative and role cannot be changed
+            if (profile.role === 'Security Admin' || profile.role === 'Admin') {
+              setUserProfile(profile)
+            } else {
+              // For student accounts, allow non-identity vehicle fields while preserving profile.role
+              setUserProfile({
+                ...profile,
+                ...customVehicleData,
+                role: profile.role || 'Student',
+                uid: profile.uid || currentUser.uid,
+                email: profile.email || currentUser.email
+              })
+            }
           } else {
             setUserProfile({
-              displayName: currentUser.displayName || 'Alzuni Shaikh',
+              uid: currentUser.uid,
+              displayName: currentUser.displayName || 'Campus Member',
               email: currentUser.email,
               role: 'Student',
               campusId: 'S2410701',
@@ -144,7 +155,8 @@ export default function App() {
               stream: 'BCA (Bachelor of Computer Applications)',
               phoneNumber: '+91 98765 43210',
               photoURL: currentUser.photoURL || '',
-              ...customData
+              ...customVehicleData,
+              role: 'Student'
             })
           }
         } catch (err) {
@@ -172,9 +184,12 @@ export default function App() {
   // Handle Profile Edits (Saved permanently across refreshes and logout)
   const handleUpdateProfile = (updatedFields) => {
     setUserProfile((prev) => {
-      const merged = { ...(prev || {}), ...updatedFields }
+      // Ensure role is never accidentally downgraded by vehicle customization edits
+      const currentRole = prev?.role || 'Student'
+      const merged = { ...(prev || {}), ...updatedFields, role: currentRole }
       try {
-        localStorage.setItem('custom_student_vehicle_profile', JSON.stringify(merged))
+        const { role, uid, email, displayName, photoURL, ...vehicleFields } = merged
+        localStorage.setItem('custom_student_vehicle_profile', JSON.stringify(vehicleFields))
         const savedDemo = localStorage.getItem('demo_user_session')
         if (savedDemo) {
           const parsed = JSON.parse(savedDemo)
@@ -194,7 +209,8 @@ export default function App() {
     let finalData = demoData
     if (savedCustom && demoData.role !== 'Security Admin') {
       try {
-        finalData = { ...demoData, ...JSON.parse(savedCustom) }
+        const { role, uid, email, displayName, photoURL, ...safeCustom } = JSON.parse(savedCustom)
+        finalData = { ...demoData, ...safeCustom }
       } catch {
         // ignore parse errors
       }
@@ -206,12 +222,17 @@ export default function App() {
     showToast('Signed In', `Welcome, ${firstName} 👋`, 'success')
   }
 
-  // Handle Logout (Preserves custom_student_vehicle_profile!)
+  // Handle Logout (Preserves custom_student_vehicle_profile & keeps Firestore reservations intact)
   const handleLogout = async () => {
     try {
       localStorage.removeItem('demo_user_session')
+      if (user?.uid) {
+        localStorage.removeItem(`user_profile_${user.uid}`)
+      }
       setUser(null)
       setUserProfile(null)
+      setActiveReservation(null)
+      setActivePass(null)
       setActiveTab('home')
       await logout()
     } catch (err) {
@@ -219,6 +240,8 @@ export default function App() {
       localStorage.removeItem('demo_user_session')
       setUser(null)
       setUserProfile(null)
+      setActiveReservation(null)
+      setActivePass(null)
     }
   }
 
@@ -240,20 +263,21 @@ export default function App() {
 
   const [parkingHistory, setParkingHistory] = useState([])
   const [activeSessions, setActiveSessions] = useState([])
-
   const [registeredVehicles, setRegisteredVehicles] = useState(() => getRegisteredVehicles())
-
   const [activeTab, setActiveTab] = useState('home')
+  const [isSlotsInitialized, setIsSlotsInitialized] = useState(false)
 
-  // Modals
+  // Modals & Selected Slot State
+  const [selectedSlot, setSelectedSlot] = useState(null)
+  const [activeReservation, setActiveReservation] = useState(null)
   const [isBookingOpen, setIsBookingOpen] = useState(false)
   const [confirmationData, setConfirmationData] = useState(null)
   const [activePass, setActivePass] = useState(null)
-  // Payment gate: holds pending booking until user pays ₹10
   const [paymentPendingData, setPaymentPendingData] = useState(null)
 
-  // Open booking modal (slot/type params available for future pre-selection)
-  const handleOpenBookingModal = () => {
+  // Open booking modal with optional slot pre-selection
+  const handleOpenBookingModal = (slot = null, type = 'slot') => {
+    setSelectedSlot(slot || null)
     setIsBookingOpen(true)
   }
 
@@ -282,7 +306,7 @@ export default function App() {
     userProfile?.role === 'Admin'
 
   // ==========================================
-  // REAL-TIME FIRESTORE SUBSCRIPTIONS (PHASE 2 & 5)
+  // REAL-TIME FIRESTORE SUBSCRIPTIONS
   // ==========================================
   useEffect(() => {
     if (!user) return
@@ -291,11 +315,14 @@ export default function App() {
     let unsubVehicles = () => {}
     let unsubHistory = () => {}
     let unsubSessions = () => {}
+    let unsubReservation = () => {}
+
+    const currentUid = user?.uid || auth.currentUser?.uid || ''
 
     // Role-aware subscription filters
     const commonFilter = {
       isAdmin: Boolean(isAdminUser),
-      studentId: user?.uid || '',
+      studentId: currentUid,
       rollNumber: userProfile?.campusId || userProfile?.rollNumber || '',
       vehicleNumber: userProfile?.defaultPlate || userProfile?.vehicleNumber || ''
     }
@@ -305,6 +332,7 @@ export default function App() {
       (liveSlots) => {
         if (Array.isArray(liveSlots) && liveSlots.length > 0) {
           setSlots(liveSlots)
+          setIsSlotsInitialized(true)
         }
       },
       (err) => {
@@ -351,9 +379,55 @@ export default function App() {
       commonFilter
     )
 
-    // Idempotent Firestore collections seed on login (Admin / Security Admin ONLY)
+    // 5. Live Authenticated User Active Reservation subscription
+    if (currentUid) {
+      unsubReservation = subscribeToUserReservation(
+        currentUid,
+        (liveRes) => {
+          setActiveReservation(liveRes)
+          if (liveRes) {
+            // Automatically hydrate activePass so user's pass is ready
+            setActivePass({
+              id: liveRes.passId || liveRes.id,
+              passId: liveRes.passId || liveRes.id,
+              reservationId: liveRes.id,
+              slotId: liveRes.slotId,
+              plate: liveRes.plate || liveRes.vehiclePlate || liveRes.vehicleNumber,
+              vehiclePlate: liveRes.plate || liveRes.vehiclePlate || liveRes.vehicleNumber,
+              vehicleNumber: liveRes.plate || liveRes.vehiclePlate || liveRes.vehicleNumber,
+              studentName: liveRes.userName || liveRes.studentName,
+              owner: liveRes.userName || liveRes.studentName,
+              floor: liveRes.floor,
+              section: liveRes.section,
+              zone: liveRes.zone,
+              passType: liveRes.passType || 'Parking Pass',
+              permitType: liveRes.passType || 'Parking Pass',
+              status: 'ACTIVE',
+              reservationStatus: 'Reserved',
+              entryTime: liveRes.entryTime || 'Active',
+              validUntil: liveRes.validUntil || 'Active Session',
+              reservedUntil: liveRes.validUntil || 'Active Session',
+              qrToken: liveRes.qrToken || `SOC-RES-${liveRes.slotId}-${liveRes.plate}`
+            })
+          }
+        },
+        (err) => {
+          console.warn('[Firestore] User reservation subscription notice:', err?.message)
+        }
+      )
+    }
+
+    // Idempotent Firestore collections seed on login (seeds all 160 bays as 'available' if empty)
+    seedParkingSlotsIfEmpty()
+      .then((res) => {
+        if (res?.seeded || res?.count >= 160) {
+          setIsSlotsInitialized(true)
+        }
+      })
+      .catch((err) => {
+        console.warn('[SEED] Slot seed check notice:', err?.message)
+      })
     if (isAdminUser) {
-      seedParkingSlotsIfEmpty().catch(() => {})
       seedRegisteredVehiclesIfEmpty().catch(() => {})
     }
 
@@ -362,8 +436,141 @@ export default function App() {
       unsubVehicles()
       unsubHistory()
       unsubSessions()
+      unsubReservation()
     }
   }, [user, user?.uid, isAdminUser, userProfile?.campusId, userProfile?.rollNumber, userProfile?.defaultPlate, userProfile?.vehicleNumber, userProfile?.role])
+
+  // ==========================================
+  // PARKING PASS ACTIVATION & SLOT RESERVATION (CONCURRENCY-SAFE TRANSACTION)
+  // ==========================================
+  const handleActivatePass = async ({
+    slotId,
+    slot,
+    floor,
+    section,
+    zone,
+    plate,
+    owner,
+    userName,
+    userEmail,
+    rollNumber,
+    stream,
+    phoneNumber,
+    category,
+    vehicleType,
+    type,
+    passType,
+    permitType,
+    amountPaidINR,
+    reservedUntil
+  }) => {
+    const currentUid = user?.uid || auth.currentUser?.uid
+    if (!currentUid) {
+      showToast('Authentication Required', 'Please sign in to reserve a parking slot.', 'error')
+      throw new Error('Please sign in to reserve a parking slot.')
+    }
+
+    if (!isSlotsInitialized) {
+      showToast('System Initializing', 'Parking slot data is still loading from Firestore. Please wait a moment.', 'warning')
+      throw new Error('Parking slot data is not initialized. Please refresh and try again.')
+    }
+
+    const cleanSlotId = normalizeSlotId(slotId)
+    if (!cleanSlotId) {
+      showToast('No Slot Selected', 'Please select a parking bay first.', 'error')
+      throw new Error('Please select a parking slot before activating your pass.')
+    }
+
+    try {
+      // Execute Firestore Transaction
+      const result = await reserveSlotWithTransaction({
+        slotId: cleanSlotId,
+        userId: currentUid,
+        userName: userName || userProfile?.displayName || user?.displayName || 'Campus Member',
+        userEmail: userEmail || user?.email || userProfile?.email || '',
+        plate: plate || userProfile?.defaultPlate || 'MH-12-AB-1234',
+        rollNumber: rollNumber || userProfile?.campusId || userProfile?.rollNumber || '',
+        stream: stream || userProfile?.stream || '',
+        phoneNumber: phoneNumber || userProfile?.phoneNumber || '',
+        category: category || userProfile?.role || 'Student',
+        type: vehicleType || type || 'scooty',
+        floor: floor || (cleanSlotId.startsWith('G') ? 'Ground Floor' : 'Basement'),
+        section,
+        zone,
+        passType: passType || `${permitType || 'Parking Pass'} (${cleanSlotId})`,
+        reservedUntil,
+        amountPaidINR: amountPaidINR || 0
+      })
+
+      if (result && result.success) {
+        setActiveReservation(result.reservation)
+        setActivePass(result.passData)
+        setSelectedSlot(null)
+
+        const nowDate = new Date().toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        })
+        const nowTime = new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        })
+
+        setConfirmationData({
+          slotId: result.slotId,
+          floor: result.passData.floor,
+          passType: result.passData.passType,
+          dateStr: nowDate,
+          timeStr: nowTime,
+          vehicleNumber: result.passData.vehiclePlate,
+          passData: result.passData
+        })
+
+        showToast(
+          'Pass Activated & Slot Reserved! 🎉',
+          `Bay ${result.slotId} (${result.passData.floor}) is now reserved for ${result.passData.vehiclePlate}.`,
+          'success'
+        )
+
+        return result
+      }
+    } catch (err) {
+      console.error('[App] Pass activation error:', err)
+      showToast('Reservation Failed', err.message || 'Could not complete reservation.', 'error')
+      throw err
+    }
+  }
+
+  // ==========================================
+  // CANCEL / RELEASE USER RESERVATION
+  // ==========================================
+  const handleCancelReservation = async (slotOrRes) => {
+    const slotId = slotOrRes?.slotId || slotOrRes?.id
+    const reservationId = slotOrRes?.reservationId || activeReservation?.id || null
+    const currentUid = user?.uid || auth.currentUser?.uid
+
+    if (!slotId && !reservationId) return
+
+    if (window.confirm(`Release reservation for Bay ${slotId || 'current bay'}? The bay will become available for other members.`)) {
+      try {
+        await cancelUserReservation({
+          slotId,
+          reservationId,
+          userId: currentUid
+        })
+        setActiveReservation(null)
+        if (activePass && (activePass.slotId === slotId || activePass.reservationId === reservationId)) {
+          setActivePass(null)
+        }
+        showToast('Reservation Released', `Bay ${slotId} is now available again.`, 'info')
+      } catch (err) {
+        console.error('[App] Cancel reservation error:', err)
+        showToast('Cancel Failed', err.message || 'Could not cancel reservation.', 'error')
+      }
+    }
+  }
 
   // ==========================================
   // GATE 1: VEHICLE ENTRY HANDLER (DYNAMIC ALLOCATION)
@@ -446,7 +653,7 @@ export default function App() {
         entryTimestamp: nowTs
       })
 
-      // 5. Create active parking session in Firestore (with rollback protection on error)
+      // 5. Create active parking session in Firestore
       try {
         await createParkingSession({
           slotId: allocatedSlot.slotId,
@@ -511,87 +718,8 @@ export default function App() {
   }
 
   // ==========================================
-  // BOOKING / PARKING HANDLER (wired to gate simulator — kept for future slot booking UI)
+  // PAYMENT HANDLER
   // ==========================================
-  // eslint-disable-next-line no-unused-vars
-  const handleConfirmBooking = ({
-    slotId,
-    vehicleNumber,
-    ownerName,
-    rollNumber,
-    stream,
-    phoneNumber,
-    category,
-    vehicleType,
-    reservedUntil,
-    passType = 'Hourly Slot',
-    reservedLabel = ''
-  }) => {
-    const nowTimestamp = Date.now()
-    const nowTime = new Date().toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    })
-    const nowDate = new Date().toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    })
-
-    const targetSlot = slots.find((s) => s.id === slotId)
-    const slotFloor = targetSlot?.floor || (vehicleType === 'scooty' ? 'Ground Floor' : 'Basement')
-    const slotSection = targetSlot?.section || 'School of Commerce Parking Area'
-
-    // Generate Pass Details
-    const generatedPass = {
-      passId: `SOC-${slotId.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now().toString().slice(-4)}`,
-      slotId,
-      plate: vehicleNumber.toUpperCase(),
-      owner: ownerName || 'Campus Member',
-      category: category || 'Student',
-      reservedUntil: reservedUntil || 'Active Session',
-      floor: slotFloor,
-      section: slotSection,
-      zone: `${slotFloor} - ${slotSection}`,
-      passType,
-      reservedLabel
-    }
-
-    // Open payment modal FIRST (₹10 flat fee) — slot is only reserved after payment
-    setPaymentPendingData({
-      slotId,
-      vehicleNumber: vehicleNumber.toUpperCase(),
-      ownerName: ownerName || 'Campus Member',
-      passType,
-      // Full slot mutation payload — applied after payment confirmed
-      _slotMutation: {
-        slotId,
-        vehicleNumber,
-        ownerName,
-        rollNumber,
-        stream,
-        phoneNumber,
-        category,
-        vehicleType,
-        reservedUntil,
-        passType,
-        nowTimestamp,
-        nowTime
-      },
-      _confirmation: {
-        slotId,
-        floor: slotFloor,
-        passType,
-        dateStr: nowDate,
-        timeStr: nowTime,
-        vehicleNumber: vehicleNumber.toUpperCase(),
-        passData: generatedPass
-      }
-    })
-  }
-
-  // Called after payment is confirmed — NOW commit the slot reservation
   const handlePaymentSuccess = async () => {
     if (!paymentPendingData) return
     const { _slotMutation, _confirmation } = paymentPendingData
@@ -602,7 +730,6 @@ export default function App() {
     } = _slotMutation
 
     try {
-      // Commit reservation in Firestore
       await allocateSlot({
         slotId,
         plate: vehicleNumber.toUpperCase(),
@@ -618,7 +745,6 @@ export default function App() {
         entryTimestamp: nowTimestamp
       })
 
-      // Create session in Firestore
       await createParkingSession({
         slotId,
         floor: _confirmation.floor,
@@ -644,48 +770,31 @@ export default function App() {
   // GATE 2: RELEASE / CHECKOUT HANDLER
   // ==========================================
   const handleReleaseSlot = async (slotId, vehicleNumber = null) => {
-    const targetSlot = slots.find((s) => s.id === slotId)
-    const targetSession = activeSessions.find(
-      (sess) => sess.slotId === slotId || (vehicleNumber && sess.vehicleNumber === vehicleNumber)
-    )
-
-    const plate = vehicleNumber || targetSlot?.plate || targetSession?.vehicleNumber
-    const studentOwner = targetSlot?.owner || targetSession?.studentName
-    const rollNumber = targetSlot?.rollNumber || targetSession?.rollNumber
-    const stream = targetSlot?.stream || targetSession?.stream
-    const vehicleType = targetSlot?.type || targetSession?.vehicleType
-    const floor = targetSlot?.floor || targetSession?.floor
-    const entryTime = targetSlot?.entryTime || targetSession?.entryTime
-    const entryTimestamp = targetSlot?.entryTimestamp || targetSession?.entryTimestamp
-
+    const currentGuardUid = auth.currentUser ? auth.currentUser.uid : (user?.uid || '')
     try {
-      // Execute atomic batch checkout in Firestore (session completed + slot released + history archived)
-      const result = await endParkingSession({
+      const result = await verifyAndCompleteGateExit({
         slotId,
-        vehicleNumber: plate,
-        studentName: studentOwner,
-        rollNumber,
-        stream,
-        vehicleType,
-        floor,
-        entryTime,
-        entryTimestamp
+        scannedPlate: vehicleNumber,
+        guardUid: currentGuardUid
       })
 
-      showToast(
-        'Vehicle Checked Out',
-        `Vehicle ${result.vehicleNumber} checked out from Bay ${result.slotId} (${result.duration}). Bay is now available.`,
-        'success'
-      )
-
-      return result
+      if (result.approved) {
+        showToast(
+          'Vehicle Checked Out',
+          `Vehicle ${result.vehicleNumber} checked out from Bay ${result.slotId} (${result.duration}). Bay is now available.`,
+          'success'
+        )
+        return result
+      } else {
+        showToast('Checkout Denied', result.message || result.reason, 'error')
+        throw new Error(result.message || result.reason)
+      }
     } catch (err) {
       console.error('[App] Slot checkout error:', err)
       showToast('Checkout Failed', err.message || 'Could not process vehicle checkout.', 'error')
       throw err
     }
   }
-
 
   // ==========================================
   // LOADING STATE
@@ -766,7 +875,7 @@ export default function App() {
       <main className="main-viewport">
         <div key={activeTab} className="page-view-container page-enter-animation">
           {/* =========================================================
-              ADMIN SIDE — 7 PAGES
+              ADMIN SIDE — 8 PAGES
               ========================================================= */}
           {isAdmin && (
             <>
@@ -785,22 +894,34 @@ export default function App() {
               {activeTab === 'map' && (
                 <ParkingLotMap
                   slots={slots}
+                  selectedSlotId={selectedSlot?.id}
+                  currentUserId={user?.uid}
+                  isAdmin={Boolean(isAdmin)}
                   onSelectSlot={(slot) => {
                     if (slot.status === 'available') {
                       handleOpenBookingModal(slot, 'slot')
-                    } else if (slot.plate) {
-                      setActivePass({
-                        passId: `SOC-${slot.id.replace(/[^a-zA-Z0-9]/g, '')}`,
-                        slotId: slot.id,
-                        plate: slot.plate,
-                        owner: slot.owner,
-                        category: slot.category,
-                        reservedUntil: slot.reservedUntil || 'Active Session',
-                        floor: slot.floor,
-                        section: slot.section,
-                        zone: `${slot.floor} - ${slot.section}`,
-                        passType: slot.passType || 'Hourly Slot'
-                      })
+                    } else if (slot.status === 'reserved' || slot.status === 'occupied') {
+                      const isOwner = Boolean(
+                        user?.uid && (
+                          slot.reservedBy === user.uid ||
+                          slot.userId === user.uid ||
+                          slot.studentId === user.uid
+                        )
+                      )
+                      if (isAdmin || isOwner) {
+                        setActivePass({
+                          passId: slot.passId || `SOC-${slot.id.replace(/[^a-zA-Z0-9]/g, '')}`,
+                          slotId: slot.id,
+                          plate: slot.plate,
+                          owner: slot.owner,
+                          category: slot.category,
+                          reservedUntil: slot.reservedUntil || 'Active Session',
+                          floor: slot.floor,
+                          section: slot.section,
+                          zone: `${slot.floor} - ${slot.section}`,
+                          passType: slot.passType || 'Parking Bay Pass'
+                        })
+                      }
                     }
                   }}
                   onOpenBooking={(slot) => handleOpenBookingModal(slot, 'slot')}
@@ -833,9 +954,11 @@ export default function App() {
                   slots={slots}
                   activeSessions={activeSessions}
                   onReleaseSlot={handleReleaseSlot}
+                  user={user}
+                  userProfile={userProfile}
+                  showToast={showToast}
                 />
               )}
-
 
               {/* PAGE 6: REPORTS & PARKING HISTORY */}
               {activeTab === 'reports-history' && (
@@ -856,6 +979,9 @@ export default function App() {
                 <GatePermitScannerView
                   showToast={showToast}
                   registeredVehicles={registeredVehicles}
+                  slots={slots}
+                  user={user}
+                  userProfile={userProfile}
                 />
               )}
             </>
@@ -873,9 +999,11 @@ export default function App() {
                   userProfile={userProfile}
                   slots={slots}
                   activePermit={activePermit}
+                  activeReservation={activeReservation}
                   onNavigateTab={setActiveTab}
-                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'permit')}
+                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
                   onViewPass={(pass) => setActivePass(pass)}
+                  onCancelReservation={handleCancelReservation}
                   onCancelPermit={(permit) => {
                     if (window.confirm(`Cancel ${permit?.permitType || ''} permit for ${permit?.vehiclePlate || 'this vehicle'}? This cannot be undone.`)) {
                       setActivePermit(null)
@@ -912,9 +1040,11 @@ export default function App() {
                   userProfile={userProfile}
                   slots={slots}
                   activePermit={activePermit}
-                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'permit')}
+                  activeReservation={activeReservation}
+                  onOpenBooking={(slot, type) => handleOpenBookingModal(slot, type || 'slot')}
                   onViewPass={(pass) => setActivePass(pass)}
                   onNavigateTab={setActiveTab}
+                  onCancelReservation={handleCancelReservation}
                 />
               )}
 
@@ -931,13 +1061,17 @@ export default function App() {
         </div>
       </main>
 
-      {/* Permit Purchase Modal */}
+      {/* Slot Reservation / Pass Modal */}
       <SlotBookingModal
         isOpen={isBookingOpen}
         onClose={() => {
           setIsBookingOpen(false)
+          setSelectedSlot(null)
         }}
+        selectedSlot={selectedSlot}
+        availableSlots={slots.filter((s) => s.status === 'available')}
         registeredVehicles={registeredVehicles}
+        onActivatePass={handleActivatePass}
         onPermitActivated={(permit) => {
           setActivePermit(permit)
           setActivePass(permit)
@@ -945,9 +1079,10 @@ export default function App() {
         }}
         user={user}
         userProfile={userProfile}
+        isSlotsInitialized={isSlotsInitialized}
       />
 
-      {/* Payment Modal — shown between booking form and confirmation */}
+      {/* Payment Modal — shown when applicable */}
       <PaymentModal
         bookingData={paymentPendingData}
         onPaymentSuccess={handlePaymentSuccess}
