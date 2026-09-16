@@ -451,6 +451,8 @@ export default function App() {
         await createParkingSession({
           slotId: allocatedSlot.slotId,
           floor: allocatedSlot.floor,
+          vehicleId: registered.id || '',
+          studentId: registered.studentId || registered.id,
           vehicleNumber: cleanPlate,
           studentName: studentOwner,
           rollNumber: studentRoll,

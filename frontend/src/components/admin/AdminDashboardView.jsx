@@ -1,9 +1,10 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   CheckIcon,
   BikeIcon,
   AlertCircleIcon
 } from '../Icons'
+import { formatLiveDurationCompact } from '../../utils/timerUtils'
 
 export default function AdminDashboardView({
   user,
@@ -26,6 +27,17 @@ export default function AdminDashboardView({
   const activeVehicles = useMemo(() => {
     return slots.filter((s) => s.status === 'occupied' && s.plate)
   }, [slots])
+
+  // Live ticking state (updates every 1 second when active vehicles are occupying bays)
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    if (activeVehicles.length === 0) return
+    const interval = setInterval(() => {
+      setTick((prev) => prev + 1)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [activeVehicles.length])
 
   return (
     <div className="admin-dashboard-container">
@@ -244,7 +256,12 @@ export default function AdminDashboardView({
                         <span className="plate-badge-mono font-mono font-bold">{slot.plate}</span>
                       </td>
                       <td>
-                        <span className="status-pill occupied">🔴 Parked</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                          <span className="status-pill occupied">🔴 Parked</span>
+                          <span className="text-xs text-cyan font-mono" style={{ fontSize: '0.725rem', color: '#38bdf8' }} title="Live parking duration">
+                            ⏱️ {formatLiveDurationCompact(slot.entryTimestamp)}
+                          </span>
+                        </div>
                       </td>
                       <td>
                         <button

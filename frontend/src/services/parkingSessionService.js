@@ -18,6 +18,7 @@ import { calculateAuthoritativeDuration } from '../utils/timerUtils.js'
 const SESSIONS_COLLECTION = 'parking_sessions'
 const HISTORY_COLLECTION = 'parking_history'
 const SLOTS_COLLECTION = 'parking_slots'
+const WRONG_PARKING_COLLECTION = 'wrong_parking_reports'
 
 /**
  * Idempotently seed initial parking history into Firestore if collection is empty
@@ -92,8 +93,8 @@ export async function createParkingSession({
  * End an active parking session, calculate authoritative duration, mark completed,
  * release the slot back to available, and create a permanent history record in Firestore.
  * 
- * Atomicity: Uses a Firestore writeBatch so all 3 state transitions succeed together
- * or fail together with zero inconsistent state.
+ * Atomicity: Uses a Firestore writeBatch so all state transitions (session, slot, history, violation notice cleanup)
+ * succeed together or fail together with zero inconsistent state.
  */
 export async function endParkingSession({
   slotId = '',
@@ -208,7 +209,36 @@ export async function endParkingSession({
     createdAt: serverTimestamp()
   }
 
-  // 5. Atomic Firestore Batch: Commit Session Update + Slot Release + History Insert
+  // 5. Query matching wrong_parking_reports (if any) to clean up in the same writeBatch
+  const matchingNoticeRefs = []
+  try {
+    const wrongParkingRef = collection(db, WRONG_PARKING_COLLECTION)
+    if (finalSlotId) {
+      const qSlotNotice = query(wrongParkingRef, where('slotId', '==', finalSlotId))
+      const snapSlotNotice = await getDocs(qSlotNotice)
+      snapSlotNotice.forEach((d) => {
+        if (!matchingNoticeRefs.some((r) => r.id === d.id)) {
+          matchingNoticeRefs.push(d.ref)
+        }
+      })
+    }
+    if (finalPlate && finalPlate !== 'UNKNOWN') {
+      const cleanTargetComp = finalPlate.replace(/[^A-Z0-9]/g, '')
+      const snapAllNotices = await getDocs(wrongParkingRef)
+      snapAllNotices.forEach((d) => {
+        const rPlate = (d.data().plate || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
+        if (rPlate && rPlate === cleanTargetComp) {
+          if (!matchingNoticeRefs.some((r) => r.id === d.id)) {
+            matchingNoticeRefs.push(d.ref)
+          }
+        }
+      })
+    }
+  } catch (wpErr) {
+    console.warn('[parkingSessionService] Notice lookup notice:', wpErr?.message)
+  }
+
+  // 6. Atomic Firestore Batch: Commit Session Update + Slot Release + History Insert + Notice Deletion
   const batch = writeBatch(db)
 
   // A. Complete active session document (or create completed record if session was untracked)
@@ -266,7 +296,12 @@ export async function endParkingSession({
   const historyDocRef = doc(db, HISTORY_COLLECTION, historyId)
   batch.set(historyDocRef, historyRecord)
 
-  // Commit all three operations atomically
+  // D. Delete corresponding wrong_parking_reports document(s) if any exist
+  matchingNoticeRefs.forEach((ref) => {
+    batch.delete(ref)
+  })
+
+  // Commit all operations atomically
   await batch.commit()
 
   return {
