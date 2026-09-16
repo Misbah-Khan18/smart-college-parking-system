@@ -16,10 +16,13 @@ console.log('Test 1: Vehicle Type Floor Allocation Mapping')
 console.assert(VEHICLE_FLOOR_RULES.scooty === 'ground', 'Scooty rule must be ground')
 console.assert(VEHICLE_FLOOR_RULES.bike === 'basement', 'Bike rule must be basement')
 console.assert(VEHICLE_FLOOR_RULES.car === undefined, 'Car rule must not exist')
-console.assert(getFloorForVehicleType('scooty') === 'Ground Floor', 'Scooty floor label mismatch')
-console.assert(getFloorForVehicleType('bike') === 'Basement', 'Bike floor label mismatch')
+console.assert(VEHICLE_FLOOR_LABELS.scooty === 'Ground Floor', 'Scooty floor label mismatch')
+console.assert(VEHICLE_FLOOR_LABELS.bike === 'Basement', 'Bike floor label mismatch')
+console.assert(getFloorForVehicleType('scooty') === 'Ground Floor', 'getFloorForVehicleType mismatch')
+console.assert(normalizePlate('mh-12  ab  1234') === 'MH-12 AB 1234', 'normalizePlate mismatch')
 console.log('  ✓ Scooty -> Ground Floor')
 console.log('  ✓ Bike -> Basement')
+console.log('  ✓ normalizePlate verified')
 
 // Test 2: Phone Validation
 console.log('\nTest 2: Indian Phone Number Validation')
@@ -90,6 +93,11 @@ const dupPlate = validateVehicleInput({
 console.assert(dupPlate.isValid === false, 'Duplicate vehicle must be invalid')
 console.assert(dupPlate.errors.vehicleNumber === 'Vehicle number already registered.', 'Duplicate vehicle message mismatch')
 console.log('  ✓ Exactly shows: "Vehicle number already registered."')
+
+// Search vehicle test
+const foundVehicles = searchVehicle('Alzuni', mockVehicles)
+console.assert(foundVehicles.length === 1, 'Search by name should find 1 vehicle')
+console.log('  ✓ searchVehicle verified')
 
 // Test 6: Valid Registration
 console.log('\nTest 6: Valid Registration Acceptance')

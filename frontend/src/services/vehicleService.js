@@ -62,6 +62,9 @@ export function isValidIndianPhone(phone) {
   if (!phone) return false
   const cleaned = phone.replace(/[\s\-\(\)]/g, '')
   const regex = /^(?:(?:\+|0{0,2})91(\s*[\-]\s*)?|[0]?)?[6789]\d{9}$/
+  const cleaned = phone.replace(/[\s\-()]/g, '')
+  // Match 10 digits starting with 6, 7, 8, 9, or with +91 or 0 prefix
+  const regex = /^(?:(?:\+|0{0,2})91(\s*-\s*)?|[0]?)?[6789]\d{9}$/
   return regex.test(cleaned)
 }
 
@@ -411,6 +414,8 @@ export async function deleteVehicle(id, currentSlots = []) {
  * @returns {Array} Matched vehicle records
  */
 export function searchVehicle(query, list = _cachedVehicles) {
+export function searchVehicle(query, vehicleList = null) {
+  const list = vehicleList !== null ? vehicleList : getRegisteredVehicles()
   if (!query || !query.trim()) {
     return list
   }

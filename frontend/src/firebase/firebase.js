@@ -16,6 +16,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
-export const db = getFirestore(app)
+export const db = import.meta.env.VITE_ENABLE_FIRESTORE === 'true' ? getFirestore(app) : null
 
 export default app 

@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import {
   CheckIcon,
-  AlertCircleIcon,
-  ShieldIcon,
-  PlusCircleIcon
+  AlertCircleIcon
 } from '../Icons'
 import { getFloorForVehicleType } from '../../services/vehicleService'
 

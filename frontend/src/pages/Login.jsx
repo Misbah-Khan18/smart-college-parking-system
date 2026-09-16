@@ -14,8 +14,7 @@ import {
   UserIcon,
   CheckIcon,
   AlertCircleIcon,
-  BikeIcon,
-  ShieldIcon
+  BikeIcon
 } from '../components/Icons'
 import './Login.css'
 
@@ -56,19 +55,22 @@ export default function Login({ onDemoLogin }) {
       case 'auth/invalid-credential':
         return 'Invalid email or password. Please try again.'
       case 'auth/popup-closed-by-user':
-        return 'Google sign-in was cancelled.'
+      case 'auth/cancelled-popup-request':
+        return 'Google sign-in was closed or cancelled. Please try again.'
       case 'auth/popup-blocked':
-        return 'Popup was blocked by browser. Please allow popups.'
+        return 'Popup was blocked by browser. Please allow popups for this site.'
       default:
         return err?.message || 'Authentication failed. You can also use Demo Sign In below.'
     }
   }
 
   const handleGoogleSignIn = async () => {
+    if (loading) return
     setLoading(true)
     setError('')
     setSuccess('')
     try {
+      localStorage.removeItem('demo_user_session')
       await signInWithGoogle()
     } catch (err) {
       console.error('Google Sign In Error:', err)
@@ -111,17 +113,22 @@ export default function Login({ onDemoLogin }) {
       return
     }
 
+    const isAdminRole = regRole === 'Security Admin' || regRole === 'Admin' || regEmail.trim().toLowerCase().includes('admin')
+    const finalRole = isAdminRole ? 'Security Admin' : 'Student'
+    const generatedCampusId = regCampusId.trim().toUpperCase() ||
+      (isAdminRole ? `ADM-${Math.floor(100 + Math.random() * 900)}` : `STU-${Math.floor(1000 + Math.random() * 9000)}`)
+
     setLoading(true)
     try {
       await registerWithEmail({
         name: regName.trim(),
         email: regEmail.trim(),
         password: regPassword,
-        role: regRole,
-        campusId: regCampusId.trim().toUpperCase() || `STU-${Math.floor(1000 + Math.random() * 9000)}`,
+        role: finalRole,
+        campusId: generatedCampusId,
         vehicleType: regVehicleType,
         isEv: false,
-        defaultPlate: regPlate.trim().toUpperCase() || 'MH-12-AP-2026',
+        defaultPlate: regPlate.trim().toUpperCase() || (isAdminRole ? '' : 'MH-12-AP-2026'),
       })
       setSuccess('Account created successfully!')
     } catch (err) {
@@ -256,7 +263,7 @@ export default function Login({ onDemoLogin }) {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              <span>{loading ? 'Connecting...' : 'Sign In with Google'}</span>
+              <span>{loading ? 'Connecting to Google...' : (mode === 'register' ? 'Sign Up with Google' : 'Sign In with Google')}</span>
             </button>
 
             <div className="auth-divider">
@@ -359,6 +366,43 @@ export default function Login({ onDemoLogin }) {
                   required
                   disabled={loading}
                 />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="reg-campus-id">Campus ID / Roll Number (Optional)</label>
+              <div className="input-wrapper">
+                <UserIcon className="input-icon" />
+                <input
+                  id="reg-campus-id"
+                  type="text"
+                  placeholder="e.g. S2410701 or ADM-01"
+                  value={regCampusId}
+                  onChange={(e) => setRegCampusId(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label>Account Role</label>
+              <div className="vehicle-choice-row">
+                <button
+                  type="button"
+                  className={`vehicle-choice-btn ${regRole === 'Student' ? 'active' : ''}`}
+                  onClick={() => setRegRole('Student')}
+                >
+                  <span>🎓 Student</span>
+                  <small>Parking &amp; Pass</small>
+                </button>
+                <button
+                  type="button"
+                  className={`vehicle-choice-btn ${regRole === 'Security Admin' ? 'active' : ''}`}
+                  onClick={() => setRegRole('Security Admin')}
+                >
+                  <span>🛡️ Security Admin</span>
+                  <small>Command Center</small>
+                </button>
               </div>
             </div>
 
