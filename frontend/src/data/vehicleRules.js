@@ -17,6 +17,7 @@ export const VEHICLE_TYPES = ['scooty', 'bike']
 export const VEHICLE_TYPE_OPTIONS = [
   {
     id: 'scooty',
+    value: 'scooty',
     label: 'Scooty',
     emoji: '🛵',
     floor: 'Ground Floor',
@@ -25,6 +26,7 @@ export const VEHICLE_TYPE_OPTIONS = [
   },
   {
     id: 'bike',
+    value: 'bike',
     label: 'Bike',
     emoji: '🏍️',
     floor: 'Basement',

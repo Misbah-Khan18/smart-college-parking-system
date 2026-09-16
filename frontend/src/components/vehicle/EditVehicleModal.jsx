@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   XIcon,
   CheckIcon,
@@ -21,27 +21,27 @@ export default function EditVehicleModal({
   onSave,
   onClose
 }) {
-  const [studentName, setStudentName] = useState('')
-  const [rollNumber, setRollNumber] = useState('')
-  const [stream, setStream] = useState('')
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [vehicleNumber, setVehicleNumber] = useState('')
-  const [vehicleType, setVehicleType] = useState('scooty')
+  const [prevVehicleId, setPrevVehicleId] = useState(vehicle?.id)
+  const [studentName, setStudentName] = useState(vehicle?.studentName || '')
+  const [rollNumber, setRollNumber] = useState(vehicle?.rollNumber || '')
+  const [stream, setStream] = useState(vehicle?.stream || COMMON_STREAMS[0])
+  const [phoneNumber, setPhoneNumber] = useState(vehicle?.phoneNumber || '')
+  const [vehicleNumber, setVehicleNumber] = useState(vehicle?.vehicleNumber || '')
+  const [vehicleType, setVehicleType] = useState(vehicle?.vehicleType || 'scooty')
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Populate form when vehicle changes
-  useEffect(() => {
-    if (vehicle) {
-      setStudentName(vehicle.studentName || '')
-      setRollNumber(vehicle.rollNumber || '')
-      setStream(vehicle.stream || COMMON_STREAMS[0])
-      setPhoneNumber(vehicle.phoneNumber || '')
-      setVehicleNumber(vehicle.vehicleNumber || '')
-      setVehicleType(vehicle.vehicleType || 'scooty')
-      setErrors({})
-    }
-  }, [vehicle])
+  // Adjust state during render when vehicle prop changes
+  if (vehicle && vehicle.id !== prevVehicleId) {
+    setPrevVehicleId(vehicle.id)
+    setStudentName(vehicle.studentName || '')
+    setRollNumber(vehicle.rollNumber || '')
+    setStream(vehicle.stream || COMMON_STREAMS[0])
+    setPhoneNumber(vehicle.phoneNumber || '')
+    setVehicleNumber(vehicle.vehicleNumber || '')
+    setVehicleType(vehicle.vehicleType || 'scooty')
+    setErrors({})
+  }
 
   if (!isOpen || !vehicle) return null
 

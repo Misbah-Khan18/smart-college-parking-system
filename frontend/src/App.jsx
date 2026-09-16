@@ -61,6 +61,13 @@ export default function App() {
   // ==========================================
   // AUTHENTICATION & USER SESSION
   // ==========================================
+  // Clear any legacy un-scoped profile bleed that was causing cross-account contamination
+  try {
+    localStorage.removeItem('custom_student_vehicle_profile')
+  } catch {
+    // ignore
+  }
+
   const [user, setUser] = useState(() => {
     const savedDemo = localStorage.getItem('demo_user_session')
     if (savedDemo) {
@@ -75,28 +82,25 @@ export default function App() {
 
   const [userProfile, setUserProfile] = useState(() => {
     const savedDemo = localStorage.getItem('demo_user_session')
-    const savedCustom = localStorage.getItem('custom_student_vehicle_profile')
-    let base = null
     if (savedDemo) {
       try {
-        base = JSON.parse(savedDemo)
+        const demoObj = JSON.parse(savedDemo)
+        const userUid = demoObj.uid || 'demo'
+        const savedCustom = localStorage.getItem(`custom_student_vehicle_profile_${userUid}`)
+        if (savedCustom) {
+          return { ...demoObj, ...JSON.parse(savedCustom) }
+        }
+        return demoObj
       } catch {
         // ignore
       }
     }
-    if (savedCustom) {
-      try {
-        const custom = JSON.parse(savedCustom)
-        return base ? { ...base, ...custom } : custom
-      } catch {
-        // ignore
-      }
-    }
-    return base
+    return null
   })
 
+  // Start with loading true if no cached demo session, waiting for Firebase auth to initialize
   const [authLoading, setAuthLoading] = useState(() => {
-    return !localStorage.getItem('demo_user_session') && !localStorage.getItem('custom_student_vehicle_profile')
+    return !localStorage.getItem('demo_user_session')
   })
 
   // Listen to Firebase Auth state
@@ -106,7 +110,7 @@ export default function App() {
         setUser(currentUser)
         try {
           const profile = await getUserProfile(currentUser.uid)
-          const savedCustom = localStorage.getItem('custom_student_vehicle_profile')
+          const savedCustom = localStorage.getItem(`custom_student_vehicle_profile_${currentUser.uid}`)
           let customData = {}
           if (savedCustom) {
             try {
@@ -117,17 +121,34 @@ export default function App() {
           }
 
           if (profile) {
-            setUserProfile({ ...profile, ...customData })
-          } else {
             setUserProfile({
-              displayName: currentUser.displayName || 'Alzuni Shaikh',
+              ...profile,
+              // Always guarantee real Google / Firebase user identity is not wiped out
+              displayName: profile.displayName || currentUser.displayName || (profile.role?.includes('Admin') ? 'Campus Admin' : 'Campus User'),
+              photoURL: currentUser.photoURL || profile.photoURL || '',
+              ...customData,
+              // Keep critical identity intact even if customData was edited
+              uid: currentUser.uid,
+              email: currentUser.email || profile.email
+            })
+          } else {
+            const isAdminEmail = currentUser.email?.toLowerCase().includes('admin')
+            const defaultRole = isAdminEmail ? 'Security Admin' : 'Student'
+            const defaultId = isAdminEmail
+              ? `ADM-${currentUser.uid.slice(0, 5).toUpperCase()}`
+              : `STU-${currentUser.uid.slice(0, 5).toUpperCase()}`
+            const defaultPlate = isAdminEmail ? '' : `MH-12-GP-${Math.floor(1000 + Math.random() * 9000)}`
+            setUserProfile({
+              uid: currentUser.uid,
+              displayName: currentUser.displayName || (isAdminEmail ? 'Campus Admin' : 'Campus Student'),
               email: currentUser.email,
-              role: 'Student',
-              campusId: 'S2410701',
+              role: defaultRole,
+              campusId: defaultId,
               vehicleType: 'scooty',
-              defaultPlate: 'MH-12-AB-1234',
-              stream: 'BCA (Bachelor of Computer Applications)',
-              phoneNumber: '+91 98765 43210',
+              preferredFloor: 'Ground Floor',
+              defaultPlate: defaultPlate,
+              stream: isAdminEmail ? 'Campus Administration' : 'Undergraduate Student',
+              phoneNumber: '',
               photoURL: currentUser.photoURL || '',
               ...customData
             })
@@ -137,7 +158,18 @@ export default function App() {
         }
       } else {
         const activeDemo = localStorage.getItem('demo_user_session')
-        if (!activeDemo) {
+        if (activeDemo) {
+          try {
+            const parsedDemo = JSON.parse(activeDemo)
+            setUser(parsedDemo)
+            const savedCustom = localStorage.getItem(`custom_student_vehicle_profile_${parsedDemo.uid || 'demo'}`)
+            setUserProfile(savedCustom ? { ...parsedDemo, ...JSON.parse(savedCustom) } : parsedDemo)
+          } catch {
+            localStorage.removeItem('demo_user_session')
+            setUser(null)
+            setUserProfile(null)
+          }
+        } else {
           setUser(null)
           setUserProfile(null)
         }
@@ -154,12 +186,13 @@ export default function App() {
     setToast({ title, message, type })
   }
 
-  // Handle Profile Edits (Saved permanently across refreshes and logout)
+  // Handle Profile Edits (Saved per user UID)
   const handleUpdateProfile = (updatedFields) => {
+    const activeUid = user?.uid || userProfile?.uid || 'demo'
     setUserProfile((prev) => {
       const merged = { ...(prev || {}), ...updatedFields }
       try {
-        localStorage.setItem('custom_student_vehicle_profile', JSON.stringify(merged))
+        localStorage.setItem(`custom_student_vehicle_profile_${activeUid}`, JSON.stringify(merged))
         const savedDemo = localStorage.getItem('demo_user_session')
         if (savedDemo) {
           const parsed = JSON.parse(savedDemo)
@@ -170,12 +203,13 @@ export default function App() {
       }
       return merged
     })
-    showToast('Saved', 'Your vehicle & profile details were saved permanently! 🚗', 'success')
+    showToast('Saved', 'Your vehicle & profile details were saved successfully! 🚗', 'success')
   }
 
   // Handle Quick Demo Login with personalized greeting
   const handleDemoLogin = (demoData) => {
-    const savedCustom = localStorage.getItem('custom_student_vehicle_profile')
+    const demoUid = demoData.uid || 'demo'
+    const savedCustom = localStorage.getItem(`custom_student_vehicle_profile_${demoUid}`)
     let finalData = demoData
     if (savedCustom && demoData.role !== 'Security Admin') {
       try {
@@ -187,11 +221,12 @@ export default function App() {
     localStorage.setItem('demo_user_session', JSON.stringify(finalData))
     setUser(finalData)
     setUserProfile(finalData)
+    setAuthLoading(false)
     const firstName = finalData.displayName?.split(' ')[0] || 'Student'
     showToast('Signed In', `Welcome, ${firstName} 👋`, 'success')
   }
 
-  // Handle Logout (Preserves custom_student_vehicle_profile!)
+  // Handle Logout (Cleans up active session and state)
   const handleLogout = async () => {
     try {
       localStorage.removeItem('demo_user_session')
@@ -598,6 +633,25 @@ export default function App() {
   // ==========================================
   // 1. FIRST PAGE: AUTHENTICATION / LOGIN VIEW
   // ==========================================
+  if (authLoading) {
+    return (
+      <div className="login-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="brand-badge" style={{ width: '64px', height: '64px', marginBottom: '20px' }}>
+          <span className="brand-logo-text" style={{ fontSize: '32px' }}>P</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#94a3b8', fontSize: '15px' }}>
+          <div style={{ width: '22px', height: '22px', border: '2px solid rgba(56, 189, 248, 0.2)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <span>Verifying session...</span>
+        </div>
+        <style>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
   if (!user) {
     return <Login onDemoLogin={handleDemoLogin} />
   }

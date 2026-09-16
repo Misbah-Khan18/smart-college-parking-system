@@ -3,7 +3,7 @@ import {
   SearchIcon,
   PlusCircleIcon
 } from './Icons'
-import { formatLiveDurationCompact, formatLiveDurationStandard } from '../utils/timerUtils'
+import { formatLiveDurationStandard } from '../utils/timerUtils'
 
 export default function LiveParkingTimerView({
   slots = [],

@@ -2,8 +2,7 @@ import { useState, useMemo } from 'react'
 import {
   AlertCircleIcon,
   CheckIcon,
-  ShieldIcon,
-  SearchIcon
+  ShieldIcon
 } from '../Icons'
 
 export default function WrongParkingView({

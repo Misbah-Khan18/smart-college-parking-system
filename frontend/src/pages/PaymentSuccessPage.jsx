@@ -1,24 +1,18 @@
 import { useState, useEffect } from 'react'
 import { verifyPaymentSession } from '../services/paymentService'
-import { ShieldIcon, CheckIcon, AlertCircleIcon } from '../components/Icons'
-import PassModal from '../components/PassModal'
+import { CheckIcon } from '../components/Icons'
 
 export default function PaymentSuccessPage({ onNavigateHome }) {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const sessionId = typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('session_id')
+    : null
+
+  const [loading, setLoading] = useState(Boolean(sessionId))
+  const [error, setError] = useState(sessionId ? '' : 'No payment session found in URL.')
   const [sessionData, setSessionData] = useState(null)
-  const [showPassModal, setShowPassModal] = useState(false)
 
   useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search)
-    const sessionId = queryParams.get('session_id')
-    const regId = queryParams.get('reg_id')
-
-    if (!sessionId) {
-      setError('No payment session found in URL.')
-      setLoading(false)
-      return
-    }
+    if (!sessionId) return
 
     async function loadSession() {
       try {
@@ -33,7 +27,7 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
     }
 
     loadSession()
-  }, [])
+  }, [sessionId])
 
   if (loading) {
     return (
@@ -58,7 +52,11 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
             type="button"
             className="btn btn-secondary mt-4"
             onClick={() => {
-              window.location.href = '/'
+              if (typeof onNavigateHome === 'function') {
+                onNavigateHome()
+              } else {
+                window.location.href = '/'
+              }
             }}
           >
             Return to Campus Dashboard
@@ -68,7 +66,7 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
     )
   }
 
-  const { permit, registration } = sessionData
+  const { permit } = sessionData
   const qrImage = permit.qrCodeDataUrl || ''
 
   return (
@@ -146,7 +144,11 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
             type="button"
             className="btn btn-secondary"
             onClick={() => {
-              window.location.href = '/'
+              if (typeof onNavigateHome === 'function') {
+                onNavigateHome()
+              } else {
+                window.location.href = '/'
+              }
             }}
           >
             &larr; Back to Dashboard

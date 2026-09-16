@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   UserIcon,
   IdCardIcon,
-  CheckIcon,
   AlertCircleIcon,
   ShieldIcon
 } from '../Icons'
@@ -129,6 +128,9 @@ export default function RegistrationForm({
       if (sessionResponse?.checkoutUrl) {
         if (showToast) {
           showToast('Redirecting', 'Opening Stripe Checkout terminal...', 'success')
+        }
+        if (typeof onRegisterSuccess === 'function') {
+          onRegisterSuccess(sessionResponse)
         }
         // Redirect user to Stripe Hosted Checkout or Sandbox return
         window.location.href = sessionResponse.checkoutUrl
@@ -266,21 +268,24 @@ export default function RegistrationForm({
               Vehicle Classification <span className="required-star">*</span>
             </label>
             <div className="vehicle-choice-row">
-              {VEHICLE_TYPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={`vehicle-choice-btn ${vehicleType === opt.value ? 'active' : ''}`}
-                  onClick={() => handleInputChange('vehicleType', opt.value)}
-                  disabled={isSubmitting}
-                >
-                  <span className="v-icon">{opt.emoji}</span>
-                  <div className="v-text-col">
-                    <strong>{opt.label}</strong>
-                    <small>{opt.floor}</small>
-                  </div>
-                </button>
-              ))}
+              {VEHICLE_TYPE_OPTIONS.map((opt) => {
+                const val = opt.value || opt.id
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    className={`vehicle-choice-btn ${vehicleType === val ? 'active' : ''}`}
+                    onClick={() => handleInputChange('vehicleType', val)}
+                    disabled={isSubmitting}
+                  >
+                    <span className="v-icon">{opt.emoji}</span>
+                    <div className="v-text-col">
+                      <strong>{opt.label}</strong>
+                      <small>{opt.floor}</small>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
