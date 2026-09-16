@@ -2,7 +2,11 @@ import { useState, useEffect, useMemo } from 'react'
 import {
   CheckIcon,
   BikeIcon,
-  AlertCircleIcon
+  AlertCircleIcon,
+  ActivityIcon,
+  SearchIcon,
+  PlusCircleIcon,
+  XIcon
 } from '../Icons'
 import { formatLiveDurationCompact } from '../../utils/timerUtils'
 
@@ -13,8 +17,13 @@ export default function AdminDashboardView({
   onNavigateTab,
   onReleaseSlot
 }) {
+  const [searchTerm, setSearchTerm] = useState('')
+
   const displayName = userProfile?.displayName || user?.displayName || 'Campus Admin'
-  const firstName = displayName.split(' ')[0] || 'Admin'
+  const firstName =
+    displayName === 'Campus Admin' || displayName.toLowerCase() === 'admin'
+      ? 'Admin'
+      : (displayName.split(' ')[0] || 'Admin')
 
   const totalSlots = slots.length || 160
   const occupiedSlots = slots.filter((s) => s.status === 'occupied').length
@@ -25,8 +34,16 @@ export default function AdminDashboardView({
   const basementAvailable = basementSlots.filter((s) => s.status === 'available').length
 
   const activeVehicles = useMemo(() => {
-    return slots.filter((s) => s.status === 'occupied' && s.plate)
-  }, [slots])
+    const list = slots.filter((s) => s.status === 'occupied' && s.plate)
+    if (!searchTerm.trim()) return list
+    const q = searchTerm.toLowerCase().trim()
+    return list.filter(
+      (s) =>
+        s.plate?.toLowerCase().includes(q) ||
+        s.owner?.toLowerCase().includes(q) ||
+        s.id?.toLowerCase().includes(q)
+    )
+  }, [slots, searchTerm])
 
   // Live ticking state (updates every 1 second when active vehicles are occupying bays)
   const [, setTick] = useState(0)
@@ -47,7 +64,7 @@ export default function AdminDashboardView({
       <section className="student-hero-banner glass-card">
         <div className="shb-content">
           <div className="shb-badge">
-            <span className="shb-badge-dot"></span>
+            <ShieldIcon className="w-3.5 h-3.5 text-cyan" />
             <span>SECURITY ADMIN TELEMETRY</span>
           </div>
           <h1 className="shb-greeting">
@@ -61,7 +78,9 @@ export default function AdminDashboardView({
         {/* Quick Admin Summary */}
         <div className="student-quick-id-card glass-card">
           <div className="sq-top">
-            <div className="sq-avatar admin-badge-avatar">🛡️</div>
+            <div className="sq-avatar admin-badge-avatar flex items-center justify-center">
+              <ShieldIcon className="w-6 h-6 text-cyan" />
+            </div>
             <div>
               <strong className="sq-name">{displayName}</strong>
               <span className="sq-roll font-mono text-cyan">Security Admin Console</span>
@@ -203,15 +222,51 @@ export default function AdminDashboardView({
 
       {/* Active Parked Table Snapshot */}
       <div className="live-parked-section glass-card">
-        <div className="card-header-clean">
-          <h3>Active Parked Vehicles ({activeVehicles.length})</h3>
-          <button
-            type="button"
-            className="btn btn-secondary btn-xs"
-            onClick={() => onNavigateTab && onNavigateTab('vehicle-exit')}
-          >
-            Manage Vehicle Exits &rarr;
-          </button>
+        <div className="card-header-clean flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <ActivityIcon className="w-5 h-5 text-cyan" />
+            <h3 className="m-0">Active Parked Vehicles ({activeVehicles.length})</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="table-search-box" style={{ minWidth: '180px', maxWidth: '240px' }}>
+              <SearchIcon className="w-4 h-4 search-icon-svg" />
+              <input
+                type="text"
+                placeholder="Search bay, plate, driver..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="table-search-input"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="clear-search-btn"
+                  onClick={() => setSearchTerm('')}
+                  title="Clear search"
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0 2px' }}
+                >
+                  <XIcon className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {onOpenBooking && (
+              <button
+                type="button"
+                className="btn btn-primary btn-xs flex items-center gap-1"
+                onClick={() => onOpenBooking()}
+              >
+                <PlusCircleIcon className="w-3.5 h-3.5" />
+                <span>Assign Bay</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-secondary btn-xs"
+              onClick={() => onNavigateTab && onNavigateTab('vehicle-exit')}
+            >
+              Manage Exits &rarr;
+            </button>
+          </div>
         </div>
 
         <div className="table-responsive-wrapper mt-2">
@@ -278,6 +333,67 @@ export default function AdminDashboardView({
               </tbody>
             </table>
           )}
+          <table className="reg-data-table">
+            <thead>
+              <tr>
+                <th>Bay ID</th>
+                <th>Floor</th>
+                <th>Student / Driver</th>
+                <th>Vehicle Plate</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {activeVehicles.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px 16px', color: '#94a3b8' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '24px' }}>🅿️</span>
+                      <strong style={{ color: '#e2e8f0', fontSize: '14px' }}>No Active Parked Vehicles</strong>
+                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                        {searchTerm ? 'No parked vehicles match your search query.' : 'All campus bays are currently available or awaiting vehicle ingress.'}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                activeVehicles.slice(0, 6).map((slot) => (
+                <tr key={slot.id} className="reg-table-row">
+                  <td>
+                    <strong className="slot-id-pill font-mono">{slot.id}</strong>
+                  </td>
+                  <td>
+                    <span className="floor-tag floor-ground">{slot.floor}</span>
+                  </td>
+                  <td>
+                    <strong>{slot.owner || 'Student Member'}</strong>
+                  </td>
+                  <td>
+                    <span className="plate-badge-mono font-mono font-bold">{slot.plate}</span>
+                  </td>
+                  <td>
+                    <span className="duration-tag font-mono text-xs text-muted">
+                      ⏱️ {formatLiveDurationCompact(slot.entryTimestamp)}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="status-pill occupied">🔴 Parked</span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-rose btn-xs"
+                      onClick={() => onReleaseSlot && onReleaseSlot(slot.id)}
+                    >
+                      Checkout ↲
+                    </button>
+                  </td>
+                </tr>
+              )))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -60,8 +60,8 @@ export function normalizePlate(plate) {
  */
 export function isValidIndianPhone(phone) {
   if (!phone) return false
-  const cleaned = phone.replace(/[\s\-\(\)]/g, '')
-  const regex = /^(?:(?:\+|0{0,2})91(\s*[\-]\s*)?|[0]?)?[6789]\d{9}$/
+  const cleaned = phone.replace(/[\s\-()]/g, '')
+  const regex = /^(?:(?:\+|0{0,2})91(\s*-\s*)?|[0]?)?[6789]\d{9}$/
   return regex.test(cleaned)
 }
 
@@ -410,7 +410,8 @@ export async function deleteVehicle(id, currentSlots = []) {
  * @param {Array} list 
  * @returns {Array} Matched vehicle records
  */
-export function searchVehicle(query, list = _cachedVehicles) {
+export function searchVehicle(query, vehicleList = null) {
+  const list = vehicleList !== null ? vehicleList : getRegisteredVehicles()
   if (!query || !query.trim()) {
     return list
   }

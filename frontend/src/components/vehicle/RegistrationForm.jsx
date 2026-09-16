@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   UserIcon,
   IdCardIcon,
-  CheckIcon,
   AlertCircleIcon,
   ShieldIcon
 } from '../Icons'
@@ -294,6 +293,24 @@ export default function RegistrationForm({
                   </div>
                 </button>
               ))}
+              {VEHICLE_TYPE_OPTIONS.map((opt) => {
+                const val = opt.value || opt.id
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    className={`vehicle-choice-btn ${vehicleType === val ? 'active' : ''}`}
+                    onClick={() => handleInputChange('vehicleType', val)}
+                    disabled={isSubmitting}
+                  >
+                    <span className="v-icon">{opt.emoji}</span>
+                    <div className="v-text-col">
+                      <strong>{opt.label}</strong>
+                      <small>{opt.floor}</small>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
 

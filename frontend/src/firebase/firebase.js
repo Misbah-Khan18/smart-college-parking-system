@@ -14,10 +14,9 @@ const firebaseConfig = {
   measurementId: env.VITE_FIREBASE_MEASUREMENT_ID || 'G-ABCDEF1234',
 }
 
-
 const app = initializeApp(firebaseConfig)
 
 export const auth = getAuth(app)
-export const db = getFirestore(app)
+export const db = (env.VITE_ENABLE_FIRESTORE === 'false') ? null : getFirestore(app)
 
-export default app 
+export default app

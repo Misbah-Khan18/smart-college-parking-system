@@ -303,4 +303,4 @@ export const logout = async () => {
     localStorage.removeItem('demo_user_session')
     throw error
   }
-}
+}

@@ -103,6 +103,7 @@ function UPIQRCode({ upiLink, size = 200 }) {
         <rect x="74" y="82" width="6" height="6" fill="#000" />
         <rect x="86" y="82" width="6" height="6" fill="#000" />
       </svg>
+      )}
     </>
   )
 }

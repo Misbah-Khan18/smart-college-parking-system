@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react'
 import {
-  ShieldIcon,
   CheckIcon,
   AlertCircleIcon,
   QrIcon,
