@@ -4,9 +4,12 @@ import { verifyPaymentSession } from '../services/paymentService'
 import { CheckIcon } from '../components/Icons'
 
 export default function PaymentSuccessPage({ onNavigateHome }) {
-  const sessionId = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('session_id')
-    : null
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const sessionId = searchParams?.get('session_id') ||
+    searchParams?.get('permit_id') ||
+    searchParams?.get('reg_id') ||
+    searchParams?.get('res_id') ||
+    null
 
   const [loading, setLoading] = useState(Boolean(sessionId))
   const [error, setError] = useState(sessionId ? '' : 'No payment session found in URL.')
