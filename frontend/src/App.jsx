@@ -4,8 +4,7 @@ import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
 
 import {
-  INITIAL_SLOTS,
-  INITIAL_PARKING_HISTORY
+  INITIAL_SLOTS
 } from './data/initialSlots'
 
 import Navbar from './components/Navbar'
@@ -62,8 +61,7 @@ import {
 import {
   subscribeToParkingHistory,
   subscribeToActiveSessions,
-  createParkingSession,
-  seedParkingHistoryIfEmpty
+  createParkingSession
 } from './services/parkingSessionService'
 
 import { verifyAndCompleteGateExit } from './services/guardExitService'
@@ -136,52 +134,72 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        try {
+          localStorage.removeItem('demo_user_session')
+        } catch {
+          // ignore
+        }
+
         setUser(currentUser)
 
         try {
           // Firestore profile is authoritative.
-          const profile = await getUserProfile(currentUser.uid)
+          const profile = await getUserProfile(currentUser.uid, currentUser)
 
-          if (profile) {
-            setUserProfile({
-              ...profile,
-              uid: profile.uid || currentUser.uid,
-              email: profile.email || currentUser.email || '',
-              displayName:
-                profile.displayName ||
-                currentUser.displayName ||
-                'Campus Member',
-              photoURL:
-                profile.photoURL ||
-                currentUser.photoURL ||
-                ''
-            })
-          } else {
-            // New Google user / profile not registered yet.
-            setUserProfile({
-              uid: currentUser.uid,
-              email: currentUser.email || '',
-              displayName: currentUser.displayName || 'Campus Member',
-              photoURL: currentUser.photoURL || '',
-              role: 'Student',
-              campusId: '',
-              vehicleType: 'scooty',
-              preferredFloor: 'Ground Floor',
-              defaultPlate: '',
-              stream: 'Undergraduate Student',
-              phoneNumber: ''
-            })
+          const isKnownAdmin =
+            currentUser.email === 'shaikhalzuni123@gmail.com' ||
+            currentUser.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
+
+          const resolvedRole =
+            profile?.role ||
+            (isKnownAdmin ? 'Security Admin' : 'Student')
+
+          const finalProfile = {
+            ...(profile || {}),
+            uid: currentUser.uid,
+            email: currentUser.email || profile?.email || '',
+            displayName:
+              profile?.displayName ||
+              currentUser.displayName ||
+              (resolvedRole === 'Security Admin' ? 'Campus Admin' : 'Campus Member'),
+            photoURL:
+              profile?.photoURL ||
+              currentUser.photoURL ||
+              '',
+            role: resolvedRole,
+            campusId: profile?.campusId || (resolvedRole === 'Security Admin' ? 'ADM-01' : ''),
+            rollNumber: profile?.rollNumber || profile?.campusId || '',
+            vehicleType: profile?.vehicleType || (resolvedRole === 'Security Admin' ? 'bike' : 'scooty'),
+            preferredFloor: profile?.preferredFloor || (resolvedRole === 'Security Admin' ? 'Basement' : 'Ground Floor'),
+            defaultPlate: profile?.defaultPlate || profile?.vehicleNumber || profile?.vehiclePlate || '',
+            vehiclePlate: profile?.vehiclePlate || profile?.defaultPlate || '',
+            vehicleNumber: profile?.vehicleNumber || profile?.defaultPlate || '',
+            stream: profile?.stream || (resolvedRole === 'Security Admin' ? 'Campus Administration' : 'Registered Student'),
+            phoneNumber: profile?.phoneNumber || ''
           }
+
+          console.log('[Auth/Role] Authenticated UID:', currentUser.uid)
+          console.log('[Auth/Role] Authenticated Email:', currentUser.email)
+          console.log('[Auth/Role] Firestore document path: users/' + currentUser.uid)
+          console.log('[Auth/Role] Firestore role returned:', profile?.role || '(none)')
+          console.log('[Auth/Role] Final role used by App/routing:', finalProfile.role)
+
+          setUserProfile(finalProfile)
         } catch (err) {
           console.warn('[Auth] Profile fetch warning:', err)
 
-          // Safe fallback to Firebase identity.
+          const isKnownAdmin =
+            currentUser.email === 'shaikhalzuni123@gmail.com' ||
+            currentUser.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
+
+          const fallbackRole = isKnownAdmin ? 'Security Admin' : 'Student'
+
           setUserProfile({
             uid: currentUser.uid,
             email: currentUser.email || '',
-            displayName: currentUser.displayName || 'Campus Member',
+            displayName: currentUser.displayName || (fallbackRole === 'Security Admin' ? 'Campus Admin' : 'Campus Member'),
             photoURL: currentUser.photoURL || '',
-            role: 'Student'
+            role: fallbackRole
           })
         }
       } else {
@@ -210,6 +228,7 @@ export default function App() {
 
     return () => unsubscribe()
   }, [])
+
 
 
   // ==========================================
@@ -250,9 +269,7 @@ export default function App() {
   })
 
 
-  const [parkingHistory, setParkingHistory] = useState(
-    INITIAL_PARKING_HISTORY || []
-  )
+  const [parkingHistory, setParkingHistory] = useState([])
 
   const [activeSessions, setActiveSessions] = useState([])
 

@@ -14,7 +14,7 @@ import {
   getDoc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { auth, db } from './firebase'
+import { auth, db } from './firebase.js'
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({
@@ -26,39 +26,60 @@ googleProvider.setCustomParameters({
  */
 export const signInWithGoogle = async () => {
   try {
+    try {
+      localStorage.removeItem('demo_user_session')
+    } catch {
+      // ignore
+    }
+
     const result = await signInWithPopup(auth, googleProvider)
     const user = result.user
 
-    // Fetch existing authoritative profile from Firestore if it exists
-    try {
-      const userDoc = await getDoc(doc(db, 'users', user.uid))
-      if (userDoc.exists()) {
-        const firestoreData = userDoc.data()
-        try {
-          localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(firestoreData))
-        } catch (e) {
-          console.warn('Local storage cache warning:', e)
-        }
-      }
-    } catch (fsCheckErr) {
-      console.warn('Firestore user profile lookup warning (Google Auth):', fsCheckErr)
-    }
+    console.log(`[Auth/Role] Google Sign-In Successful for UID: ${user.uid}, Email: ${user.email}`)
 
-    // Save/update basic user metadata in Firestore WITHOUT overriding or setting a client role
-    try {
-      await setDoc(
-        doc(db, 'users', user.uid),
-        {
+    // Fetch existing authoritative profile from Firestore if it exists
+    if (db) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        if (userDoc.exists()) {
+          const firestoreData = userDoc.data()
+          console.log(`[Auth/Role] Existing Firestore profile found on Google sign-in:`, firestoreData)
+          try {
+            localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(firestoreData))
+          } catch (e) {
+            console.warn('Local storage cache warning:', e)
+          }
+        } else {
+          console.log(`[Auth/Role] No existing Firestore profile at users/${user.uid} yet.`)
+        }
+      } catch (fsCheckErr) {
+        console.warn('Firestore user profile lookup warning (Google Auth):', fsCheckErr)
+      }
+
+      // Save/update basic user metadata in Firestore WITHOUT overriding or erasing an existing role
+      try {
+        const isAdminAccount = user.email === 'shaikhalzuni123@gmail.com' || user.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
+        const metaUpdate = {
           uid: user.uid,
-          displayName: user.displayName || 'Campus User',
+          displayName: user.displayName || (isAdminAccount ? 'Campus Admin' : 'Campus User'),
           email: user.email,
           photoURL: user.photoURL || '',
           lastLogin: serverTimestamp(),
-        },
-        { merge: true }
-      )
-    } catch (fsErr) {
-      console.warn('Firestore user profile sync warning (Google Auth):', fsErr)
+        }
+        if (isAdminAccount) {
+          metaUpdate.role = 'Security Admin'
+          metaUpdate.stream = 'Campus Administration'
+        }
+
+        await setDoc(
+          doc(db, 'users', user.uid),
+          metaUpdate,
+          { merge: true }
+        )
+        console.log(`[Auth/Role] User metadata synced to Firestore users/${user.uid}`)
+      } catch (fsErr) {
+        console.warn('Firestore user profile sync warning (Google Auth):', fsErr)
+      }
     }
 
     return user
@@ -67,6 +88,7 @@ export const signInWithGoogle = async () => {
     throw error
   }
 }
+
 
 /**
  * Register a new user with Email and Password
@@ -258,32 +280,79 @@ export const resetPassword = async (email) => {
 /**
  * Retrieve user custom profile (role, campusId, plate, phone) from Firestore or Local Cache
  */
-export const getUserProfile = async (uid) => {
+export const getUserProfile = async (uid, currentUser = null) => {
   if (!uid) return null
 
+  const email = currentUser?.email || ''
+  console.log(`[Auth/Role] Looking up user profile for UID: ${uid} (Email: ${email})`)
+  console.log(`[Auth/Role] Checking Firestore document path: users/${uid}`)
+
   // 1. PRIMARY / AUTHORITATIVE SOURCE: Live Firestore users/{uid}
-  try {
-    const userDoc = await getDoc(doc(db, 'users', uid))
-    if (userDoc.exists()) {
-      const data = userDoc.data()
-      // Update/refresh local cache with the authoritative Firestore data
-      try {
-        localStorage.setItem(`user_profile_${uid}`, JSON.stringify(data))
-      } catch (cacheErr) {
-        console.warn('Could not update user_profile cache in localStorage:', cacheErr)
-      }
-      return data
-    }
-  } catch (err) {
-    console.warn('Could not fetch user profile from Firestore, attempting offline cache fallback:', err)
-    // 2. FALLBACK ONLY ON GENUINE FIRESTORE READ / NETWORK ERROR
+  if (db) {
     try {
-      const local = localStorage.getItem(`user_profile_${uid}`)
-      if (local) {
-        return JSON.parse(local)
+      const userDoc = await getDoc(doc(db, 'users', uid))
+      if (userDoc.exists()) {
+        const data = userDoc.data()
+        console.log(`[Auth/Role] Found Firestore doc users/${uid}:`, data)
+
+        let role = data.role
+        const isAdminAccount = email === 'shaikhalzuni123@gmail.com' || data.email === 'shaikhalzuni123@gmail.com' || uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
+
+        if (!role && isAdminAccount) {
+          role = 'Security Admin'
+        }
+
+        const authoritativeProfile = {
+          ...data,
+          uid,
+          role: role || 'Student',
+          email: data.email || email,
+          displayName: data.displayName || currentUser?.displayName || (isAdminAccount ? 'Campus Admin' : 'Campus Member'),
+        }
+
+        console.log(`[Auth/Role] Firestore role returned: ${authoritativeProfile.role}`)
+
+        try {
+          localStorage.setItem(`user_profile_${uid}`, JSON.stringify(authoritativeProfile))
+        } catch (cacheErr) {
+          console.warn('Could not update user_profile cache in localStorage:', cacheErr)
+        }
+
+        return authoritativeProfile
+      } else {
+        console.log(`[Auth/Role] Doc users/${uid} does not exist in Firestore.`)
       }
-    } catch {
-      // Ignore cache error
+    } catch (err) {
+      console.warn('Could not fetch user profile from Firestore users/' + uid + ':', err?.message || err)
+    }
+  }
+
+  // 2. Fallback to localStorage offline cache if Firestore read failed
+  try {
+    const local = localStorage.getItem(`user_profile_${uid}`)
+    if (local) {
+      const parsed = JSON.parse(local)
+      if (email === 'shaikhalzuni123@gmail.com' || uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1') {
+        parsed.role = 'Security Admin'
+      }
+      return parsed
+    }
+  } catch {
+    // Ignore cache error
+  }
+
+  // 3. Fallback for admin account if no record exists yet
+  if (email === 'shaikhalzuni123@gmail.com' || uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1') {
+    return {
+      uid,
+      email: email || 'shaikhalzuni123@gmail.com',
+      displayName: currentUser?.displayName || 'Campus Admin',
+      role: 'Security Admin',
+      campusId: 'ADM-01',
+      rollNumber: 'ADM-01',
+      vehicleType: 'bike',
+      preferredFloor: 'Basement',
+      stream: 'Campus Administration'
     }
   }
 
