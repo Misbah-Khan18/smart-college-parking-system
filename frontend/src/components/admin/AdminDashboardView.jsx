@@ -71,7 +71,7 @@ export default function AdminDashboardView({
             Welcome, <span className="gradient-text">{firstName}</span> 👋
           </h1>
           <p className="shb-subtitle">
-            School of Commerce Smart Parking Command Center. Manage 160 two-wheeler bays, vehicle entry/exit gates, registration, reports, and compliance.
+            SOCMAC Smart Park Command Center. Manage 160 two-wheeler bays, vehicle entry/exit gates, registration, reports, and compliance.
           </p>
         </div>
 

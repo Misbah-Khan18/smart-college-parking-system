@@ -372,7 +372,7 @@ export default function RegistrationForm({
             <span className="frib-notice">
               {vehicleType === 'scooty'
                 ? 'Ground Floor reserved for Scooties'
-                : 'Basement Floor reserved for Motorcycles/Bikes'}
+                : 'Basement reserved for Motorcycles/Bikes'}
             </span>
           </div>
         </div>

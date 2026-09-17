@@ -245,7 +245,7 @@ export default function VehicleEntryView({
             <div className="barrier-light-box">
               <div className={`barrier-light ${gateStatus === 'open' ? 'green' : 'red'}`}></div>
             </div>
-            <span className="gate-sign-text">SCHOOL OF COMMERCE INGRESS</span>
+            <span className="gate-sign-text">SOCMAC SMART PARK INGRESS</span>
           </div>
 
           {lastActionMsg && (

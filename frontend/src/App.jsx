@@ -34,6 +34,7 @@ import PaymentCancelPage from './pages/PaymentCancelPage'
 // Student Views
 import StudentDashboardView from './components/student/StudentDashboardView'
 import StudentAvailableParkingView from './components/student/StudentAvailableParkingView'
+import CampusParkingDashboard from './components/CampusParkingDashboard'
 import StudentMyVehicleView from './components/student/StudentMyVehicleView'
 import StudentMyStatusView from './components/student/StudentMyStatusView'
 import StudentMyHistoryView from './components/student/StudentMyHistoryView'
@@ -150,9 +151,9 @@ export default function App() {
             currentUser.email === 'shaikhalzuni123@gmail.com' ||
             currentUser.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
 
-          const resolvedRole =
-            profile?.role ||
-            (isKnownAdmin ? 'Security Admin' : 'Student')
+          const resolvedRole = isKnownAdmin
+            ? 'Security Admin'
+            : (profile?.role || 'Student')
 
           const finalProfile = {
             ...(profile || {}),
@@ -2080,16 +2081,18 @@ export default function App() {
 
               {activeTab ===
                 'student-available-parking' && (
-                  <StudentAvailableParkingView
+                  <CampusParkingDashboard
                     slots={slots}
                     userProfile={
                       userProfile
                     }
                     onOpenBooking={(
-                      slot
+                      slot,
+                      type
                     ) =>
                       handleOpenBookingModal(
-                        slot
+                        slot,
+                        type || 'slot'
                       )
                     }
                   />
@@ -2320,7 +2323,7 @@ export default function App() {
         <div className="footer-inner">
 
           <span>
-            School of Commerce Smart Parking
+            SOCMAC Smart Park
             &bull; Ground Floor (Scooties)
             &amp; Basement (Bikes)
           </span>

@@ -55,9 +55,9 @@ export default function StudentDashboardView({
       <section className="student-hero-banner glass-card student-hero-clean">
         <div className="shb-content">
           <h1 className="soc-hero-title soc-brand-animated">
-            <span className="soc-brand-text">School of Commerce</span>
+            <span className="soc-brand-text">SOCMAC</span>
             <span className="accent-dot">.</span>
-            <span className="soc-brand-park">Park</span>
+            <span className="soc-brand-park">Smart Park</span>
           </h1>
           <p className="shb-greeting-sub">
             Welcome, <span className="gradient-text font-bold">{firstName}</span> 👋 &bull; Smart Two-Wheeler Campus Parking

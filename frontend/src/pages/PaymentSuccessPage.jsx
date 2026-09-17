@@ -117,7 +117,7 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
           <span className="payment-badge-status">STRIPE PAYMENT VERIFIED • ACTIVE</span>
           <h1 className="payment-title">Payment Successful!</h1>
           <p className="payment-subtitle">
-            Your vehicle has been registered and authorized for School of Commerce parking.
+            Your vehicle has been registered and authorized for SOCMAC Smart Park.
           </p>
         </div>
 

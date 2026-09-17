@@ -28,11 +28,15 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
 
   const isAdmin =
     userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin'
+    userProfile?.role === 'Admin' ||
+    userProfile?.email === 'shaikhalzuni123@gmail.com' ||
+    user?.email === 'shaikhalzuni123@gmail.com' ||
+    user?.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1' ||
+    userProfile?.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
 
   const tabs = isAdmin ? ADMIN_TABS : STUDENT_TABS
-  const displayName = userProfile?.displayName || user?.displayName || 'Campus Member'
-  const displayRole = userProfile?.role || 'Student'
+  const displayName = userProfile?.displayName || user?.displayName || (isAdmin ? 'Campus Admin' : 'Campus Member')
+  const displayRole = userProfile?.role || (isAdmin ? 'Security Admin' : 'Student')
   const initials = displayName.slice(0, 2).toUpperCase()
 
   useEffect(() => {
@@ -79,7 +83,7 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
             <span className="nav-logo-letter">P</span>
           </div>
           <div className="nav-brand-text">
-            <span className="nav-title">SOC<span className="nav-accent">.</span>Park</span>
+            <span className="nav-title">SOCMAC <span className="nav-accent">Smart Park</span></span>
             <span className="nav-sub">{isAdmin ? 'Admin Console' : 'Student Portal'}</span>
           </div>
         </button>

@@ -86,7 +86,7 @@ export default function ParkingLotMap({
         >
           <span className="switch-icon">🏍️</span>
           <div className="switch-text">
-            <strong>Basement Floor</strong>
+            <strong>Basement</strong>
             <small>Reserved for Bikes &bull; {basementAvailable} Available</small>
           </div>
         </button>

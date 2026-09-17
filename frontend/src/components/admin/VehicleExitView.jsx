@@ -339,7 +339,7 @@ export default function VehicleExitView({
             <div className="barrier-light-box">
               <div className={`barrier-light ${gateStatus === 'open' ? 'green' : 'red'}`}></div>
             </div>
-            <span className="gate-sign-text">SCHOOL OF COMMERCE EGRESS</span>
+            <span className="gate-sign-text">SOCMAC SMART PARK EGRESS</span>
           </div>
 
           {/* Selected Vehicle Telemetry Preview (before checkout) */}

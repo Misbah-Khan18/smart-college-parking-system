@@ -298,8 +298,16 @@ export const getUserProfile = async (uid, currentUser = null) => {
         let role = data.role
         const isAdminAccount = email === 'shaikhalzuni123@gmail.com' || data.email === 'shaikhalzuni123@gmail.com' || uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
 
-        if (!role && isAdminAccount) {
+        if (isAdminAccount) {
           role = 'Security Admin'
+          // Self-heal Firestore doc if it had an outdated role or missing role
+          if (data.role !== 'Security Admin') {
+            setDoc(
+              doc(db, 'users', uid),
+              { role: 'Security Admin', stream: 'Campus Administration' },
+              { merge: true }
+            ).catch((e) => console.warn('[Auth/Role] Firestore role self-heal notice:', e))
+          }
         }
 
         const authoritativeProfile = {

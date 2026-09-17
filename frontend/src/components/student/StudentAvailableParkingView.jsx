@@ -50,7 +50,7 @@ export default function StudentAvailableParkingView({
     if (selectedSection === 'basement-all' || (selectedFloor === 'Basement' && selectedSection === 'all')) {
       return {
         icon: '🏍️',
-        title: 'Basement Floor &bull; Bikes (All Rows)',
+        title: 'Basement &bull; Bikes (All Rows)',
         description: 'Designated exclusively for student & staff motorcycles (Bays B-01 to B-80)',
         count: basementAvailable,
         total: 80
@@ -69,7 +69,7 @@ export default function StudentAvailableParkingView({
     return {
       icon: '🅿️',
       title: 'All Campus Parking Wings (Ground + Basement)',
-      description: 'Showing all open parking bays across School of Commerce campus',
+      description: 'Showing all open parking bays across SOCMAC Smart Park campus',
       count: availableSlots.length,
       total: 160
     }
@@ -117,7 +117,7 @@ export default function StudentAvailableParkingView({
             </option>
           </optgroup>
 
-          <optgroup label="🏍️ Basement Floor — Bikes (80 Bays)">
+          <optgroup label="🏍️ Basement — Bikes (80 Bays)">
             <option value="basement-all">🏍️ Basement &bull; All Bike Rows ({basementAvailable} open)</option>
             <option value="Basement Row 1">
               🏍️ Basement: Row 1 (B-01 to B-20)

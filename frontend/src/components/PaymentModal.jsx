@@ -4,7 +4,7 @@ import { XIcon } from './Icons'
 
 // UPI payment details for parking admin
 const UPI_ID = 'parking.soc@upi'
-const MERCHANT_NAME = 'SOC Smart Parking'
+const MERCHANT_NAME = 'SOCMAC Smart Park'
 const PARKING_FEE = 10
 
 // Build UPI deeplink for GPay / PhonePe / Paytm
@@ -214,7 +214,7 @@ export default function PaymentModal({ bookingData, onPaymentSuccess, onClose })
 
             {/* Disclaimer */}
             <p className="payment-disclaimer">
-              ⚠️ Payment is collected by <strong>SOC Parking Admin</strong> and not processed through this app.
+              ⚠️ Payment is collected by <strong>SOCMAC Smart Park Admin</strong> and not processed through this app.
               This is a demo — your phone's GPay will open but <strong>no money is deducted</strong> from this interface.
             </p>
 

@@ -189,7 +189,7 @@ export default function Login({ onDemoLogin }) {
             <span className="brand-logo-text">P</span>
           </div>
           <h1 className="brand-name soc-brand-animated">
-            School of Commerce <span className="accent">Smart Parking</span>
+            SOCMAC <span className="accent">Smart Park</span>
           </h1>
           <p className="brand-sub">Campus Two-Wheeler IoT Parking System</p>
         </div>

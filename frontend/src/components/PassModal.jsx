@@ -94,7 +94,7 @@ export default function PassModal({ pass, onClose }) {
         <div className="pass-ticket">
           <div className="ticket-top">
             <div className="college-header">
-              <h4>SCHOOL OF COMMERCE &bull; SMART PARKING</h4>
+              <h4>SOCMAC &bull; SMART PARK</h4>
               <span className="ticket-id">PERMIT #{displayPassId}</span>
             </div>
             <div className={`status-ribbon ${isMonthly || isSemester ? 'monthly' : ''}`}>
@@ -168,7 +168,7 @@ export default function PassModal({ pass, onClose }) {
                 )}
               </div>
               <p className="qr-hint">
-                Scan at School of Commerce Boom Barrier for contactless gate ingress
+                Scan at SOCMAC Smart Park Boom Barrier for contactless gate ingress
               </p>
               {qrToken && (
                 <div className="qr-token-row">
