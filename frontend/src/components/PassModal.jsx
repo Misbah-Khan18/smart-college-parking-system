@@ -6,6 +6,7 @@ export default function PassModal({ pass, onClose }) {
   const [copied, setCopied] = useState(false)
   const [qrSrc, setQrSrc] = useState('')
   const [qrGenerating, setQrGenerating] = useState(true)
+  const [qrError, setQrError] = useState(false)
 
   if (!pass) return null
 
@@ -19,46 +20,49 @@ export default function PassModal({ pass, onClose }) {
     ? (pass.validUntil.includes('T') ? new Date(pass.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : pass.validUntil)
     : (pass.reservedUntil || 'Active Session')
 
-  const qrToken = pass.qrToken || pass.secureToken || pass.passId || pass.id || `SOC-PERMIT-${pass.slotId || 'GEN'}`
+  const qrToken = pass.qrToken || pass.passId || pass.reservationId || pass.id || ''
 
   useEffect(() => {
     let isMounted = true
-    if (pass?.qrCodeDataUrl && pass.qrCodeDataUrl.startsWith('data:image')) {
-      setQrSrc(pass.qrCodeDataUrl)
+
+    if (!qrToken) {
       setQrGenerating(false)
+      setQrError(true)
       return
     }
 
-    if (qrToken) {
-      setQrGenerating(true)
-      QRCode.toDataURL(qrToken, {
-        width: 200,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        },
-        errorCorrectionLevel: 'M'
+    setQrGenerating(true)
+    setQrError(false)
+
+    QRCode.toDataURL(qrToken, {
+      width: 200,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      },
+      errorCorrectionLevel: 'M'
+    })
+      .then((url) => {
+        if (isMounted) {
+          setQrSrc(url)
+          setQrGenerating(false)
+          setQrError(false)
+        }
       })
-        .then((url) => {
-          if (isMounted) {
-            setQrSrc(url)
-            setQrGenerating(false)
-          }
-        })
-        .catch((err) => {
-          console.error('[PassModal] QR generation failed:', err)
-          if (isMounted) {
-            setQrSrc('')
-            setQrGenerating(false)
-          }
-        })
-    }
+      .catch((err) => {
+        console.error('[PassModal] Client-side QR generation error:', err)
+        if (isMounted) {
+          setQrSrc('')
+          setQrGenerating(false)
+          setQrError(true)
+        }
+      })
 
     return () => {
       isMounted = false
     }
-  }, [pass, qrToken])
+  }, [qrToken])
 
   const handleCopyToken = () => {
     if (qrToken) {
@@ -141,15 +145,16 @@ export default function PassModal({ pass, onClose }) {
             {/* QR Section */}
             <div className="qr-section">
               <div className="qr-image-wrap" style={{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {qrSrc ? (
+                {qrSrc && !qrError ? (
                   <img
                     src={qrSrc}
                     alt="Campus Permit Verification QR Code"
                     width={200}
                     height={200}
+                    onError={() => setQrError(true)}
                     style={{ display: 'block', borderRadius: '8px', background: '#fff', padding: '4px' }}
                   />
-                ) : qrGenerating ? (
+                ) : qrGenerating && !qrError ? (
                   <div style={{ width: 200, height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '8px' }}>
                     <div className="live-dot-pulse mb-2" style={{ background: '#38bdf8', width: 12, height: 12 }}></div>
                     <span className="text-2xs font-mono text-muted">Generating Secure QR...</span>
