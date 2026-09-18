@@ -3,7 +3,8 @@ import {
   UserIcon,
   IdCardIcon,
   AlertCircleIcon,
-  ShieldIcon
+  ShieldIcon,
+  CheckIcon
 } from '../Icons'
 import {
   VEHICLE_TYPE_OPTIONS,

@@ -2298,13 +2298,14 @@ export default function App() {
 
 
       {/* PARKING PASS */}
-
-      <PassModal
-        pass={activePass}
-        onClose={() =>
-          setActivePass(null)
-        }
-      />
+      {activePass && (
+        <PassModal
+          pass={activePass}
+          onClose={() =>
+            setActivePass(null)
+          }
+        />
+      )}
 
 
       {/* TOAST */}

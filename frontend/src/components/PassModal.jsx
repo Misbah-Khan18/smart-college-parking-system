@@ -8,24 +8,12 @@ export default function PassModal({ pass, onClose }) {
   const [qrGenerating, setQrGenerating] = useState(true)
   const [qrError, setQrError] = useState(false)
 
-  if (!pass) return null
-
-  const displayPassId = pass.id || pass.passId || 'SOC-PASS-CURRENT'
-  const permitType = pass.permitType || pass.passType || 'Parking Pass'
-  const isMonthly = permitType.includes('Monthly')
-  const isSemester = permitType.includes('Semester')
-  const isDaily = permitType.includes('Daily')
-
-  const validUntilStr = pass.validUntil
-    ? (pass.validUntil.includes('T') ? new Date(pass.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : pass.validUntil)
-    : (pass.reservedUntil || 'Active Session')
-
-  const qrToken = pass.qrToken || pass.passId || pass.reservationId || pass.id || ''
+  const qrToken = pass ? (pass.qrToken || pass.passId || pass.reservationId || pass.id || '') : ''
 
   useEffect(() => {
     let isMounted = true
 
-    if (!qrToken) {
+    if (!pass || !qrToken) {
       setQrGenerating(false)
       setQrError(true)
       return
@@ -62,7 +50,19 @@ export default function PassModal({ pass, onClose }) {
     return () => {
       isMounted = false
     }
-  }, [qrToken])
+  }, [pass, qrToken])
+
+  if (!pass) return null
+
+  const displayPassId = pass.id || pass.passId || 'SOC-PASS-CURRENT'
+  const permitType = pass.permitType || pass.passType || 'Parking Pass'
+  const isMonthly = permitType.includes('Monthly')
+  const isSemester = permitType.includes('Semester')
+  const isDaily = permitType.includes('Daily')
+
+  const validUntilStr = pass.validUntil
+    ? (pass.validUntil.includes('T') ? new Date(pass.validUntil).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : pass.validUntil)
+    : (pass.reservedUntil || 'Active Session')
 
   const handleCopyToken = () => {
     if (qrToken) {
