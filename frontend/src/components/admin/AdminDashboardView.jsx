@@ -6,7 +6,8 @@ import {
   ActivityIcon,
   SearchIcon,
   PlusCircleIcon,
-  XIcon
+  XIcon,
+  ShieldIcon
 } from '../Icons'
 import { formatLiveDurationCompact } from '../../utils/timerUtils'
 
@@ -15,7 +16,8 @@ export default function AdminDashboardView({
   userProfile,
   slots = [],
   onNavigateTab,
-  onReleaseSlot
+  onReleaseSlot,
+  onOpenBooking
 }) {
   const [searchTerm, setSearchTerm] = useState('')
 

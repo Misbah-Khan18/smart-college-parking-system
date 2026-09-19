@@ -146,7 +146,10 @@ export default function QRScanner({
       if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode(scannerId, {
           formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-          verbose: false
+          verbose: false,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
         })
       }
 
@@ -165,19 +168,11 @@ export default function QRScanner({
       }
 
       const scanConfig = {
-        fps: 15,
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-          const edgeSize = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72)
-          return {
-            width: Math.max(180, Math.min(edgeSize, 280)),
-            height: Math.max(180, Math.min(edgeSize, 280))
-          }
-        },
-        aspectRatio: 1.0,
+        fps: 10,
         disableFlip: facingMode === 'environment'
       }
 
-      // 4. Start decoding video stream
+      // 4. Start decoding video stream with full-frame uncropped processing
       await scannerRef.current.start(
         cameraConfig,
         scanConfig,
@@ -187,14 +182,15 @@ export default function QRScanner({
 
           // Lock scanner immediately to prevent duplicate detections
           scanLockRef.current = true
-          setLastScannedCode(decodedText)
+          const cleanToken = decodedText.trim()
+          setLastScannedCode(cleanToken)
 
           // Audio/Visual feedback can be triggered here
           if (onScan) {
-            onScan(decodedText.trim())
+            onScan(cleanToken)
           }
 
-          // Pause / stop scanning after successful read
+          // Stop scanning stream cleanly after successful detection
           if (scannerRef.current && scannerRef.current.isScanning) {
             try {
               const stopPromise = scannerRef.current.stop()
@@ -309,7 +305,7 @@ export default function QRScanner({
 
         {/* Live HUD Reticle Overlay */}
         {isScanning && (
-          <div className="viewfinder-hud-overlay" pointer-events="none">
+          <div className="viewfinder-hud-overlay">
             <div className="hud-corner top-left"></div>
             <div className="hud-corner top-right"></div>
             <div className="hud-corner bottom-left"></div>

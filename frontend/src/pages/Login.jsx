@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   signInWithGoogle,
-  registerWithEmail,
   loginWithEmail,
   signInDemoStudent,
   resetPassword,
@@ -101,42 +100,8 @@ export default function Login({ onDemoLogin }) {
 
   const handleRegister = async (e) => {
     e.preventDefault()
-    setError('')
-    setSuccess('')
-
-    if (!regName.trim() || !regEmail.trim() || !regPassword) {
-      setError('Please fill in all required fields.')
-      return
-    }
-    if (regPassword.length < 6) {
-      setError('Password must be at least 6 characters long.')
-      return
-    }
-
-    const isAdminRole = regRole === 'Security Admin' || regRole === 'Admin' || regEmail.trim().toLowerCase().includes('admin')
-    const finalRole = isAdminRole ? 'Security Admin' : 'Student'
-    const generatedCampusId = regCampusId.trim().toUpperCase() ||
-      (isAdminRole ? `ADM-${Math.floor(100 + Math.random() * 900)}` : `STU-${Math.floor(1000 + Math.random() * 9000)}`)
-
-    setLoading(true)
-    try {
-      await registerWithEmail({
-        name: regName.trim(),
-        email: regEmail.trim(),
-        password: regPassword,
-        role: finalRole,
-        campusId: generatedCampusId,
-        vehicleType: regVehicleType,
-        isEv: false,
-        defaultPlate: regPlate.trim().toUpperCase() || (isAdminRole ? '' : 'MH-12-AP-2026'),
-      })
-      setSuccess('Account created successfully!')
-    } catch (err) {
-      console.error('Registration Error:', err)
-      setError(formatAuthError(err))
-    } finally {
-      setLoading(false)
-    }
+    // Google Sign-In onboarding for new student registration
+    await handleGoogleSignIn()
   }
 
   const handlePasswordReset = async (e) => {
@@ -543,3 +508,4 @@ export default function Login({ onDemoLogin }) {
     </div>
   )
 }
+

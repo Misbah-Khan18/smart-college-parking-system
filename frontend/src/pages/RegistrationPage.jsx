@@ -13,7 +13,10 @@ import DeleteConfirmModal from '../components/vehicle/DeleteConfirmModal'
 export default function RegistrationPage({
   slots = [],
   registeredVehicles = [],
-  showToast
+  showToast,
+  user,
+  userProfile,
+  onRegisterSuccess
 }) {
   // Registered vehicles state (synced with props or service listener)
   const [vehicles, setVehicles] = useState(() => registeredVehicles.length > 0 ? registeredVehicles : getRegisteredVehicles())
@@ -43,8 +46,11 @@ export default function RegistrationPage({
   }, [])
 
   // Handle successful new vehicle registration
-  const handleRegisterSuccess = () => {
+  const handleRegisterSuccess = (newRecord, updatedProfile) => {
     setVehicles(getRegisteredVehicles())
+    if (onRegisterSuccess) {
+      onRegisterSuccess(newRecord, updatedProfile)
+    }
   }
 
   // Handle Edit Save from EditVehicleModal
@@ -131,6 +137,8 @@ export default function RegistrationPage({
       <div className="registration-content-grid">
         {/* Registration Form Component */}
         <RegistrationForm
+          user={user}
+          userProfile={userProfile}
           registeredVehicles={vehicles}
           onRegisterSuccess={handleRegisterSuccess}
           showToast={showToast}
@@ -169,3 +177,4 @@ export default function RegistrationPage({
     </div>
   )
 }
+

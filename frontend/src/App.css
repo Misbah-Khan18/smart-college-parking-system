@@ -3532,6 +3532,32 @@
   flex-direction: column;
 }
 
+.form-row.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-with-icon .input-icon {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.input-with-icon .form-control {
+  padding-left: 36px;
+}
+
 .form-label {
   font-size: 12.5px;
   font-weight: 600;

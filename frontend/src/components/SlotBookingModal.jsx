@@ -3,7 +3,7 @@ import { XIcon, ShieldIcon } from './Icons'
 import { normalizeSlotId } from '../services/parkingService'
 
 const PERMIT_TIERS = [
-  { id: 'Daily', name: 'Daily Permit', price: 20, duration: '1 Day', days: 1, desc: 'Valid for current date. Single entry/exit session.' },
+  { id: 'Daily', name: 'Daily Permit', price: 10, duration: '1 Day', days: 1, desc: 'Valid for current date. Single entry/exit session.' },
   { id: 'Monthly', name: '30-Day Monthly Pass', price: 300, duration: '30 Days', days: 30, desc: 'Unlimited gate entries during the 30-day validity window.' },
   { id: 'Semester', name: 'Semester Term Pass', price: 1200, duration: '180 Days', days: 180, desc: 'Full academic term access with zero repeated payments.' }
 ]
@@ -51,10 +51,10 @@ function SlotBookingContent({
   const [selectedTier, setSelectedTier] = useState('Daily')
   const [chosenSlotId, setChosenSlotId] = useState(selectedSlot?.id ? normalizeSlotId(selectedSlot.id) : '')
   const [vehicleNumber, setVehicleNumber] = useState(
-    userProfile?.defaultPlate || userProfile?.vehicleNumber || 'MH-12-AB-1234'
+    userProfile?.defaultPlate || userProfile?.vehicleNumber || userProfile?.vehiclePlate || ''
   )
   const [ownerName, setOwnerName] = useState(
-    userProfile?.displayName || user?.displayName || 'Student Member'
+    userProfile?.displayName || user?.displayName || 'Student'
   )
   const [vehicleType, setVehicleType] = useState(
     selectedSlot?.type || userProfile?.vehicleType || 'scooty'
@@ -71,6 +71,21 @@ function SlotBookingContent({
       }
     }
   }, [selectedSlot])
+
+  // Sync userProfile when prop changes
+  useEffect(() => {
+    if (userProfile) {
+      if (!vehicleNumber && (userProfile.defaultPlate || userProfile.vehicleNumber || userProfile.vehiclePlate)) {
+        setVehicleNumber(userProfile.defaultPlate || userProfile.vehicleNumber || userProfile.vehiclePlate)
+      }
+      if (userProfile.displayName || user?.displayName) {
+        setOwnerName(userProfile.displayName || user?.displayName || 'Student')
+      }
+      if (userProfile.vehicleType && !selectedSlot?.type) {
+        setVehicleType(userProfile.vehicleType)
+      }
+    }
+  }, [userProfile, user, selectedSlot])
 
   const tier = PERMIT_TIERS.find(t => t.id === selectedTier) || PERMIT_TIERS[0]
 
@@ -123,12 +138,12 @@ function SlotBookingContent({
       plate: cleanPlate,
       vehiclePlate: cleanPlate,
       vehicleNumber: cleanPlate,
-      owner: ownerName.trim() || 'Campus Member',
-      userName: ownerName.trim() || 'Campus Member',
+      owner: ownerName.trim() || 'Student',
+      userName: ownerName.trim() || 'Student',
       userEmail: user?.email || userProfile?.email || '',
-      rollNumber: userProfile?.campusId || userProfile?.rollNumber || 'S2410701',
+      rollNumber: userProfile?.campusId || userProfile?.rollNumber || '',
       stream: userProfile?.stream || 'School of Commerce',
-      phoneNumber: userProfile?.phoneNumber || '+91 98765 43210',
+      phoneNumber: userProfile?.phoneNumber || '',
       category: userProfile?.role || 'Student',
       vehicleType,
       type: vehicleType,
