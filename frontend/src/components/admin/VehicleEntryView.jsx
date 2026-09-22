@@ -99,6 +99,11 @@ export default function VehicleEntryView({
     }, 600)
   }
 
+  const targetFloor = getFloorForVehicleType(entryType)
+  const availableBaysCount = (slots || []).filter(
+    (s) => s && s.status === 'available' && (s.floor === targetFloor || (targetFloor.startsWith('Ground') ? (s.id && s.id.startsWith('G')) : (s.id && s.id.startsWith('B'))))
+  ).length
+
   return (
     <div className="admin-page-container">
       {/* Header */}
@@ -207,6 +212,14 @@ export default function VehicleEntryView({
                   <span className="vt-card-floor">Basement</span>
                 </label>
               </div>
+            </div>
+
+            {/* Live Bay Capacity Telemetry */}
+            <div className="flex items-center justify-between p-2 rounded text-xs mt-2" style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(51, 65, 85, 0.6)' }}>
+              <span style={{ color: '#94a3b8' }}>Designated Level: <strong style={{ color: '#f1f5f9' }}>{targetFloor}</strong></span>
+              <span className="font-mono font-bold" style={{ color: availableBaysCount > 0 ? '#34d399' : '#f87171' }}>
+                {availableBaysCount > 0 ? `🟢 ${availableBaysCount} Bays Available` : '🔴 Level Full'}
+              </span>
             </div>
 
             <button
