@@ -1,11 +1,3 @@
-﻿import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_FILE = path.join(__dirname, '..', '..', 'data', 'store.json');
-
 // Generate initial 160 slots
 function generateDefaultSlots() {
   const slots = [];
@@ -74,46 +66,19 @@ function generateDefaultSlots() {
 
 class ParkingStore {
   constructor() {
-    this.slots = [];
-    this.permits = [];
-    this.activeSessions = [];
-    this.history = [];
-    this.loadFromDisk();
-  }
-
-  loadFromDisk() {
-    try {
-      if (fs.existsSync(DATA_FILE)) {
-        const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
-        this.slots = data.slots && data.slots.length > 0 ? data.slots : generateDefaultSlots();
-        this.permits = data.permits || [];
-        this.activeSessions = data.activeSessions || [];
-        this.history = data.history || [];
-        console.log(`[ParkingStore] Loaded ${this.slots.length} slots, ${this.permits.length} permits, ${this.activeSessions.length} active sessions from disk.`);
-        return;
-      }
-    } catch (err) {
-      console.warn('[ParkingStore] Warning loading disk data, initializing defaults:', err.message);
-    }
     this.slots = generateDefaultSlots();
     this.permits = [];
     this.activeSessions = [];
     this.history = [];
-    this.saveToDisk();
+    // Disk persistence removed: Firestore is authoritative runtime state in production
+  }
+
+  loadFromDisk() {
+    // In-memory fallback only for local dev / non-persisted test endpoints
   }
 
   saveToDisk() {
-    try {
-      const data = {
-        slots: this.slots,
-        permits: this.permits,
-        activeSessions: this.activeSessions,
-        history: this.history
-      };
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (err) {
-      console.error('[ParkingStore] Error saving to disk:', err.message);
-    }
+    // In-memory fallback only for local dev / non-persisted test endpoints
   }
 
   // Slots

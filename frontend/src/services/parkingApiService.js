@@ -1,6 +1,10 @@
 /**
- * Frontend Parking API Service
- * Interacts with the Express Backend (Port 5000)
+ * @deprecated Legacy Express Backend API Service
+ * Production runtime uses Cloud Firestore services directly:
+ * - guardGateService.js (Gate Ingress)
+ * - guardExitService.js (Gate Egress)
+ * - parkingService.js (Slots & Reservations)
+ * - vehicleService.js (Vehicle Registrations)
  */
 
 const API_BASE = '/api';

@@ -1,12 +1,11 @@
 import ParkingHistoryView from '../ParkingHistoryView'
-import { INITIAL_PARKING_HISTORY } from '../../data/initialSlots'
 
 export default function StudentMyHistoryView({
   user,
   userProfile,
-  history
+  history = []
 }) {
-  const records = history && history.length > 0 ? history : INITIAL_PARKING_HISTORY
+  const records = Array.isArray(history) ? history : []
 
   return (
     <ParkingHistoryView
@@ -16,3 +15,4 @@ export default function StudentMyHistoryView({
     />
   )
 }
+

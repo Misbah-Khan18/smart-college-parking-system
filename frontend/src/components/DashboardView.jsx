@@ -65,7 +65,7 @@ export default function DashboardView({
       <section className="college-hero-section glass-card">
         <div className="hero-content">
           <h1 className="college-hero-title soc-brand-animated">
-            <strong>School of Commerce</strong> <span className="accent-dot">.</span> <span className="gradient-text">Smart Parking</span>
+            <strong>SOCMAC</strong> <span className="accent-dot">.</span> <span className="gradient-text">Smart Park</span>
           </h1>
         </div>
 

@@ -8,7 +8,7 @@ export default function RegisteredVehiclesTable({
   onDeleteVehicle,
   searchQuery = '',
   onSearchChange,
-  showSearch = false
+  showSearch = true
 }) {
   const filteredVehicles = useMemo(() => {
     if (!searchQuery || !searchQuery.trim()) return vehicles
@@ -22,13 +22,17 @@ export default function RegisteredVehiclesTable({
       const plate = (v.vehicleNumber || '').toLowerCase()
       const cleanPlate = plate.replace(/[^a-z0-9]/g, '')
       const stream = (v.stream || '').toLowerCase()
+      const vehicleType = (v.vehicleType || '').toLowerCase()
+      const phone = (v.phoneNumber || '').toLowerCase()
 
       return (
         name.includes(q) ||
         roll.includes(q) ||
         plate.includes(q) ||
         (cleanQ && cleanPlate.includes(cleanQ)) ||
-        stream.includes(q)
+        stream.includes(q) ||
+        vehicleType.includes(q) ||
+        phone.includes(q)
       )
     })
   }, [vehicles, searchQuery])

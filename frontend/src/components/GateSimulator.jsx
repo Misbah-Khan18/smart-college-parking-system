@@ -1,4 +1,8 @@
-﻿import { useState } from 'react'
+/**
+ * @deprecated Legacy Gate Simulator (superseded by Guard Gate Ingress/Egress modules:
+ * VehicleEntryView.jsx, VehicleExitView.jsx, QRScanner.jsx using guardGateService and guardExitService)
+ */
+import { useState } from 'react'
 import { GateIcon, CheckIcon, AlertCircleIcon } from './Icons'
 import { verifyAndEnterGate, exitGate } from '../services/parkingApiService'
 

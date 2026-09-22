@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import QRCode from 'qrcode'
 import { XIcon } from './Icons'
 
 // UPI payment details for parking admin
 const UPI_ID = 'parking.soc@upi'
-const MERCHANT_NAME = 'SOC Smart Parking'
+const MERCHANT_NAME = 'SOCMAC Smart Park'
 const PARKING_FEE = 10
 
 // Build UPI deeplink for GPay / PhonePe / Paytm
@@ -18,32 +19,49 @@ function buildUPILink({ upiId, name, amount, note }) {
   return `upi://pay?${params.toString()}`
 }
 
-// Generates a Google Chart API QR code image (scannable, real UPI link)
+// Generates a client-side QR code image (scannable, real UPI link)
 function UPIQRCode({ upiLink, size = 200 }) {
-  const encoded = encodeURIComponent(upiLink)
-  const src = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encoded}&choe=UTF-8`
+  const [src, setSrc] = useState('')
+
+  useEffect(() => {
+    let isMounted = true
+    if (upiLink) {
+      QRCode.toDataURL(upiLink, {
+        width: size,
+        margin: 2,
+        color: { dark: '#000000', light: '#ffffff' }
+      })
+        .then((url) => {
+          if (isMounted) setSrc(url)
+        })
+        .catch((err) => {
+          console.error('[PaymentModal] UPI QR generation error:', err)
+        })
+    }
+    return () => {
+      isMounted = false
+    }
+  }, [upiLink, size])
+
   return (
     <>
-      <img
-        src={src}
-        alt="GPay / UPI Payment QR Code"
-        width={size}
-        height={size}
-        className="payment-qr-img"
-        onError={(e) => {
-          e.target.style.display = 'none'
-          const sibling = e.target.nextSibling
-          if (sibling) sibling.style.display = 'block'
-        }}
-      />
-      {/* Fallback SVG if Google Charts is unreachable */}
-      <svg
-        viewBox="0 0 100 100"
-        width={size - 20}
-        height={size - 20}
-        className="payment-qr-fallback"
-        style={{ display: 'none' }}
-      >
+      {src && (
+        <img
+          src={src}
+          alt="GPay / UPI Payment QR Code"
+          width={size}
+          height={size}
+          className="payment-qr-img"
+        />
+      )}
+      {/* Fallback SVG if QR is generating */}
+      {!src && (
+        <svg
+          viewBox="0 0 100 100"
+          width={size - 20}
+          height={size - 20}
+          className="payment-qr-fallback"
+        >
         <rect x="5" y="5" width="26" height="26" fill="#000" rx="3" />
         <rect x="9" y="9" width="18" height="18" fill="#fff" />
         <rect x="13" y="13" width="10" height="10" fill="#000" />
@@ -85,6 +103,7 @@ function UPIQRCode({ upiLink, size = 200 }) {
         <rect x="74" y="82" width="6" height="6" fill="#000" />
         <rect x="86" y="82" width="6" height="6" fill="#000" />
       </svg>
+      )}
     </>
   )
 }
@@ -195,7 +214,7 @@ export default function PaymentModal({ bookingData, onPaymentSuccess, onClose })
 
             {/* Disclaimer */}
             <p className="payment-disclaimer">
-              ⚠️ Payment is collected by <strong>SOC Parking Admin</strong> and not processed through this app.
+              ⚠️ Payment is collected by <strong>SOCMAC Smart Park Admin</strong> and not processed through this app.
               This is a demo — your phone's GPay will open but <strong>no money is deducted</strong> from this interface.
             </p>
 
