@@ -19,10 +19,11 @@ function assert(condition, message) {
   }
 }
 
-// ----------------------------------------------------
-// Test Group 1: Error Classification & Human Guidance
-// ----------------------------------------------------
-console.log('Test Group 1: Camera Error Mapping & Messages')
+console.log('Test Group 0: Canonical Slot Normalization')
+assert(normalizeSlotId('g-05') === 'G-05', 'normalizeSlotId normalizes lowercase hyphenated g-05')
+assert(normalizeSlotId('B-12') === 'B-12', 'normalizeSlotId preserves uppercase canonical B-12')
+
+console.log('\nTest Group 1: Camera Error Mapping & Messages')
 
 function mapCameraError(err, isSecureContext = true) {
   if (!isSecureContext) {
@@ -211,6 +212,19 @@ function simulateVerificationPipeline({
     const cleanResP = normalizePlate(res.plate).replace(/[^A-Z0-9]/g, '')
     if (cleanP && cleanResP && cleanP !== cleanResP) {
       return { approved: false, reason: GATE_REASON_CODES.VEHICLE_MISMATCH }
+    }
+  }
+
+  // Step 5b: Floor and Slot Validation
+  if (gateFloor && res.floor && res.floor !== gateFloor) {
+    return { approved: false, reason: 'FLOOR_MISMATCH' }
+  }
+
+  const cleanSlot = normalizeSlotId(res.slotId)
+  if (Array.isArray(dbSlots) && dbSlots.length > 0) {
+    const slot = dbSlots.find((s) => normalizeSlotId(s.id) === cleanSlot)
+    if (slot && slot.status === 'occupied') {
+      return { approved: false, reason: 'SLOT_ALREADY_OCCUPIED' }
     }
   }
 

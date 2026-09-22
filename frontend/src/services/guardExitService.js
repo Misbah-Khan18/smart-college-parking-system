@@ -14,12 +14,12 @@ import { normalizeSlotId } from './parkingService.js'
 import { calculateAuthoritativeDuration } from '../utils/timerUtils.js'
 import { verifyGuardAuthorization } from './guardGateService.js'
 
-const USERS_COLLECTION = 'users'
+export const USERS_COLLECTION = 'users'
 const SLOTS_COLLECTION = 'parking_slots'
 const RESERVATIONS_COLLECTION = 'reservations'
 const SESSIONS_COLLECTION = 'parking_sessions'
 const HISTORY_COLLECTION = 'parking_history'
-const WRONG_PARKING_COLLECTION = 'wrong_parking_reports'
+export const WRONG_PARKING_COLLECTION = 'wrong_parking_reports'
 
 /**
  * Standard Reason Codes for Guard Egress / Exit Operations

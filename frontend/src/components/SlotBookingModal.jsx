@@ -1,12 +1,43 @@
 import { useState, useEffect } from 'react'
 import { XIcon, ShieldIcon } from './Icons'
 import { normalizeSlotId } from '../services/parkingService'
+import GatePassActivationScreen from './GatePassActivationScreen'
 
 const PERMIT_TIERS = [
   { id: 'Daily', name: 'Daily Permit', price: 10, duration: '1 Day', days: 1, desc: 'Valid for current date. Single entry/exit session.' },
   { id: 'Monthly', name: '30-Day Monthly Pass', price: 300, duration: '30 Days', days: 30, desc: 'Unlimited gate entries during the 30-day validity window.' },
   { id: 'Semester', name: 'Semester Term Pass', price: 1200, duration: '180 Days', days: 180, desc: 'Full academic term access with zero repeated payments.' }
 ]
+
+// Impure helper intentionally defined outside the component so the
+// React Compiler does not flag Date.now() as an impure render call.
+function getNow() { return Date.now() }
+
+// Read the latest saved profile from localStorage (UID-scoped custom profile takes
+// highest priority, then the demo session, then the userProfile prop).
+function resolveLatestProfile(userProfile, user) {
+  const uid = user?.uid || userProfile?.uid || 'demo'
+  try {
+    const customRaw = localStorage.getItem(`custom_student_vehicle_profile_${uid}`)
+    if (customRaw) {
+      const custom = JSON.parse(customRaw)
+      // Merge: custom overrides userProfile for vehicle fields
+      return {
+        ...(userProfile || {}),
+        ...custom,
+        // keep canonical field names consistent
+        defaultPlate: custom.defaultPlate || custom.vehiclePlate || custom.vehicleNumber || userProfile?.defaultPlate || '',
+        vehiclePlate: custom.vehiclePlate || custom.defaultPlate || custom.vehicleNumber || userProfile?.vehiclePlate || '',
+        vehicleNumber: custom.vehicleNumber || custom.defaultPlate || userProfile?.vehicleNumber || '',
+        vehicleType: custom.vehicleType || userProfile?.vehicleType || 'scooty',
+        displayName: custom.displayName || userProfile?.displayName || user?.displayName || 'Student',
+      }
+    }
+  } catch {
+    // ignore storage parse errors
+  }
+  return userProfile || null
+}
 
 export default function SlotBookingModal({
   isOpen,
@@ -48,44 +79,59 @@ function SlotBookingContent({
   userProfile,
   isSlotsInitialized = true
 }) {
+  // ── Resolve the latest profile (includes UID-scoped localStorage custom profile) ──
+  const latestProfile = resolveLatestProfile(userProfile, user)
+
   const [selectedTier, setSelectedTier] = useState('Daily')
-  const [chosenSlotId, setChosenSlotId] = useState(selectedSlot?.id ? normalizeSlotId(selectedSlot.id) : '')
+  const [chosenSlotId, setChosenSlotId] = useState(
+    selectedSlot?.id ? normalizeSlotId(selectedSlot.id) : ''
+  )
   const [vehicleNumber, setVehicleNumber] = useState(
-    userProfile?.defaultPlate || userProfile?.vehicleNumber || userProfile?.vehiclePlate || ''
+    latestProfile?.defaultPlate || latestProfile?.vehicleNumber || latestProfile?.vehiclePlate || ''
   )
   const [ownerName, setOwnerName] = useState(
-    userProfile?.displayName || user?.displayName || 'Student'
+    latestProfile?.displayName || user?.displayName || 'Student'
   )
   const [vehicleType, setVehicleType] = useState(
-    selectedSlot?.type || userProfile?.vehicleType || 'scooty'
+    selectedSlot?.type || latestProfile?.vehicleType || 'scooty'
   )
   const [isProcessing, setIsProcessing] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Sync selectedSlot when prop changes
+  // Gate activation screen — shown instead of a plain spinner
+  const [gateScreenPass, setGateScreenPass] = useState(null)
+
+  // ── Always re-sync vehicle data when userProfile / user changes ──
+  // This fires whenever the user updates "My Vehicle" tab and App re-renders.
+  // setState calls are deferred via setTimeout to avoid synchronous setState-in-effect
+  // warnings from the React Compiler (cascading render prevention).
+  useEffect(() => {
+    const latest = resolveLatestProfile(userProfile, user)
+    if (!latest) return
+    const plate = latest.defaultPlate || latest.vehicleNumber || latest.vehiclePlate || ''
+    const name  = latest.displayName || user?.displayName || 'Student'
+    const type  = latest.vehicleType || 'scooty'
+    const timer = setTimeout(() => {
+      if (plate) setVehicleNumber(plate)
+      if (name)  setOwnerName(name)
+      // Only override vehicle type from profile if no slot type is specified
+      if (!selectedSlot?.type) setVehicleType(type)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [userProfile, user, selectedSlot])
+
+  // Sync slot when selectedSlot prop changes
   useEffect(() => {
     if (selectedSlot) {
-      setChosenSlotId(normalizeSlotId(selectedSlot.id))
-      if (selectedSlot.type) {
-        setVehicleType(selectedSlot.type)
-      }
+      const timer = setTimeout(() => {
+        setChosenSlotId(normalizeSlotId(selectedSlot.id))
+        if (selectedSlot.type) {
+          setVehicleType(selectedSlot.type)
+        }
+      }, 0)
+      return () => clearTimeout(timer)
     }
   }, [selectedSlot])
-
-  // Sync userProfile when prop changes
-  useEffect(() => {
-    if (userProfile) {
-      if (!vehicleNumber && (userProfile.defaultPlate || userProfile.vehicleNumber || userProfile.vehiclePlate)) {
-        setVehicleNumber(userProfile.defaultPlate || userProfile.vehicleNumber || userProfile.vehiclePlate)
-      }
-      if (userProfile.displayName || user?.displayName) {
-        setOwnerName(userProfile.displayName || user?.displayName || 'Student')
-      }
-      if (userProfile.vehicleType && !selectedSlot?.type) {
-        setVehicleType(userProfile.vehicleType)
-      }
-    }
-  }, [userProfile, user, selectedSlot])
 
   const tier = PERMIT_TIERS.find(t => t.id === selectedTier) || PERMIT_TIERS[0]
 
@@ -102,7 +148,9 @@ function SlotBookingContent({
   }
 
   // Active target slot object
-  const activeSlotObj = selectedSlot || availableSlots.find((s) => normalizeSlotId(s.id) === normalizeSlotId(chosenSlotId))
+  const activeSlotObj = selectedSlot || availableSlots.find(
+    (s) => normalizeSlotId(s.id) === normalizeSlotId(chosenSlotId)
+  )
 
   const handleActivateSubmit = async (e) => {
     e.preventDefault()
@@ -123,7 +171,7 @@ function SlotBookingContent({
     setIsProcessing(true)
 
     const days = tier.days || 1
-    const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+    const expiryDate = new Date(getNow() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
       year: 'numeric'
@@ -141,9 +189,9 @@ function SlotBookingContent({
       owner: ownerName.trim() || 'Student',
       userName: ownerName.trim() || 'Student',
       userEmail: user?.email || userProfile?.email || '',
-      rollNumber: userProfile?.campusId || userProfile?.rollNumber || '',
-      stream: userProfile?.stream || 'School of Commerce',
-      phoneNumber: userProfile?.phoneNumber || '',
+      rollNumber: latestProfile?.campusId || latestProfile?.rollNumber || '',
+      stream: latestProfile?.stream || 'School of Commerce',
+      phoneNumber: latestProfile?.phoneNumber || '',
       category: userProfile?.role || 'Student',
       vehicleType,
       type: vehicleType,
@@ -151,8 +199,9 @@ function SlotBookingContent({
       permitType: tier.name,
       amountPaidINR: tier.price,
       reservedUntil: expiryDate,
-      days
-    }
+      days,
+      qrToken: `SOC-${targetSlotId}-${cleanPlate}-${getNow()}`
+  }
 
     try {
       if (onActivatePass) {
@@ -160,14 +209,31 @@ function SlotBookingContent({
       } else if (onPermitActivated) {
         onPermitActivated(payload)
       }
-      onClose()
+
+      // Show the gate animation AFTER the Firestore write succeeds
+      setIsProcessing(false)
+      setGateScreenPass(payload)
     } catch (err) {
       console.error('[SlotBookingModal] Pass Activation Error:', err)
       setErrorMsg(err.message || 'Failed to activate pass and reserve slot.')
-    } finally {
       setIsProcessing(false)
     }
   }
+
+  // Called when gate animation finishes (auto or tap)
+  const handleGateDone = () => {
+    setGateScreenPass(null)
+    onClose()
+  }
+
+  // Show gate animation full-screen overlay
+  if (gateScreenPass) {
+    return <GatePassActivationScreen passData={gateScreenPass} onDone={handleGateDone} />
+  }
+
+  // ── Is vehicle data sourced from saved profile? ──
+  const profileVehicleNumber = latestProfile?.defaultPlate || latestProfile?.vehicleNumber || latestProfile?.vehiclePlate || ''
+  const isSyncedFromProfile = profileVehicleNumber && vehicleNumber === profileVehicleNumber.toUpperCase().trim()
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -318,10 +384,16 @@ function SlotBookingContent({
               type="text"
               placeholder="e.g. MH-12-AB-1234"
               value={vehicleNumber}
-              onChange={(e) => setVehicleNumber(e.target.value)}
+              onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
               className="form-control uppercase-input font-mono font-bold"
               required
             />
+            {isSyncedFromProfile && (
+              <div style={{ fontSize: '11px', color: '#22c55e', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>✓</span>
+                <span>Auto-filled from your saved My Vehicle profile</span>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '14px' }}>
@@ -377,10 +449,10 @@ function SlotBookingContent({
               style={{ padding: '12px 18px', fontSize: '14px' }}
             >
               {!isSlotsInitialized
-                ? 'Connecting to Firestore Slots…'
+                ? '⏳ Connecting to Firestore Slots…'
                 : isProcessing
-                ? 'Securing Slot in Firestore…'
-                : `Activate Pass & Reserve Slot (${chosenSlotId || 'Bay'}) →`}
+                ? '🔒 Securing Slot in Firestore…'
+                : `🎫 Activate Pass & Reserve Slot (${chosenSlotId || 'Bay'}) →`}
             </button>
             <button
               type="button"

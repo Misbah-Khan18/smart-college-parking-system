@@ -12,7 +12,9 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
   // 1. Active Floor State (persists within same session) - 'ground' | 'basement'
   const [activeFloor, setActiveFloor] = useState(() => {
     const saved = sessionStorage.getItem('campus_active_floor')
-    return saved === 'basement' ? 'basement' : 'ground'
+    if (saved === 'basement' || saved === 'ground') return saved
+    if (userProfile?.vehicleType === 'bike') return 'basement'
+    return 'ground'
   })
 
   // 2. Master Bay State per floor (80 Ground + 80 Basement = 160 bays)
@@ -253,8 +255,9 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
   // =========================================================================
   // RENDER HELPER FOR BAY CARDS
   // Clean 3-status system: Available (green), Reserved (amber), Booked (red)
+  // Supports standard boxy cards [] and high-density compact bike bays
   // =========================================================================
-  const renderBayCard = (bayId) => {
+  const renderBayCard = (bayId, isCompact = false) => {
     const bay = bayMap.get(bayId)
     if (!bay) return null
 
@@ -269,12 +272,27 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
     const dotColor = isBooked ? 'red' : isReserved ? 'amber' : 'green'
 
     const classNames = [
-      'cad-standard-bay',
+      isCompact ? 'cad-compact-bike-bay' : 'cad-standard-bay',
       `bay-status-${statusText.toLowerCase()}`,
       isSelected ? 'bay-selected' : '',
       (!isMatchFilter || (searchQuery.trim() && !isMatchSearch)) ? 'bay-dimmed' : '',
       isHighlighted ? 'bay-match-highlight' : ''
     ].filter(Boolean).join(' ')
+
+    if (isCompact) {
+      return (
+        <div
+          key={bay.id}
+          id={`bay-${bay.id}`}
+          className={classNames}
+          onClick={() => handleBayClick(bay)}
+          title={`Bay ${bay.id} — ${statusText} • Click to select / book`}
+        >
+          <span className="cad-compact-bay-id">{bay.id.replace('G-', '')}</span>
+          <span className={`cad-compact-bay-dot ${dotColor}`} />
+        </div>
+      )
+    }
 
     return (
       <div
@@ -328,6 +346,14 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
               </button>
             </div>
           </div>
+
+          {userProfile?.displayName && (
+            <div className="cad-student-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '20px', padding: '4px 10px', color: '#38bdf8' }}>
+              <span>👤 {userProfile.displayName}</span>
+              <span style={{ color: '#94a3b8' }}>•</span>
+              <span style={{ textTransform: 'capitalize' }}>{userProfile.vehicleType || 'Scooty'}</span>
+            </div>
+          )}
 
           <div className="cad-toolbar-divider" />
 
@@ -439,7 +465,7 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
               {activeFloor === 'basement' ? 'Basement Parking Layout' : 'Ground Floor Parking Layout'}
             </h1>
             <span className="cad-header-subtitle">
-              {activeFloor === 'basement' ? 'SOCMAC Smart Park • Basement — Bikes (80 Bays)' : 'SOCMAC Smart Park • Ground Floor — Scooters (80 Bays)'}
+              {activeFloor === 'basement' ? 'SOCMAC Smart Park • Basement — Bikes (80 Bays)' : 'SOCMAC Smart Park • Ground Floor — Two-Wheelers & Bikes (140 Bays)'}
             </span>
           </div>
 
@@ -603,14 +629,14 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                 </div>
               </div>
 
-              {/* North Top Row: West Cluster | Compact Main Gate | East Cluster */}
+              {/* North Top Row: West 4x4 Grid [] | Main Gate Entry RFID Portal | East 4x4 Grid [] */}
               <div className="cad-top-row-container">
                 
-                {/* West Wing Cluster: G-45 - G-48 */}
-                <div className="cad-cluster-block west-cluster">
-                  <div className="cad-cluster-label">WEST WING &bull; G-45 – G-48</div>
+                {/* West Wing Bike Grid: G-01 - G-16 (16 slots in 4x4 boxy grid []) */}
+                <div className="cad-cluster-block west-cluster box-grid">
+                  <div className="cad-cluster-label">WEST WING &bull; G-01 – G-16 (BIKE GRID)</div>
                   <div className="cad-cluster-bays">
-                    {['G-45', 'G-46', 'G-47', 'G-48'].map(id => renderBayCard(id))}
+                    {['G-01', 'G-02', 'G-03', 'G-04', 'G-05', 'G-06', 'G-07', 'G-08', 'G-09', 'G-10', 'G-11', 'G-12', 'G-13', 'G-14', 'G-15', 'G-16'].map(id => renderBayCard(id))}
                   </div>
                 </div>
 
@@ -633,29 +659,29 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                   </div>
                 </div>
 
-                {/* East Wing Cluster: G-36 - G-44 */}
-                <div className="cad-cluster-block east-cluster">
-                  <div className="cad-cluster-label">EAST WING &bull; G-36 – G-44</div>
+                {/* East Wing Bike Grid: G-17 - G-32 (16 slots in 4x4 boxy grid []) */}
+                <div className="cad-cluster-block east-cluster box-grid">
+                  <div className="cad-cluster-label">EAST WING &bull; G-17 – G-32 (BIKE GRID)</div>
                   <div className="cad-cluster-bays">
-                    {['G-36', 'G-37', 'G-38', 'G-39', 'G-40', 'G-41', 'G-42', 'G-43', 'G-44'].map(id => renderBayCard(id))}
+                    {['G-17', 'G-18', 'G-19', 'G-20', 'G-21', 'G-22', 'G-23', 'G-24', 'G-25', 'G-26', 'G-27', 'G-28', 'G-29', 'G-30', 'G-31', 'G-32'].map(id => renderBayCard(id))}
                   </div>
                 </div>
 
               </div>
 
-              {/* Middle Section: West Row | Circulation Driveway | East Pod */}
+              {/* Middle Section: West Ingress Flank | Compact Streamlined Driveway | East Ingress Flank (25 slots total) */}
               <div className="cad-middle-band">
                 
-                {/* West Row: G-27 - G-31 */}
-                <div className="cad-mid-left-section">
-                  <div className="cad-section-mini-tag">WEST ROW &bull; G-27 – G-31</div>
-                  <div className="cad-mid-left-stack">
-                    {['G-27', 'G-28', 'G-29', 'G-30', 'G-31'].map(id => renderBayCard(id))}
+                {/* West Ingress Flank: G-33 - G-44 (12 slots) */}
+                <div className="cad-mid-flank-section">
+                  <div className="cad-section-mini-tag">WEST INGRESS FLANK &bull; G-33 – G-44</div>
+                  <div className="cad-mid-flank-bays">
+                    {['G-33', 'G-34', 'G-35', 'G-36', 'G-37', 'G-38', 'G-39', 'G-40', 'G-41', 'G-42', 'G-43', 'G-44'].map(id => renderBayCard(id))}
                   </div>
                 </div>
 
-                {/* Center Circulation Courtyard & Traffic Lane */}
-                <div className="cad-center-driveway">
+                {/* Center Compact Circulation Ingress Driveway */}
+                <div className="cad-center-driveway compact">
                   <div className="cad-driveway-lane lane-top">
                     <span className="cad-lane-direction">INGRESS FLOW →</span>
                     <div className="cad-driveway-dashed" />
@@ -665,7 +691,7 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                   <div className="cad-driveway-core">
                     <div className="cad-radar-status-badge">
                       <span className="cad-radar-pulse-dot" />
-                      <span>INDUCTIVE SENSOR RADAR ACTIVE &bull; LANES CLEAR</span>
+                      <span>INDUCTION SENSOR RADAR &bull; LANES CLEAR</span>
                     </div>
                   </div>
 
@@ -676,47 +702,70 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                   </div>
                 </div>
 
-                {/* East Pod: G-32 - G-35 (2x2 Grid) */}
-                <div className="cad-mid-right-section">
-                  <div className="cad-section-mini-tag">EAST POD &bull; G-32 – G-35</div>
-                  <div className="cad-mid-right-special-grid">
-                    {['G-32', 'G-33', 'G-34', 'G-35'].map(id => renderBayCard(id))}
+                {/* East Ingress Flank: G-45 - G-57 (13 slots) */}
+                <div className="cad-mid-flank-section">
+                  <div className="cad-section-mini-tag">EAST INGRESS FLANK &bull; G-45 – G-57</div>
+                  <div className="cad-mid-flank-bays">
+                    {['G-45', 'G-46', 'G-47', 'G-48', 'G-49', 'G-50', 'G-51', 'G-52', 'G-53', 'G-54', 'G-55', 'G-56', 'G-57'].map(id => renderBayCard(id))}
                   </div>
                 </div>
 
               </div>
 
-              {/* Perimeter Bays: G-01 to G-26, G-49 to G-80 */}
+              {/* South Perimeter: Accounts & Exam IT Bays (G-58 - G-80) */}
               <div className="cad-south-perimeter-container">
                 <div className="cad-south-header">
-                  <span className="cad-south-title">▼ ACCOUNTS &amp; EXAM IT DEPT BAYS (G-01 – G-26 &bull; G-49 – G-80)</span>
-                  <span className="cad-south-meta">STANDARD SCOOTER BAYS &bull; SURVEILLANCE &bull; LIFT CORE PROXIMITY</span>
+                  <span className="cad-south-title">▼ ACCOUNTS &amp; EXAM IT DEPT BAYS (G-58 – G-80)</span>
+                  <span className="cad-south-meta">STANDARD BAYS &bull; SURVEILLANCE &bull; LIFT CORE PROXIMITY</span>
                 </div>
 
                 <div className="cad-south-rows">
-                  {/* Row 1: G-01 to G-10 */}
-                  <div className="cad-south-row">
-                    {['G-01', 'G-02', 'G-03', 'G-04', 'G-05', 'G-06', 'G-07', 'G-08', 'G-09', 'G-10'].map(id => renderBayCard(id))}
+                  {/* Row 1: G-58 to G-65 */}
+                  <div className="cad-dept-row">
+                    {['G-58', 'G-59', 'G-60', 'G-61', 'G-62', 'G-63', 'G-64', 'G-65'].map(id => renderBayCard(id))}
                   </div>
-                  {/* Row 2: G-11 to G-20 */}
-                  <div className="cad-south-row">
-                    {['G-11', 'G-12', 'G-13', 'G-14', 'G-15', 'G-16', 'G-17', 'G-18', 'G-19', 'G-20'].map(id => renderBayCard(id))}
+                  {/* Row 2: G-66 to G-73 */}
+                  <div className="cad-dept-row">
+                    {['G-66', 'G-67', 'G-68', 'G-69', 'G-70', 'G-71', 'G-72', 'G-73'].map(id => renderBayCard(id))}
                   </div>
-                  {/* Row 3: G-21 to G-26, G-49 to G-52 */}
-                  <div className="cad-south-row">
-                    {['G-21', 'G-22', 'G-23', 'G-24', 'G-25', 'G-26', 'G-49', 'G-50', 'G-51', 'G-52'].map(id => renderBayCard(id))}
+                  {/* Row 3: G-74 to G-80 */}
+                  <div className="cad-dept-row">
+                    {['G-74', 'G-75', 'G-76', 'G-77', 'G-78', 'G-79', 'G-80'].map(id => renderBayCard(id))}
                   </div>
-                  {/* Row 4: G-53 to G-62 */}
-                  <div className="cad-south-row">
-                    {['G-53', 'G-54', 'G-55', 'G-56', 'G-57', 'G-58', 'G-59', 'G-60', 'G-61', 'G-62'].map(id => renderBayCard(id))}
+                </div>
+              </div>
+
+              {/* Dedicated High-Capacity Bike Concourse: 2 Rows Under Ingress with 30 slots each (G-81 to G-140) */}
+              <div className="cad-dense-bike-concourse">
+                <div className="cad-south-header">
+                  <div className="cad-dense-title-group">
+                    <span className="cad-dense-indicator">🏍️</span>
+                    <span className="cad-south-title">SOUTH INGRESS CONCOURSE — HIGH-CAPACITY BIKE BAYS (60 BAYS)</span>
                   </div>
-                  {/* Row 5: G-63 to G-72 */}
-                  <div className="cad-south-row">
-                    {['G-63', 'G-64', 'G-65', 'G-66', 'G-67', 'G-68', 'G-69', 'G-70', 'G-71', 'G-72'].map(id => renderBayCard(id))}
+                  <span className="cad-south-meta">2 ROWS &bull; 30 BIKE SLOTS PER ROW &bull; G-81 TO G-140</span>
+                </div>
+
+                {/* Bike Row 1: G-81 to G-110 (30 slots) */}
+                <div className="cad-dense-row-block">
+                  <div className="cad-dense-row-tag">BIKE ROW 1 &bull; G-81 TO G-110 (30 BAYS)</div>
+                  <div className="cad-dense-bike-row-wrapper">
+                    <div className="cad-dense-bike-row">
+                      {Array.from({ length: 30 }, (_, i) => `G-${String(i + 81).padStart(2, '0')}`).map(id =>
+                        renderBayCard(id, true)
+                      )}
+                    </div>
                   </div>
-                  {/* Row 6: G-73 to G-80 */}
-                  <div className="cad-south-row">
-                    {['G-73', 'G-74', 'G-75', 'G-76', 'G-77', 'G-78', 'G-79', 'G-80'].map(id => renderBayCard(id))}
+                </div>
+
+                {/* Bike Row 2: G-111 to G-140 (30 slots) */}
+                <div className="cad-dense-row-block">
+                  <div className="cad-dense-row-tag">BIKE ROW 2 &bull; G-111 TO G-140 (30 BAYS)</div>
+                  <div className="cad-dense-bike-row-wrapper">
+                    <div className="cad-dense-bike-row">
+                      {Array.from({ length: 30 }, (_, i) => `G-${String(i + 111).padStart(2, '0')}`).map(id =>
+                        renderBayCard(id, true)
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

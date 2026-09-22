@@ -26,13 +26,6 @@ export default function RegistrationPage({
   const [editingVehicle, setEditingVehicle] = useState(null)
   const [deletingVehicle, setDeletingVehicle] = useState(null)
 
-  // Keep synced with registeredVehicles prop
-  useEffect(() => {
-    if (registeredVehicles && registeredVehicles.length > 0) {
-      setVehicles(registeredVehicles)
-    }
-  }, [registeredVehicles])
-
   // Real-time subscription fallback
   useEffect(() => {
     const unsubscribe = subscribeToRegisteredVehicles(

@@ -3,24 +3,18 @@ import QRCode from 'qrcode'
 import { XIcon, ShieldIcon, CheckIcon } from './Icons'
 
 export default function PassModal({ pass, onClose }) {
+  const qrToken = pass ? (pass.qrToken || pass.passId || pass.reservationId || pass.id || '') : ''
   const [copied, setCopied] = useState(false)
   const [qrSrc, setQrSrc] = useState('')
-  const [qrGenerating, setQrGenerating] = useState(true)
-  const [qrError, setQrError] = useState(false)
-
-  const qrToken = pass ? (pass.qrToken || pass.passId || pass.reservationId || pass.id || '') : ''
+  const [qrGenerating, setQrGenerating] = useState(Boolean(pass && qrToken))
+  const [qrError, setQrError] = useState(!pass || !qrToken)
 
   useEffect(() => {
     let isMounted = true
 
     if (!pass || !qrToken) {
-      setQrGenerating(false)
-      setQrError(true)
       return
     }
-
-    setQrGenerating(true)
-    setQrError(false)
 
     QRCode.toDataURL(qrToken, {
       width: 200,

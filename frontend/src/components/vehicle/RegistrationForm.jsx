@@ -69,28 +69,17 @@ export default function RegistrationForm({
 
   // Safe Google account autofill: only populate empty fields if user has not yet edited
   useEffect(() => {
-    if (!hasUserEditedRef.current) {
-      if (!studentName && (userProfile?.displayName || user?.displayName)) {
-        setStudentName(userProfile?.displayName || user?.displayName || '')
-      }
-      if (!email && (userProfile?.email || user?.email)) {
-        setEmail(userProfile?.email || user?.email || '')
-      }
-      if (!rollNumber && (userProfile?.rollNumber || userProfile?.campusId)) {
-        setRollNumber(userProfile?.rollNumber || userProfile?.campusId || '')
-      }
-      if (!phoneNumber && userProfile?.phoneNumber) {
-        setPhoneNumber(userProfile?.phoneNumber || '')
-      }
-      if (!vehicleNumber && (userProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehiclePlate)) {
-        setVehicleNumber(userProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehiclePlate || '')
-      }
-      if (userProfile?.vehicleType) {
-        setVehicleType(userProfile.vehicleType)
-      }
-      if (userProfile?.stream) {
-        setStream(userProfile.stream)
-      }
+    if (!hasUserEditedRef.current && (userProfile || user)) {
+      const timer = setTimeout(() => {
+        setStudentName((prev) => prev || userProfile?.displayName || user?.displayName || '')
+        setEmail((prev) => prev || userProfile?.email || user?.email || '')
+        setRollNumber((prev) => prev || userProfile?.rollNumber || userProfile?.campusId || '')
+        setPhoneNumber((prev) => prev || userProfile?.phoneNumber || '')
+        setVehicleNumber((prev) => prev || userProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehiclePlate || '')
+        if (userProfile?.vehicleType) setVehicleType(userProfile.vehicleType)
+        if (userProfile?.stream) setStream(userProfile.stream)
+      }, 0)
+      return () => clearTimeout(timer)
     }
   }, [user, userProfile])
 
@@ -185,6 +174,8 @@ export default function RegistrationForm({
         defaultPlate: cleanPlate,
         vehicleType,
         preferredFloor,
+        passType: selectedPlan.name,
+        permitPlanId: selectedPlan.id,
         isRegistered: true
       }
 
@@ -425,6 +416,43 @@ export default function RegistrationForm({
           </span>
         </div>
 
+        {/* Permit Plan Selection */}
+        <div className="form-group mt-3">
+          <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <ShieldIcon className="w-4 h-4 text-emerald" style={{ color: '#34d399' }} />
+            <span>Select Campus Parking Permit Tier</span>
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '10px', marginTop: '6px' }}>
+            {PERMIT_TIERS.map((tier) => {
+              const isSelected = selectedPlanId === tier.id
+              return (
+                <div
+                  key={tier.id}
+                  onClick={() => setSelectedPlanId(tier.id)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: isSelected ? '1px solid #10b981' : '1px solid rgba(51, 65, 85, 0.6)',
+                    background: isSelected ? 'rgba(16, 185, 129, 0.12)' : 'rgba(15, 23, 42, 0.5)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#f1f5f9' }}>{tier.name}</span>
+                    {isSelected && <CheckIcon style={{ color: '#34d399', width: 15, height: 15 }} />}
+                  </div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#38bdf8', marginTop: '3px' }}>{tier.price}</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{tier.description}</div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="selected-plan-summary mt-2" style={{ fontSize: '12px', color: '#38bdf8' }}>
+            <span>Selected Plan: <strong>{selectedPlan.name}</strong> ({selectedPlan.price}) — {selectedPlan.description}</span>
+          </div>
+        </div>
+
         {/* Submit Button */}
         <div className="form-submit-row">
           <button
@@ -432,7 +460,7 @@ export default function RegistrationForm({
             className="btn btn-primary btn-md w-full register-action-btn"
             disabled={isSubmitting}
           >
-            <span>{isSubmitting ? 'Registering Vehicle...' : 'Register Vehicle'}</span>
+            <span>{isSubmitting ? 'Registering Vehicle...' : `Register Vehicle (${selectedPlan.name})`}</span>
           </button>
         </div>
       </form>

@@ -31,7 +31,7 @@ export default function StudentDashboardView({
         s.reservedBy === user.uid || s.studentId === user.uid || s.userId === user.uid
       )
     )
-  }, [slots, activeReservation, user?.uid])
+  }, [slots, activeReservation, user])
 
   // Calculations
   const totalSlots = slots.length || 160

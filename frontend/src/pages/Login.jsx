@@ -127,6 +127,36 @@ export default function Login({ onDemoLogin }) {
     setError('')
     setSuccess('')
 
+    if (onDemoLogin) {
+      if (role === 'Admin') {
+        onDemoLogin({
+          uid: 'demo-admin-guard',
+          email: 'admin@college.edu',
+          displayName: 'Campus Security Guard',
+          role: 'Security Admin',
+          campusId: 'ADM-01',
+          phoneNumber: '+91 98765 00001'
+        })
+        return
+      } else {
+        onDemoLogin({
+          uid: 'demo-student-01',
+          email: 'student@college.edu',
+          displayName: 'Alzuni Shaikh',
+          role: 'Student',
+          campusId: 'S2410701',
+          rollNumber: 'S2410701',
+          stream: 'BCA (Bachelor of Computer Applications)',
+          phoneNumber: '+91 98765 43210',
+          vehicleNumber: 'MH-12-AB-1234',
+          defaultPlate: 'MH-12-AB-1234',
+          vehiclePlate: 'MH-12-AB-1234',
+          vehicleType: 'scooty'
+        })
+        return
+      }
+    }
+
     if (role === 'Student') {
       setLoading(true)
       try {

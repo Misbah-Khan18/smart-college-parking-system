@@ -102,7 +102,7 @@ export default function QRScanner({
       }
       try {
         scanner.clear()
-      } catch (clearErr) {
+      } catch {
         // clear() is synchronous in html5-qrcode
       }
     }
@@ -264,11 +264,17 @@ export default function QRScanner({
   // Auto-start on mount if requested & cleanup on unmount
   useEffect(() => {
     isMountedRef.current = true
+    let timer = null
     if (autoStart) {
-      startScanner()
+      timer = setTimeout(() => {
+        if (isMountedRef.current) {
+          startScanner()
+        }
+      }, 50)
     }
 
     return () => {
+      if (timer) clearTimeout(timer)
       isMountedRef.current = false
       const scanner = scannerRef.current
       if (scanner) {
@@ -280,21 +286,25 @@ export default function QRScanner({
                 .then(() => {
                   try {
                     scanner.clear()
-                  } catch {}
+                  } catch {
+                    /* ignored */
+                  }
                 })
                 .catch(() => {})
             }
           } else {
             try {
               scanner.clear()
-            } catch {}
+            } catch {
+              /* ignored */
+            }
           }
-        } catch (e) {
-          // ignore
+        } catch {
+          /* ignored */
         }
       }
     }
-  }, []) // Clean unmount only
+  }, [autoStart, startScanner])
 
   return (
     <div className="qr-camera-scanner-wrapper">
@@ -351,12 +361,22 @@ export default function QRScanner({
         {/* Successful Detection Banner */}
         {lastScannedCode && (
           <div className="scanned-success-overlay">
-            <div className="flex items-center gap-2">
-              <CheckIcon className="w-5 h-5 text-emerald" />
-              <div>
-                <span className="text-xs font-bold text-emerald-400 block">QR PASS DETECTED</span>
-                <code className="text-2xs font-mono text-slate-300 break-all">{lastScannedCode}</code>
+            <div className="flex items-center justify-between gap-2 w-full">
+              <div className="flex items-center gap-2">
+                <CheckIcon className="w-5 h-5 text-emerald" />
+                <div>
+                  <span className="text-xs font-bold text-emerald-400 block">QR PASS DETECTED</span>
+                  <code className="text-2xs font-mono text-slate-300 break-all">{lastScannedCode}</code>
+                </div>
               </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-xs"
+                onClick={resetScanner}
+                title="Scan next pass"
+              >
+                Scan Next
+              </button>
             </div>
           </div>
         )}
@@ -408,6 +428,17 @@ export default function QRScanner({
               disabled={isProcessing || isInitializing}
             >
               📷 {lastScannedCode ? 'Scan Next QR' : 'Start Camera'}
+            </button>
+          )}
+
+          {lastScannedCode && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-xs"
+              onClick={resetScanner}
+              disabled={isProcessing}
+            >
+              🔄 Reset Scanner
             </button>
           )}
 

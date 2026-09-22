@@ -34,7 +34,7 @@ export default function StudentMyStatusView({
         s.reservedBy === user.uid || s.userId === user.uid || s.studentId === user.uid
       )
     )
-  }, [slots, activeReservation, user?.uid])
+  }, [slots, activeReservation, user])
 
   const isReserved = currentSlot && (currentSlot.status === 'reserved' || currentSlot.status === 'RESERVED')
 
@@ -168,6 +168,15 @@ export default function StudentMyStatusView({
               <span className="msa-label">Reservation / Entry Time</span>
               <span className="msa-val font-mono">{currentSlot.entryTime || 'Active Session'}</span>
             </div>
+
+            {currentSlot.entryTimestamp && (
+              <div className="msa-item">
+                <span className="msa-label">Live Elapsed Duration</span>
+                <span className="msa-val font-mono font-bold" style={{ color: '#38bdf8' }}>
+                  ⏱️ {formatLiveDurationCompact(currentSlot.entryTimestamp)}
+                </span>
+              </div>
+            )}
 
             <div className="msa-item">
               <span className="msa-label">Status</span>

@@ -137,10 +137,15 @@ export const createInitialBayData = () => {
     'G-48': { status: 'reserved', assignedTo: 'Campus Facilities Director', plate: 'MH-12-ST-0048', mins: 180 },
     'G-52': { status: 'occupied', assignedTo: 'Soham Kulkarni (ECE)', plate: 'MH-12-SK-9900', mins: 70 },
     'G-65': { status: 'occupied', assignedTo: 'Priya Verma (BCA)', plate: 'MH-14-PV-1122', mins: 90 },
-    'G-72': { status: 'occupied', assignedTo: 'Amit Rathi (CS-Y1)', plate: 'MH-12-AR-7890', mins: 45 }
+    'G-72': { status: 'occupied', assignedTo: 'Amit Rathi (CS-Y1)', plate: 'MH-12-AR-7890', mins: 45 },
+    'G-85': { status: 'occupied', assignedTo: 'Nikhil Patil (Mech-Y2)', plate: 'MH-12-NP-5511', mins: 65 },
+    'G-92': { status: 'occupied', assignedTo: 'Sneha Jadhav (IT-Y3)', plate: 'MH-14-SJ-8820', mins: 110 },
+    'G-104': { status: 'reserved', assignedTo: 'Campus Security Quick-Response', plate: 'MH-12-SEC-02', mins: 180 },
+    'G-118': { status: 'occupied', assignedTo: 'Aaryan Deshpande (CS)', plate: 'MH-12-AD-4019', mins: 50 },
+    'G-132': { status: 'occupied', assignedTo: 'Pooja Hegde (MBA-Y1)', plate: 'MH-14-PH-7712', mins: 90 }
   }
 
-  for (let i = 1; i <= 80; i++) {
+  for (let i = 1; i <= 140; i++) {
     const id = `G-${String(i).padStart(2, '0')}`
     const seed = sampleData[id]
     const status = seed ? seed.status : 'available'
@@ -148,18 +153,32 @@ export const createInitialBayData = () => {
     const isOccupied = status === 'occupied' || status === 'booked'
     const statusChangesAt = isOccupied ? getOccupiedExpiry(seed.mins) : isReserved ? getReservedExpiry(seed.mins) : null
 
-    let section = 'Accounts Department - Front Side'
-    if (i > 20 && i <= 40) section = 'Accounts Department - Opposite Side'
-    else if (i > 40 && i <= 60) section = 'Exam IT Department - Front Side'
-    else if (i > 60) section = 'Exam IT Department - Opposite Side'
+    let section = 'Main Gate West Wing — Bike Grid'
+    let dimensions = '1.5m × 2.6m'
+    if (i > 16 && i <= 32) {
+      section = 'Main Gate East Wing — Bike Grid'
+    } else if (i > 32 && i <= 44) {
+      section = 'Ingress West Flank — Bike Bay'
+    } else if (i > 44 && i <= 57) {
+      section = 'Ingress East Flank — Bike Bay'
+    } else if (i > 57 && i <= 80) {
+      section = i <= 68 ? 'Accounts Dept Wing — Perimeter Bay' : 'Exam IT Dept Wing — Perimeter Bay'
+      dimensions = '2.5m × 5.0m'
+    } else if (i > 80 && i <= 110) {
+      section = 'South Concourse Under Ingress — Bike Row 1'
+      dimensions = '1.2m × 2.5m'
+    } else if (i > 110) {
+      section = 'South Concourse Under Ingress — Bike Row 2'
+      dimensions = '1.2m × 2.5m'
+    }
 
     bays.push({
       id,
       slotNumber: i,
       floor: 'Ground Floor',
-      type: 'scooty',
+      type: i > 57 && i <= 80 ? 'scooty' : 'bike',
       section,
-      wing: 'Ground Floor — Scooters',
+      wing: 'Ground Floor — Two-Wheelers',
       row: `R${Math.ceil(i / 20)}`,
       status,
       label: status.toUpperCase(),
@@ -168,8 +187,8 @@ export const createInitialBayData = () => {
       assignedTo: seed?.assignedTo || null,
       plate: seed?.plate || null,
       occupant: seed ? `${seed.assignedTo} · ${seed.plate}` : 'None (Slot Clear)',
-      dimensions: '2.5m × 5.0m',
-      distanceToLift: `${8 + (i % 20) * 2}m (South Core)`,
+      dimensions,
+      distanceToLift: `${6 + (i % 20) * 2}m (Campus Core)`,
       tariff: 'Free w/ Student Tag'
     })
   }
