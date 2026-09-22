@@ -10,21 +10,24 @@ const DATA_FILE = path.join(__dirname, '..', '..', 'data', 'store.json');
 function generateDefaultSlots() {
   const slots = [];
 
-  // Ground floor: G-01 to G-80 (Scooties)
-  for (let i = 1; i <= 80; i++) {
+  // Ground floor: G-01 to G-140 (Scooties & Bikes)
+  for (let i = 1; i <= 140; i++) {
     const id = `G-${String(i).padStart(2, '0')}`;
     let section = 'Front Section';
-    if (i <= 20) section = 'Accounts Department - Front Side';
-    else if (i <= 40) section = 'Main Academic Block - East Wing';
-    else if (i <= 60) section = 'Library & Study Hall Ingress';
-    else section = 'Sports Complex & Canteen Perimeter';
+    if (i <= 16) section = 'Main Gate West Wing — Bike Grid';
+    else if (i <= 32) section = 'Main Gate East Wing — Bike Grid';
+    else if (i <= 44) section = 'Ingress West Flank — Bike Bay';
+    else if (i <= 57) section = 'Ingress East Flank — Bike Bay';
+    else if (i <= 80) section = 'Accounts & Exam IT Dept Wings';
+    else if (i <= 110) section = 'South Concourse Under Ingress — Bike Row 1';
+    else section = 'South Concourse Under Ingress — Bike Row 2';
 
     slots.push({
       id,
       floor: 'Ground Floor',
       section,
-      zone: 'Ground Floor - Scooty Parking',
-      type: 'scooty',
+      zone: 'Ground Floor - Two-Wheeler Parking',
+      type: i > 57 && i <= 80 ? 'scooty' : 'bike',
       isEv: i % 10 === 0,
       status: 'AVAILABLE',
       plate: '',
