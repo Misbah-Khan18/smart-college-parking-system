@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import {
   signInWithGoogle,
-  registerWithEmail,
   loginWithEmail,
+  signInDemoStudent,
   resetPassword,
 } from '../firebase/auth'
 import {
@@ -100,42 +100,8 @@ export default function Login({ onDemoLogin }) {
 
   const handleRegister = async (e) => {
     e.preventDefault()
-    setError('')
-    setSuccess('')
-
-    if (!regName.trim() || !regEmail.trim() || !regPassword) {
-      setError('Please fill in all required fields.')
-      return
-    }
-    if (regPassword.length < 6) {
-      setError('Password must be at least 6 characters long.')
-      return
-    }
-
-    const isAdminRole = regRole === 'Security Admin' || regRole === 'Admin' || regEmail.trim().toLowerCase().includes('admin')
-    const finalRole = isAdminRole ? 'Security Admin' : 'Student'
-    const generatedCampusId = regCampusId.trim().toUpperCase() ||
-      (isAdminRole ? `ADM-${Math.floor(100 + Math.random() * 900)}` : `STU-${Math.floor(1000 + Math.random() * 9000)}`)
-
-    setLoading(true)
-    try {
-      await registerWithEmail({
-        name: regName.trim(),
-        email: regEmail.trim(),
-        password: regPassword,
-        role: finalRole,
-        campusId: generatedCampusId,
-        vehicleType: regVehicleType,
-        isEv: false,
-        defaultPlate: regPlate.trim().toUpperCase() || (isAdminRole ? '' : 'MH-12-AP-2026'),
-      })
-      setSuccess('Account created successfully!')
-    } catch (err) {
-      console.error('Registration Error:', err)
-      setError(formatAuthError(err))
-    } finally {
-      setLoading(false)
-    }
+    // Google Sign-In onboarding for new student registration
+    await handleGoogleSignIn()
   }
 
   const handlePasswordReset = async (e) => {
@@ -157,19 +123,55 @@ export default function Login({ onDemoLogin }) {
     }
   }
 
-  const handleQuickDemo = (role = 'Student') => {
+  const handleQuickDemo = async (role = 'Student') => {
+    setError('')
+    setSuccess('')
+
     if (onDemoLogin) {
-      onDemoLogin({
-        uid: role === 'Admin' ? 'demo-admin-01' : 'demo-student-01',
-        displayName: role === 'Admin' ? 'Campus Admin' : 'Alzuni Shaikh',
-        email: role === 'Admin' ? 'admin@college.edu' : 'alzuni.shaikh@college.edu',
-        role: role === 'Admin' ? 'Security Admin' : 'Student',
-        campusId: role === 'Admin' ? 'ADM-101' : 'S2410701',
-        vehicleType: 'scooty',
-        defaultPlate: role === 'Admin' ? 'MH-04-AD-001' : 'MH-12-AB-1234',
-        stream: 'BCA (Bachelor of Computer Applications)',
-        phoneNumber: '+91 98765 43210'
-      })
+      if (role === 'Admin') {
+        onDemoLogin({
+          uid: 'demo-admin-guard',
+          email: 'admin@college.edu',
+          displayName: 'Campus Security Guard',
+          role: 'Security Admin',
+          campusId: 'ADM-01',
+          phoneNumber: '+91 98765 00001'
+        })
+        return
+      } else {
+        onDemoLogin({
+          uid: 'demo-student-01',
+          email: 'student@college.edu',
+          displayName: 'Alzuni Shaikh',
+          role: 'Student',
+          campusId: 'S2410701',
+          rollNumber: 'S2410701',
+          stream: 'BCA (Bachelor of Computer Applications)',
+          phoneNumber: '+91 98765 43210',
+          vehicleNumber: 'MH-12-AB-1234',
+          defaultPlate: 'MH-12-AB-1234',
+          vehiclePlate: 'MH-12-AB-1234',
+          vehicleType: 'scooty'
+        })
+        return
+      }
+    }
+
+    if (role === 'Student') {
+      setLoading(true)
+      try {
+        await signInDemoStudent()
+      } catch (err) {
+        console.error('Student Demo Auth Error:', err)
+        setError(formatAuthError(err))
+      } finally {
+        setLoading(false)
+      }
+    } else {
+      // Admin authentication requires a real registered administrator account
+      setMode('login')
+      setLoginEmail('shaikhalzuni123@gmail.com')
+      setError('Administrator access requires signing in with an authorized Admin account configured in Firestore.')
     }
   }
 
@@ -182,7 +184,7 @@ export default function Login({ onDemoLogin }) {
             <span className="brand-logo-text">P</span>
           </div>
           <h1 className="brand-name soc-brand-animated">
-            School of Commerce <span className="accent">Smart Parking</span>
+            SOCMAC <span className="accent">Smart Park</span>
           </h1>
           <p className="brand-sub">Campus Two-Wheeler IoT Parking System</p>
         </div>
@@ -536,3 +538,4 @@ export default function Login({ onDemoLogin }) {
     </div>
   )
 }
+
