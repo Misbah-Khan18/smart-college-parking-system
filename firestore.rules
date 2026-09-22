@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Development / College Campus Simulation:
+    // Allow seamless access across client demo users, RFID gates, admin scanners, and real-time bay reservations
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
