@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   CheckIcon,
   ShieldIcon,
@@ -9,13 +10,28 @@ export default function StudentDashboardView({
   userProfile,
   slots = [],
   activePermit,
+  activeReservation,
   onViewPass,
   onNavigateTab,
   onOpenBooking,
-  onCancelPermit
+  onCancelPermit,
+  onCancelReservation
 }) {
   const displayName = userProfile?.displayName || user?.displayName || 'Alzuni Shaikh'
   const firstName = displayName.split(' ')[0] || 'Alzuni'
+  const vehiclePlate = userProfile?.defaultPlate || userProfile?.vehicleNumber || 'MH-12-AB-1234'
+
+  // Find user's active reservation strictly by authenticated Firebase UID
+  const userReservedSlot = useMemo(() => {
+    if (activeReservation && activeReservation.slotId) {
+      return slots.find((s) => s.id === activeReservation.slotId) || activeReservation
+    }
+    return slots.find(
+      (s) => (s.status === 'reserved' || s.status === 'RESERVED') && user?.uid && (
+        s.reservedBy === user.uid || s.studentId === user.uid || s.userId === user.uid
+      )
+    )
+  }, [slots, activeReservation, user])
 
   // Calculations
   const totalSlots = slots.length || 160
@@ -39,9 +55,9 @@ export default function StudentDashboardView({
       <section className="student-hero-banner glass-card student-hero-clean">
         <div className="shb-content">
           <h1 className="soc-hero-title soc-brand-animated">
-            <span className="soc-brand-text">School of Commerce</span>
+            <span className="soc-brand-text">SOCMAC</span>
             <span className="accent-dot">.</span>
-            <span className="soc-brand-park">Park</span>
+            <span className="soc-brand-park">Smart Park</span>
           </h1>
           <p className="shb-greeting-sub">
             Welcome, <span className="gradient-text font-bold">{firstName}</span> 👋 &bull; Smart Two-Wheeler Campus Parking
@@ -49,8 +65,84 @@ export default function StudentDashboardView({
         </div>
       </section>
 
-      {/* Active Permit Banner or Buy Permit Options */}
-      {activePermit ? (
+      {/* Active Reservation Banner */}
+      {userReservedSlot ? (
+        <div className="glass-card" style={{
+          padding: '18px 22px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '14px',
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.85))',
+          border: '1px solid rgba(245, 158, 11, 0.4)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '22px'
+            }}>
+              🅿️
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <strong style={{ fontSize: '17px', color: '#f8fafc' }}>
+                  Bay {userReservedSlot.id || userReservedSlot.slotId} &bull; Reserved
+                </strong>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', fontWeight: 700 }}>
+                  🟡 ACTIVE RESERVATION
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#cbd5e1' }}>
+                Zone: <strong style={{ color: '#38bdf8' }}>{userReservedSlot.floor || 'Campus'} &bull; {userReservedSlot.section || 'Parking Area'}</strong> &bull; Plate: <span className="font-mono text-cyan">{userReservedSlot.plate || userReservedSlot.vehiclePlate || vehiclePlate}</span>
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onViewPass && onViewPass({
+                id: userReservedSlot.passId || `SOC-${userReservedSlot.id || userReservedSlot.slotId}`,
+                slotId: userReservedSlot.id || userReservedSlot.slotId,
+                plate: userReservedSlot.plate || userReservedSlot.vehiclePlate || vehiclePlate,
+                owner: displayName,
+                userName: displayName,
+                floor: userReservedSlot.floor,
+                section: userReservedSlot.section,
+                zone: userReservedSlot.zone || `${userReservedSlot.floor} - ${userReservedSlot.section || 'General'}`,
+                passType: userReservedSlot.passType || 'Parking Pass',
+                permitType: userReservedSlot.passType || 'Parking Pass',
+                status: 'ACTIVE',
+                reservationStatus: 'Reserved',
+                entryTime: userReservedSlot.entryTime || 'Active',
+                validUntil: userReservedSlot.reservedUntil || 'Active Session',
+                reservedUntil: userReservedSlot.reservedUntil || 'Active Session'
+              })}
+            >
+              📱 Show Ingress Pass &amp; QR
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5' }}
+              onClick={() => onCancelReservation && onCancelReservation(userReservedSlot)}
+              title="Release/Cancel reservation"
+            >
+              🗑️ Release Bay
+            </button>
+          </div>
+        </div>
+      ) : activePermit ? (
         <div className="glass-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.75))', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>
@@ -105,17 +197,17 @@ export default function StudentDashboardView({
                 <span className="q-emoji">🎫</span>
               </div>
               <div className="q-info">
-                <h4>Get Parking Permit</h4>
-                <span className="text-muted">Daily (₹20), Monthly (₹300), or Semester (₹1200)</span>
+                <h4>Reserve Parking Slot</h4>
+                <span className="text-muted">Select an available bay &amp; activate your pass</span>
               </div>
             </div>
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              onClick={() => onOpenBooking && onOpenBooking(null, 'permit')}
+              onClick={() => onNavigateTab && onNavigateTab('student-available-parking')}
             >
               <PlusCircleIcon className="w-4 h-4" />
-              <span>Buy Permit</span>
+              <span>Select Slot</span>
             </button>
           </div>
 
