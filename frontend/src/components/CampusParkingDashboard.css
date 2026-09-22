@@ -487,12 +487,12 @@
 }
 
 /* ==========================================================================
-   GROUND FLOOR: TOP ROW (WEST WING, MAIN GATE ACCESS, EAST WING)
+   GROUND FLOOR: TOP ROW (WEST CLUSTER, MAIN GATE ACCESS, EAST CLUSTER)
    ========================================================================== */
 .cad-top-row-container {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) 190px 1fr;
-  gap: 14px;
+  grid-template-columns: minmax(220px, auto) minmax(140px, 170px) 1fr;
+  gap: 12px;
   align-items: stretch;
 }
 
@@ -504,6 +504,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-height: 80px;
+  box-sizing: border-box;
 }
 
 .cad-cluster-label {
@@ -512,79 +514,85 @@
   font-weight: 700;
   color: #64748b;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .west-cluster .cad-cluster-bays {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(44px, 1fr));
   gap: 6px;
 }
 
 .east-cluster .cad-cluster-bays {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(9, minmax(44px, 1fr));
   gap: 6px;
 }
 
-/* Main Gate Portal Barrier Block */
+/* Main Gate Portal Barrier Block: Compact, Aligned, Non-overlapping */
 .cad-gate-portal-block {
-  background: rgba(245, 158, 11, 0.05);
-  border: 1.5px dashed rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.04);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
   border-radius: 9px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  min-height: 80px;
+  box-sizing: border-box;
 }
 
 .cad-gate-portal-block:hover {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.1);
   border-color: #f59e0b;
-  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.2);
   transform: translateY(-1px);
 }
 
 .cad-gate-portal-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .cad-gate-icon {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .cad-gate-rfid-chip {
   background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 1px 5px;
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 800;
   color: #fbbf24;
 }
 
 .cad-gate-title {
   color: #fbbf24;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .cad-gate-status {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 600;
   color: #d97706;
+  white-space: nowrap;
 }
 
 .cad-gate-dot {

@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
+import QRCode from 'qrcode'
 import { verifyPaymentSession } from '../services/paymentService'
 import { CheckIcon } from '../components/Icons'
 
 export default function PaymentSuccessPage({ onNavigateHome }) {
-  const sessionId = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('session_id')
-    : null
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const sessionId = searchParams?.get('session_id') ||
+    searchParams?.get('permit_id') ||
+    searchParams?.get('reg_id') ||
+    searchParams?.get('res_id') ||
+    null
 
   const [loading, setLoading] = useState(Boolean(sessionId))
   const [error, setError] = useState(sessionId ? '' : 'No payment session found in URL.')
   const [sessionData, setSessionData] = useState(null)
+  const [qrSrc, setQrSrc] = useState('')
+  const [qrError, setQrError] = useState(false)
 
   useEffect(() => {
     if (!sessionId) return
@@ -28,6 +34,41 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
 
     loadSession()
   }, [sessionId])
+
+  useEffect(() => {
+    let isMounted = true
+    const permit = sessionData?.permit
+    if (!permit) return
+
+    const qrToken = permit.qrToken || permit.passId || permit.reservationId || permit.id || ''
+
+    QRCode.toDataURL(qrToken, {
+      width: 180,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      },
+      errorCorrectionLevel: 'M'
+    })
+      .then((url) => {
+        if (isMounted) {
+          setQrSrc(url)
+          setQrError(false)
+        }
+      })
+      .catch((err) => {
+        console.error('[PaymentSuccessPage] QR generation failed:', err)
+        if (isMounted) {
+          setQrSrc('')
+          setQrError(true)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [sessionData])
 
   if (loading) {
     return (
@@ -67,7 +108,6 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
   }
 
   const { permit } = sessionData
-  const qrImage = permit.qrCodeDataUrl || ''
 
   return (
     <div className="payment-return-container">
@@ -80,7 +120,7 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
           <span className="payment-badge-status">STRIPE PAYMENT VERIFIED • ACTIVE</span>
           <h1 className="payment-title">Payment Successful!</h1>
           <p className="payment-subtitle">
-            Your vehicle has been registered and authorized for School of Commerce parking.
+            Your vehicle has been registered and authorized for SOCMAC Smart Park.
           </p>
         </div>
 
@@ -121,8 +161,13 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
         {/* Dynamic QR Code Pass Card */}
         <div className="qr-pass-showcase">
           <div className="qr-img-wrapper">
-            {qrImage ? (
-              <img src={qrImage} alt="Secure QR Permit Code" className="qr-img" />
+            {qrSrc && !qrError ? (
+              <img
+                src={qrSrc}
+                alt="Secure QR Permit Code"
+                className="qr-img"
+                onError={() => setQrError(true)}
+              />
             ) : (
               <div className="qr-box-fallback font-mono">SECURE QR</div>
             )}
@@ -133,6 +178,7 @@ export default function PaymentSuccessPage({ onNavigateHome }) {
               This QR code encodes a signed cryptographic token. Scan directly at Gate 1 &amp; Gate 2 sensors for instant automated boom barrier entry.
             </p>
             <div className="qr-security-tag">
+
               <span>🛡️ Zero Card Data Encoded • Signed Security Token</span>
             </div>
           </div>

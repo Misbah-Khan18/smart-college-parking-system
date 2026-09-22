@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   getRegisteredVehicles,
+  subscribeToRegisteredVehicles,
   updateVehicle,
   deleteVehicle
 } from '../services/vehicleService'
@@ -11,25 +12,51 @@ import DeleteConfirmModal from '../components/vehicle/DeleteConfirmModal'
 
 export default function RegistrationPage({
   slots = [],
-  showToast
+  registeredVehicles = [],
+  showToast,
+  user,
+  userProfile,
+  onRegisterSuccess
 }) {
-  // Registered vehicles state
-  const [vehicles, setVehicles] = useState(() => getRegisteredVehicles())
+  // Registered vehicles state (synced with props or service listener)
+  const [vehicles, setVehicles] = useState(() => registeredVehicles.length > 0 ? registeredVehicles : getRegisteredVehicles())
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Modals state
   const [editingVehicle, setEditingVehicle] = useState(null)
   const [deletingVehicle, setDeletingVehicle] = useState(null)
 
+  // Keep synced with registeredVehicles prop
+  useEffect(() => {
+    if (registeredVehicles && registeredVehicles.length > 0) {
+      setVehicles(registeredVehicles)
+    }
+  }, [registeredVehicles])
+
+  // Real-time subscription fallback
+  useEffect(() => {
+    const unsubscribe = subscribeToRegisteredVehicles(
+      (liveVehicles) => {
+        setVehicles(liveVehicles)
+      },
+      (err) => console.warn('[RegistrationPage] Vehicle subscription notice:', err?.message),
+      { isAdmin: true }
+    )
+    return () => unsubscribe()
+  }, [])
+
   // Handle successful new vehicle registration
-  const handleRegisterSuccess = () => {
+  const handleRegisterSuccess = (newRecord, updatedProfile) => {
     setVehicles(getRegisteredVehicles())
+    if (onRegisterSuccess) {
+      onRegisterSuccess(newRecord, updatedProfile)
+    }
   }
 
   // Handle Edit Save from EditVehicleModal
-  const handleSaveEdit = (id, updatedData) => {
+  const handleSaveEdit = async (id, updatedData) => {
     try {
-      const updatedRecord = updateVehicle(id, updatedData)
-      setVehicles(getRegisteredVehicles())
+      const updatedRecord = await updateVehicle(id, updatedData)
       if (showToast) {
         showToast(
           'Registration Updated',
@@ -46,11 +73,10 @@ export default function RegistrationPage({
   }
 
   // Handle Delete Confirmation from DeleteConfirmModal
-  const handleConfirmDelete = (id) => {
+  const handleConfirmDelete = async (id) => {
     try {
       const target = vehicles.find((v) => v.id === id)
-      deleteVehicle(id, slots)
-      setVehicles(getRegisteredVehicles())
+      await deleteVehicle(id, slots)
       if (showToast) {
         showToast(
           'Registration Removed',
@@ -111,6 +137,8 @@ export default function RegistrationPage({
       <div className="registration-content-grid">
         {/* Registration Form Component */}
         <RegistrationForm
+          user={user}
+          userProfile={userProfile}
           registeredVehicles={vehicles}
           onRegisterSuccess={handleRegisterSuccess}
           showToast={showToast}
@@ -122,6 +150,9 @@ export default function RegistrationPage({
             vehicles={vehicles}
             onEditVehicle={(vehicle) => setEditingVehicle(vehicle)}
             onDeleteVehicle={(vehicle) => setDeletingVehicle(vehicle)}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            showSearch={true}
           />
         </div>
       </div>
@@ -146,3 +177,4 @@ export default function RegistrationPage({
     </div>
   )
 }
+

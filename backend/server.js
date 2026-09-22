@@ -23,17 +23,8 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 const isRealStripeConfigured = STRIPE_SECRET_KEY && !STRIPE_SECRET_KEY.includes('placeholder')
 const stripe = isRealStripeConfigured ? new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' }) : null
 
-// In-Memory Database / Local Storage persistence for Registrations, Payments & Permits
-const DATA_FILE = path.join(__dirname, 'data_store.json')
-
+// In-Memory store for legacy test endpoints (Firestore is authoritative runtime state in production)
 function loadData() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      return JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'))
-    }
-  } catch (err) {
-    console.warn('Could not read local data_store:', err)
-  }
   return {
     registrations: {},
     permits: {},
@@ -42,11 +33,7 @@ function loadData() {
 }
 
 function saveData(data) {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8')
-  } catch (err) {
-    console.error('Failed to write data_store:', err)
-  }
+  // In-memory runtime for serverless environments
 }
 
 let db = loadData()

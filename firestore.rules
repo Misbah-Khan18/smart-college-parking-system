@@ -1,0 +1,271 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =========================================================
+    // HELPER FUNCTIONS
+    // =========================================================
+    
+    // Check if request is from an authenticated user
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user document exists in /users/{uid}
+    function userDocExists() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    // Safely retrieve current user's profile document data
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Check if user is an Admin or Security Admin based exclusively on their Firestore /users/{uid}.role
+    function isAdmin() {
+      return userDocExists() && (
+        getUserData().role == 'Admin' ||
+        getUserData().role == 'Security Admin'
+      );
+    }
+    
+    // Safely get user's registered campusId / roll number
+    function getCampusId() {
+      return userDocExists() && ('campusId' in getUserData()) ? getUserData().campusId : '';
+    }
+    
+    // Safely get user's default registered license plate
+    function getDefaultPlate() {
+      return userDocExists() && ('defaultPlate' in getUserData()) ? getUserData().defaultPlate : '';
+    }
+    
+    // Safely get user's display name
+    function getDisplayName() {
+      return userDocExists() && ('displayName' in getUserData())
+        ? getUserData().displayName
+        : (request.auth.token.name != null ? request.auth.token.name : '');
+    }
+
+    // =========================================================
+    // 1. USERS COLLECTION
+    // =========================================================
+    match /users/{userId} {
+      // Student/Faculty can read only their own profile; Admin/Security Admin can read all
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      // User can create their own profile, but CANNOT self-assign 'Admin' or 'Security Admin' role
+      allow create: if isAuthenticated() && (
+        isAdmin() || (
+          request.auth.uid == userId && (
+            !('role' in request.resource.data) ||
+            request.resource.data.role in ['Student', 'Faculty']
+          )
+        )
+      );
+      
+      // Student/Faculty can update own profile, but CANNOT modify the 'role' field
+      // Only Admin/Security Admin can change user roles or edit other users
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          request.auth.uid == userId && (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+            request.resource.data.role == resource.data.role
+          )
+        )
+      );
+      
+      // Only Admin/Security Admin can delete user records
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================
+    // 2. PARKING SLOTS (160 BAYS: G-01..G-80, B-01..B-80)
+    // =========================================================
+    match /parking_slots/{slotId} {
+      // Authenticated users can read real-time parking slot availability
+      allow read: if isAuthenticated();
+      
+      // Admin can create/seed slots; Authenticated users can seed standard initial bays as 'available'
+      allow create: if isAuthenticated() && (
+        isAdmin() || (
+          request.resource.data.status == 'available' &&
+          slotId.matches('^[GB]-(0[1-9]|[1-7][0-9]|80)$')
+        )
+      );
+      
+      // Slot Occupancy Updates:
+      // 1. Admin/Security Admin can update any slot (entry, exit, reallocation, release)
+      // 2. Students can ONLY transition an 'available' slot to 'reserved' or 'occupied' with their own authenticated UID
+      // 3. Students can ONLY release a slot if they are the verified owner (matching UID)
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          // Reserve or Occupy an available slot
+          resource.data.status == 'available' &&
+          request.resource.data.status in ['occupied', 'reserved'] &&
+          (
+            request.resource.data.reservedBy == request.auth.uid ||
+            request.resource.data.userId == request.auth.uid ||
+            request.resource.data.studentId == request.auth.uid
+          )
+        ) || (
+          // Release/Cancel reservation (STRICT UID ownership check)
+          resource.data.status == 'reserved' &&
+          request.resource.data.status == 'available' &&
+          (
+            resource.data.reservedBy == request.auth.uid ||
+            resource.data.userId == request.auth.uid ||
+            resource.data.studentId == request.auth.uid
+          )
+        )
+      );
+      
+      // Only Admin/Security Admin can delete parking slot documents
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================
+    // 3. RESERVATIONS COLLECTION (ACTIVE & PAST PASSES)
+    // =========================================================
+    match /reservations/{reservationId} {
+      // Students can read ONLY their own reservations; Admins can read all
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.reservedBy == request.auth.uid ||
+        resource.data.studentId == request.auth.uid
+      );
+      
+      // Student can create their own reservation
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.reservedBy == request.auth.uid ||
+        request.resource.data.studentId == request.auth.uid
+      );
+      
+      // Student can update ONLY their own reservation
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.reservedBy == request.auth.uid ||
+        resource.data.studentId == request.auth.uid
+      );
+      
+      // Student can delete/cancel ONLY their own reservation; Admins can delete all
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.reservedBy == request.auth.uid ||
+        resource.data.studentId == request.auth.uid
+      );
+    }
+
+    // =========================================================
+    // 4. REGISTERED VEHICLES COLLECTION
+    // =========================================================
+    match /registered_vehicles/{vehicleId} {
+      // Students/Faculty can read their own registered vehicle; Admin/Security Admin can read all
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        resource.data.rollNumber == getCampusId() ||
+        resource.data.vehicleNumber == getDefaultPlate() ||
+        resource.data.studentName == getDisplayName()
+      );
+      
+      // Create:
+      // - Admin/Security Admin can create any vehicle
+      // - Students/Faculty can only register a vehicle matching their own identity
+      allow create: if isAuthenticated() && (
+        isAdmin() || (
+          request.resource.data.studentId == request.auth.uid ||
+          request.resource.data.rollNumber == getCampusId() ||
+          request.resource.data.studentName == getDisplayName() ||
+          request.resource.data.vehicleNumber == getDefaultPlate()
+        )
+      );
+      
+      // Update:
+      // - Admin/Security Admin can update any vehicle
+      // - Students/Faculty can only update their own registered vehicle
+      allow update: if isAuthenticated() && (
+        isAdmin() || (
+          resource.data.studentId == request.auth.uid ||
+          resource.data.rollNumber == getCampusId() ||
+          resource.data.studentName == getDisplayName() ||
+          resource.data.vehicleNumber == getDefaultPlate()
+        )
+      );
+      
+      // Delete: Only Admin/Security Admin can remove vehicle registrations
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================
+    // 5. PARKING SESSIONS COLLECTION
+    // =========================================================
+    match /parking_sessions/{sessionId} {
+      // Students/Faculty can read their own sessions; Admin/Security Admin can read all
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        resource.data.rollNumber == getCampusId() ||
+        resource.data.vehicleNumber == getDefaultPlate()
+      );
+      
+      // Create:
+      // - Admin/Security Admin creates session on gate ingress
+      // - Student creates session during their verified slot booking
+      allow create: if isAuthenticated() && (
+        isAdmin() || (
+          request.resource.data.studentId == request.auth.uid ||
+          request.resource.data.rollNumber == getCampusId() ||
+          request.resource.data.vehicleNumber == getDefaultPlate()
+        )
+      );
+      
+      // Update/Checkout: Only Admin/Security Admin can complete or modify sessions
+      allow update: if isAdmin();
+      
+      // Delete: Only Admin/Security Admin can delete sessions
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================
+    // 6. PARKING HISTORY COLLECTION (COMPLETED ARCHIVE)
+    // =========================================================
+    match /parking_history/{historyId} {
+      // Students/Faculty can read their own history; Admin/Security Admin can read all
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.studentId == request.auth.uid ||
+        resource.data.rollNumber == getCampusId() ||
+        resource.data.vehicleNumber == getDefaultPlate() ||
+        resource.data.studentName == getDisplayName()
+      );
+      
+      // Only authorized checkout operations (Admin/Security Admin) create completed history records
+      allow create: if isAdmin();
+      
+      // History is an immutable audit log: modification or deletion is restricted to Admins
+      allow update, delete: if isAdmin();
+    }
+
+    // =========================================================
+    // 7. WRONG PARKING REPORTS (VIOLATIONS & NOTICES)
+    // =========================================================
+    match /wrong_parking_reports/{reportId} {
+      // Students can read reports relevant to their own vehicle/roll number; Admins can read all
+      allow read: if isAuthenticated() && (
+        isAdmin() ||
+        resource.data.rollNumber == getCampusId() ||
+        resource.data.plate == getDefaultPlate() ||
+        resource.data.owner == getDisplayName()
+      );
+      
+      // Only Admin/Security Admin can create, update, resolve, and delete violation reports
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
+

@@ -1,33 +1,36 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   UserIcon,
   IdCardIcon,
   AlertCircleIcon,
-  ShieldIcon
+  ShieldIcon,
+  CheckIcon
 } from '../Icons'
 import {
   VEHICLE_TYPE_OPTIONS,
   COMMON_STREAMS,
   getFloorForVehicleType,
   validateVehicleInput,
-  normalizePlate
+  normalizePlate,
+  registerVehicle
 } from '../../services/vehicleService'
-import { createCheckoutSession } from '../../services/paymentService'
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { auth, db } from '../../firebase/firebase'
 
 const PERMIT_TIERS = [
   {
     id: 'daily',
     name: 'Daily Pass',
-    price: '₹50',
-    amountINR: 50,
+    price: '₹10',
+    amountINR: 10,
     badge: '1 Day',
     description: 'Single day campus parking ingress'
   },
   {
     id: 'monthly',
     name: 'Monthly Permit',
-    price: '₹500',
-    amountINR: 500,
+    price: '₹300',
+    amountINR: 300,
     badge: '30 Days • Most Popular',
     recommended: true,
     description: '30-Day unlimited contactless gate access'
@@ -43,23 +46,56 @@ const PERMIT_TIERS = [
 ]
 
 export default function RegistrationForm({
+  user,
+  userProfile,
   registeredVehicles = [],
   onRegisterSuccess,
   showToast
 }) {
-  const [studentName, setStudentName] = useState('')
-  const [rollNumber, setRollNumber] = useState('')
-  const [stream, setStream] = useState(COMMON_STREAMS[0])
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [vehicleNumber, setVehicleNumber] = useState('')
-  const [vehicleType, setVehicleType] = useState('scooty')
+  const [studentName, setStudentName] = useState(() => userProfile?.displayName || user?.displayName || '')
+  const [email, setEmail] = useState(() => userProfile?.email || user?.email || '')
+  const [rollNumber, setRollNumber] = useState(() => userProfile?.rollNumber || userProfile?.campusId || '')
+  const [stream, setStream] = useState(() => userProfile?.stream || COMMON_STREAMS[0])
+  const [phoneNumber, setPhoneNumber] = useState(() => userProfile?.phoneNumber || '')
+  const [vehicleNumber, setVehicleNumber] = useState(() => userProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehiclePlate || '')
+  const [vehicleType, setVehicleType] = useState(() => userProfile?.vehicleType || 'scooty')
   const [selectedPlanId, setSelectedPlanId] = useState('monthly')
 
   const [errors, setErrors] = useState({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [serverError, setServerError] = useState('')
 
+  const hasUserEditedRef = useRef(false)
+
+  // Safe Google account autofill: only populate empty fields if user has not yet edited
+  useEffect(() => {
+    if (!hasUserEditedRef.current) {
+      if (!studentName && (userProfile?.displayName || user?.displayName)) {
+        setStudentName(userProfile?.displayName || user?.displayName || '')
+      }
+      if (!email && (userProfile?.email || user?.email)) {
+        setEmail(userProfile?.email || user?.email || '')
+      }
+      if (!rollNumber && (userProfile?.rollNumber || userProfile?.campusId)) {
+        setRollNumber(userProfile?.rollNumber || userProfile?.campusId || '')
+      }
+      if (!phoneNumber && userProfile?.phoneNumber) {
+        setPhoneNumber(userProfile?.phoneNumber || '')
+      }
+      if (!vehicleNumber && (userProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehiclePlate)) {
+        setVehicleNumber(userProfile?.vehicleNumber || userProfile?.defaultPlate || userProfile?.vehiclePlate || '')
+      }
+      if (userProfile?.vehicleType) {
+        setVehicleType(userProfile.vehicleType)
+      }
+      if (userProfile?.stream) {
+        setStream(userProfile.stream)
+      }
+    }
+  }, [user, userProfile])
+
   const handleInputChange = (field, value) => {
+    hasUserEditedRef.current = true
     if (errors[field]) {
       setErrors((prev) => {
         const next = { ...prev }
@@ -72,6 +108,9 @@ export default function RegistrationForm({
     switch (field) {
       case 'studentName':
         setStudentName(value)
+        break
+      case 'email':
+        setEmail(value)
         break
       case 'rollNumber':
         setRollNumber(value.toUpperCase())
@@ -93,17 +132,28 @@ export default function RegistrationForm({
     }
   }
 
-  const handlePayAndRegister = async (e) => {
+  const handleRegisterSubmit = async (e) => {
     e.preventDefault()
     setServerError('')
 
+    const selectedPlan = PERMIT_TIERS.find((p) => p.id === selectedPlanId) || PERMIT_TIERS[1]
+    const cleanPlate = normalizePlate(vehicleNumber)
+    const cleanRoll = rollNumber.trim().toUpperCase()
+    const cleanName = studentName.trim()
+    const cleanPhone = phoneNumber.trim()
+    const targetUid = user?.uid || (auth.currentUser ? auth.currentUser.uid : '')
+
     const formData = {
-      studentName: studentName.trim(),
-      rollNumber: rollNumber.trim().toUpperCase(),
+      studentId: targetUid,
+      studentName: cleanName,
+      rollNumber: cleanRoll,
+      campusId: cleanRoll,
       stream: stream.trim(),
-      phoneNumber: phoneNumber.trim(),
-      vehicleNumber: normalizePlate(vehicleNumber),
-      vehicleType
+      phoneNumber: cleanPhone,
+      vehicleNumber: cleanPlate,
+      vehicleType,
+      category: 'Student',
+      passType: selectedPlan.name
     }
 
     const validation = validateVehicleInput(formData, registeredVehicles)
@@ -116,33 +166,77 @@ export default function RegistrationForm({
     setIsSubmitting(true)
 
     try {
-      if (showToast) {
-        showToast('Initializing Stripe', 'Connecting to secure campus payment gateway...', 'info')
+      // 1. Register vehicle in Firestore (registered_vehicles collection)
+      const newRecord = await registerVehicle(formData)
+
+      // 2. Persist student profile in Firestore (users/{uid})
+      const preferredFloor = getFloorForVehicleType(vehicleType)
+      const updatedProfileData = {
+        uid: targetUid,
+        displayName: cleanName,
+        email: user?.email || email || '',
+        role: 'Student',
+        campusId: cleanRoll,
+        rollNumber: cleanRoll,
+        stream: stream.trim(),
+        phoneNumber: cleanPhone,
+        vehicleNumber: cleanPlate,
+        vehiclePlate: cleanPlate,
+        defaultPlate: cleanPlate,
+        vehicleType,
+        preferredFloor,
+        isRegistered: true
       }
 
-      const sessionResponse = await createCheckoutSession({
-        ...formData,
-        planId: selectedPlanId
-      })
+      if (targetUid && db) {
+        try {
+          await setDoc(doc(db, 'users', targetUid), {
+            ...updatedProfileData,
+            updatedAt: serverTimestamp()
+          }, { merge: true })
 
-      if (sessionResponse?.checkoutUrl) {
-        if (showToast) {
-          showToast('Redirecting', 'Opening Stripe Checkout terminal...', 'success')
+          try {
+            localStorage.setItem(`user_profile_${targetUid}`, JSON.stringify(updatedProfileData))
+            localStorage.setItem(`custom_student_vehicle_profile_${targetUid}`, JSON.stringify(updatedProfileData))
+          } catch (storageErr) {
+            console.warn('Storage cache notice:', storageErr)
+          }
+        } catch (fsErr) {
+          console.warn('Firestore profile save warning:', fsErr)
         }
-        if (typeof onRegisterSuccess === 'function') {
-          onRegisterSuccess(sessionResponse)
-        }
-        // Redirect user to Stripe Hosted Checkout or Sandbox return
-        window.location.href = sessionResponse.checkoutUrl
-      } else {
-        throw new Error('No checkout URL returned from server.')
+      }
+
+      // Clear form on success
+      setStudentName('')
+      setRollNumber('')
+      setStream(COMMON_STREAMS[0])
+      setPhoneNumber('')
+      setVehicleNumber('')
+      setVehicleType('scooty')
+      setErrors({})
+
+      if (onRegisterSuccess) {
+        onRegisterSuccess(newRecord, updatedProfileData)
+      }
+
+      if (showToast) {
+        showToast(
+          'Registration Complete',
+          `${newRecord.studentName} (${newRecord.vehicleNumber}) registered in Firestore! 🎉`,
+          'success'
+        )
       }
     } catch (err) {
-      console.error('Checkout error:', err)
-      setServerError(err.message || 'Payment initiation failed. Please try again.')
-      if (showToast) {
-        showToast('Payment Error', err.message || 'Could not initiate checkout.', 'error')
+      console.error('Registration error:', err)
+      if (err.validationErrors) {
+        setErrors(err.validationErrors)
+      } else {
+        setServerError(err.message || 'Registration failed. Please check form details.')
       }
+      if (showToast) {
+        showToast('Registration Error', err.message || 'Could not register vehicle.', 'error')
+      }
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -151,56 +245,59 @@ export default function RegistrationForm({
   const selectedPlan = PERMIT_TIERS.find((p) => p.id === selectedPlanId) || PERMIT_TIERS[1]
 
   return (
-    <div className="registration-form-card glass-card">
-      <div className="form-card-header">
-        <div className="header-icon-box">
-          <ShieldIcon className="w-5 h-5 text-cyan" />
+    <div className="admin-form-panel glass-card">
+      <div className="form-panel-header">
+        <div className="fph-title-wrap">
+          <h2 className="form-panel-title">New Vehicle Registration</h2>
+          <span className="form-panel-subtitle">
+            Enter student credentials &amp; vehicle registration number
+          </span>
         </div>
-        <div>
-          <h3 className="form-card-title">Pay &amp; Register Parking Permit</h3>
-          <p className="form-card-subtitle">
-            Official vehicle registration &amp; Stripe Checkout with encrypted QR Gate Pass issuance
-          </p>
-        </div>
+        <span className="required-legend">* Required Fields</span>
       </div>
 
       {serverError && (
         <div className="auth-alert error mb-4">
           <AlertCircleIcon className="w-5 h-5 flex-shrink-0" />
-          <div>
-            <strong>Registration Notice:</strong>
-            <p className="text-xs">{serverError}</p>
-          </div>
+          <span>{serverError}</span>
         </div>
       )}
 
-      <form onSubmit={handlePayAndRegister} className="vehicle-reg-form" noValidate>
-        {/* Row 1: Student Name & Roll Number */}
-        <div className="form-grid-2">
-          <div className="input-group">
-            <label htmlFor="reg-student-name">
-              Student Full Name <span className="required-star">*</span>
-            </label>
-            <div className={`input-wrapper ${errors.studentName ? 'has-error' : ''}`}>
-              <UserIcon className="input-icon" />
-              <input
-                id="reg-student-name"
-                type="text"
-                placeholder="e.g. Rahul Sharma"
-                value={studentName}
-                onChange={(e) => handleInputChange('studentName', e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
-            </div>
-            {errors.studentName && <span className="field-error-msg">{errors.studentName}</span>}
-          </div>
+      <form onSubmit={handleRegisterSubmit} className="admin-registration-form" noValidate>
+        {/* Student Information */}
+        <div className="form-section-divider">
+          <span className="section-divider-title">Student Information</span>
+        </div>
 
-          <div className="input-group">
-            <label htmlFor="reg-roll-number">
-              College Roll / PRN Number <span className="required-star">*</span>
+        {/* Student Name */}
+        <div className="form-group">
+          <label className="form-label" htmlFor="reg-student-name">
+            Student Name <span className="text-rose">*</span>
+          </label>
+          <div className="input-with-icon">
+            <UserIcon className="input-icon" />
+            <input
+              id="reg-student-name"
+              type="text"
+              placeholder="e.g. Rahul Sharma"
+              value={studentName}
+              onChange={(e) => handleInputChange('studentName', e.target.value)}
+              className={`form-control ${errors.studentName ? 'is-invalid' : ''}`}
+              disabled={isSubmitting}
+            />
+          </div>
+          {errors.studentName && (
+            <span className="inline-error-msg">{errors.studentName}</span>
+          )}
+        </div>
+
+        {/* Roll Number & Phone Number */}
+        <div className="form-row two-cols">
+          <div className="form-group">
+            <label className="form-label" htmlFor="reg-roll-number">
+              Roll Number <span className="text-rose">*</span>
             </label>
-            <div className={`input-wrapper ${errors.rollNumber ? 'has-error' : ''}`}>
+            <div className="input-with-icon">
               <IdCardIcon className="input-icon" />
               <input
                 id="reg-roll-number"
@@ -208,171 +305,134 @@ export default function RegistrationForm({
                 placeholder="e.g. S2410701"
                 value={rollNumber}
                 onChange={(e) => handleInputChange('rollNumber', e.target.value)}
+                className={`form-control font-mono font-bold uppercase-input ${
+                  errors.rollNumber ? 'is-invalid' : ''
+                }`}
                 disabled={isSubmitting}
-                required
               />
             </div>
-            {errors.rollNumber && <span className="field-error-msg">{errors.rollNumber}</span>}
+            {errors.rollNumber && (
+              <span className="inline-error-msg">{errors.rollNumber}</span>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="reg-phone-number">
+              Phone Number <span className="text-rose">*</span>
+            </label>
+            <input
+              id="reg-phone-number"
+              type="tel"
+              placeholder="e.g. 9876543210"
+              value={phoneNumber}
+              onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
+              className={`form-control font-mono ${errors.phoneNumber ? 'is-invalid' : ''}`}
+              disabled={isSubmitting}
+            />
+            {errors.phoneNumber && (
+              <span className="inline-error-msg">{errors.phoneNumber}</span>
+            )}
           </div>
         </div>
 
-        {/* Row 2: Stream & Mobile Phone */}
-        <div className="form-grid-2">
-          <div className="input-group">
-            <label htmlFor="reg-stream">
-              Department / Stream <span className="required-star">*</span>
-            </label>
-            <div className={`input-wrapper ${errors.stream ? 'has-error' : ''}`}>
-              <select
-                id="reg-stream"
-                value={stream}
-                onChange={(e) => handleInputChange('stream', e.target.value)}
-                disabled={isSubmitting}
-                className="custom-select"
-              >
-                {COMMON_STREAMS.map((st) => (
-                  <option key={st} value={st}>
-                    {st}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {errors.stream && <span className="field-error-msg">{errors.stream}</span>}
-          </div>
-
-          <div className="input-group">
-            <label htmlFor="reg-phone">
-              Contact Mobile Number <span className="required-star">*</span>
-            </label>
-            <div className={`input-wrapper ${errors.phoneNumber ? 'has-error' : ''}`}>
-              <span className="input-prefix-tag">+91</span>
-              <input
-                id="reg-phone"
-                type="tel"
-                placeholder="98765 43210"
-                value={phoneNumber}
-                onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                disabled={isSubmitting}
-                maxLength={14}
-                required
-              />
-            </div>
-            {errors.phoneNumber && <span className="field-error-msg">{errors.phoneNumber}</span>}
-          </div>
-        </div>
-
-        {/* Row 3: Vehicle Type & License Plate */}
-        <div className="form-grid-2">
-          <div className="input-group">
-            <label>
-              Vehicle Classification <span className="required-star">*</span>
-            </label>
-            <div className="vehicle-choice-row">
-              {VEHICLE_TYPE_OPTIONS.map((opt) => {
-                const val = opt.value || opt.id
-                return (
-                  <button
-                    key={val}
-                    type="button"
-                    className={`vehicle-choice-btn ${vehicleType === val ? 'active' : ''}`}
-                    onClick={() => handleInputChange('vehicleType', val)}
-                    disabled={isSubmitting}
-                  >
-                    <span className="v-icon">{opt.emoji}</span>
-                    <div className="v-text-col">
-                      <strong>{opt.label}</strong>
-                      <small>{opt.floor}</small>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="input-group">
-            <label htmlFor="reg-vehicle-number">
-              Vehicle Plate Number <span className="required-star">*</span>
-            </label>
-            <div className={`input-wrapper ${errors.vehicleNumber ? 'has-error' : ''}`}>
-              <span className="input-prefix-tag font-mono">IND</span>
-              <input
-                id="reg-vehicle-number"
-                type="text"
-                placeholder="MH-12-AB-1234"
-                value={vehicleNumber}
-                onChange={(e) => handleInputChange('vehicleNumber', e.target.value)}
-                disabled={isSubmitting}
-                className="font-mono"
-                required
-              />
-            </div>
-            {errors.vehicleNumber && <span className="field-error-msg">{errors.vehicleNumber}</span>}
-          </div>
-        </div>
-
-        {/* Permit Tier Selection */}
-        <div className="permit-plans-section">
-          <label className="section-subhead">
-            Select Parking Permit Plan &bull; <span className="text-cyan">Stripe Checkout</span>
+        {/* Stream / Class */}
+        <div className="form-group">
+          <label className="form-label" htmlFor="reg-stream">
+            Stream / Class <span className="text-rose">*</span>
           </label>
-          <div className="plans-grid-three">
-            {PERMIT_TIERS.map((tier) => (
-              <div
-                key={tier.id}
-                className={`plan-tier-card ${selectedPlanId === tier.id ? 'selected' : ''}`}
-                onClick={() => setSelectedPlanId(tier.id)}
-              >
-                <div className="plan-badge-pill">{tier.badge}</div>
-                <div className="plan-name">{tier.name}</div>
-                <div className="plan-price-large">{tier.price}</div>
-                <p className="plan-desc">{tier.description}</p>
-                <div className="plan-select-indicator">
-                  <div className="radio-circle"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Dynamic Floor Allocation Info Banner */}
-        <div className="floor-rule-info-box">
-          <div className="frib-left">
-            <span className="frib-icon">🏢</span>
-            <div>
-              <span className="frib-label">Mandatory Designated Parking Floor</span>
-              <strong className="frib-floor">{designatedFloor}</strong>
-            </div>
-          </div>
-          <div className="frib-right">
-            <span className="frib-notice">
-              {vehicleType === 'scooty'
-                ? 'Ground Floor reserved for Scooties'
-                : 'Basement Floor reserved for Motorcycles/Bikes'}
-            </span>
-          </div>
-        </div>
-
-        {/* Submit & Pay Button */}
-        <div className="form-submit-row">
-          <div className="payment-security-note">
-            <span>🔒 256-Bit Encrypted &bull; Verified Stripe Webhook Protection</span>
-          </div>
-          <button
-            type="submit"
-            className="btn btn-primary submit-reg-btn pay-btn-large"
+          <select
+            id="reg-stream"
+            value={stream}
+            onChange={(e) => handleInputChange('stream', e.target.value)}
+            className={`form-control ${errors.stream ? 'is-invalid' : ''}`}
             disabled={isSubmitting}
           >
-            {isSubmitting ? (
-              <>
-                <span className="spinner-dots"></span>
-                <span>Connecting to Stripe...</span>
-              </>
-            ) : (
-              <>
-                <span>💳 Pay {selectedPlan.price} &amp; Register</span>
-                <span className="pay-arrow">&rarr;</span>
-              </>
-            )}
+            {COMMON_STREAMS.map((st, idx) => (
+              <option key={idx} value={st}>
+                {st}
+              </option>
+            ))}
+          </select>
+          {errors.stream && (
+            <span className="inline-error-msg">{errors.stream}</span>
+          )}
+        </div>
+
+        {/* Vehicle Information */}
+        <div className="form-section-divider mt-4">
+          <span className="section-divider-title">Vehicle Information</span>
+        </div>
+
+        {/* Vehicle Number */}
+        <div className="form-group">
+          <label className="form-label" htmlFor="reg-vehicle-number">
+            Vehicle Number (License Plate) <span className="text-rose">*</span>
+          </label>
+          <input
+            id="reg-vehicle-number"
+            type="text"
+            placeholder="e.g. MH12AB1234"
+            value={vehicleNumber}
+            onChange={(e) => handleInputChange('vehicleNumber', e.target.value)}
+            className={`form-control font-mono font-bold uppercase-input ${
+              errors.vehicleNumber ? 'is-invalid' : ''
+            }`}
+            disabled={isSubmitting}
+          />
+          {errors.vehicleNumber && (
+            <span className="inline-error-msg">{errors.vehicleNumber}</span>
+          )}
+        </div>
+
+        {/* Vehicle Type (Scooty, Bike) */}
+        <div className="form-group">
+          <label className="form-label">
+            Vehicle Type <span className="text-rose">*</span>
+          </label>
+          <div className="vehicle-type-cards-grid">
+            {VEHICLE_TYPE_OPTIONS.map((opt) => (
+              <label
+                key={opt.id}
+                className={`vehicle-type-card ${vehicleType === opt.id ? 'active' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="registrationVehicleType"
+                  value={opt.id}
+                  checked={vehicleType === opt.id}
+                  onChange={() => handleInputChange('vehicleType', opt.id)}
+                  className="sr-only"
+                  disabled={isSubmitting}
+                />
+                <div className="vt-card-icon">{opt.emoji}</div>
+                <div className="vt-card-info">
+                  <strong className="vt-card-name">{opt.label}</strong>
+                  <span className="vt-card-floor">{opt.floor}</span>
+                </div>
+              </label>
+            ))}
+          </div>
+          {errors.vehicleType && (
+            <span className="inline-error-msg">{errors.vehicleType}</span>
+          )}
+        </div>
+
+        {/* Centralized Rule Summary - Compact Micro Badge */}
+        <div className="allocation-rule-compact">
+          <span className="rule-pill-tag">Campus Rule</span>
+          <span className="rule-compact-text">
+            <strong>{vehicleType.toUpperCase()}</strong> &rarr; <span className="rule-floor-highlight">{designatedFloor}</span>
+          </span>
+        </div>
+
+        {/* Submit Button */}
+        <div className="form-submit-row">
+          <button
+            type="submit"
+            className="btn btn-primary btn-md w-full register-action-btn"
+            disabled={isSubmitting}
+          >
+            <span>{isSubmitting ? 'Registering Vehicle...' : 'Register Vehicle'}</span>
           </button>
         </div>
       </form>

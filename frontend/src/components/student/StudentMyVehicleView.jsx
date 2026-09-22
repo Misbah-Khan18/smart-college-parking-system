@@ -239,7 +239,7 @@ export default function StudentMyVehicleView({
                     <span className="mve-type-icon">🏍️</span>
                     <div className="mve-type-info">
                       <span className="mve-type-name">Motorcycle / Bike</span>
-                      <span className="mve-type-sub">Basement Floor</span>
+                      <span className="mve-type-sub">Basement</span>
                     </div>
                   </button>
                 </div>
@@ -363,7 +363,7 @@ export default function StudentMyVehicleView({
 
           <div className="pass-mini-ticket">
             <div className="ticket-top">
-              <span className="ticket-brand">SCHOOL OF COMMERCE</span>
+              <span className="ticket-brand">SOCMAC SMART PARK</span>
               <span className="ticket-id font-mono">{passData.passId}</span>
             </div>
 

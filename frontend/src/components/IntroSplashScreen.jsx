@@ -131,11 +131,11 @@ export default function IntroSplashScreen({ onComplete }) {
           </div>
 
           <h1 className="digital-school-title">
-            <span>SCHOOL OF COMMERCE</span>
+            <span>SOCMAC</span>
           </h1>
 
           <h2 className="digital-system-subtitle">
-            <span>SMART PARKING MANAGEMENT SYSTEM</span>
+            <span>SMART PARK MANAGEMENT SYSTEM</span>
           </h2>
 
           <div className="digital-loading-tracker">
