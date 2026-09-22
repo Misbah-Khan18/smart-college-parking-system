@@ -487,11 +487,11 @@
 }
 
 /* ==========================================================================
-   GROUND FLOOR: TOP ROW (WEST WING, MAIN GATE ACCESS, EAST WING)
+   GROUND FLOOR: TOP ROW (WEST CLUSTER, MAIN GATE ACCESS, EAST CLUSTER)
    ========================================================================== */
 .cad-top-row-container {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) 190px 1fr;
+  grid-template-columns: 1fr minmax(140px, 180px) 1fr;
   gap: 14px;
   align-items: stretch;
 }
@@ -500,91 +500,94 @@
   background: rgba(10, 18, 33, 0.65);
   border: 1px solid var(--border-cad-dim);
   border-radius: 9px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  box-sizing: border-box;
 }
 
 .cad-cluster-label {
   font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 700;
-  color: #64748b;
+  color: #94a3b8;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
-.west-cluster .cad-cluster-bays {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-}
-
+.cad-cluster-block.box-grid .cad-cluster-bays,
+.west-cluster .cad-cluster-bays,
 .east-cluster .cad-cluster-bays {
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(4, minmax(46px, 1fr));
+  gap: 7px;
 }
 
-/* Main Gate Portal Barrier Block */
+/* Main Gate Portal Barrier Block: Compact, Aligned, Non-overlapping */
 .cad-gate-portal-block {
-  background: rgba(245, 158, 11, 0.05);
-  border: 1.5px dashed rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.04);
+  border: 1px dashed rgba(245, 158, 11, 0.35);
   border-radius: 9px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  min-height: 80px;
+  box-sizing: border-box;
 }
 
 .cad-gate-portal-block:hover {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(245, 158, 11, 0.1);
   border-color: #f59e0b;
-  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.2);
   transform: translateY(-1px);
 }
 
 .cad-gate-portal-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .cad-gate-icon {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .cad-gate-rfid-chip {
   background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  border: 1px solid rgba(245, 158, 11, 0.3);
   border-radius: 4px;
-  padding: 1px 6px;
+  padding: 1px 5px;
   font-family: var(--font-mono);
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 800;
   color: #fbbf24;
 }
 
 .cad-gate-title {
   color: #fbbf24;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .cad-gate-status {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-family: var(--font-mono);
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 600;
   color: #d97706;
+  white-space: nowrap;
 }
 
 .cad-gate-dot {
@@ -600,16 +603,32 @@
    ========================================================================== */
 .cad-middle-band {
   display: grid;
-  grid-template-columns: 140px 1fr 240px;
+  grid-template-columns: minmax(180px, 250px) 1fr minmax(180px, 250px);
   gap: 14px;
   align-items: stretch;
-  min-height: 220px;
 }
 
-.cad-mid-left-section {
+.cad-mid-flank-section {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.cad-mid-flank-bays {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.cad-center-driveway.compact {
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cad-center-driveway.compact .cad-driveway-core {
+  padding: 8px 0;
 }
 
 .cad-section-mini-tag {
@@ -848,6 +867,164 @@
   display: grid;
   grid-template-columns: repeat(10, 1fr);
   gap: 6px;
+}
+
+.cad-dept-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+
+/* ==========================================================================
+   HIGH-CAPACITY DEDICATED BIKE CONCOURSE (2 ROWS OF 30 SLOTS UNDER INGRESS)
+   ========================================================================== */
+.cad-dense-bike-concourse {
+  background: rgba(10, 18, 33, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.cad-dense-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cad-dense-indicator {
+  font-size: 1.1rem;
+}
+
+.cad-dense-row-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cad-dense-row-tag {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+}
+
+.cad-dense-bike-row-wrapper {
+  overflow-x: auto;
+  padding: 2px 2px 6px 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.3) rgba(10, 18, 33, 0.6);
+}
+
+.cad-dense-bike-row-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.cad-dense-bike-row-wrapper::-webkit-scrollbar-track {
+  background: rgba(10, 18, 33, 0.6);
+  border-radius: 3px;
+}
+.cad-dense-bike-row-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.35);
+  border-radius: 3px;
+}
+
+.cad-dense-bike-row {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(36px, 1fr));
+  gap: 5px;
+  min-width: 1100px;
+}
+
+.cad-compact-bike-bay {
+  background: #091322;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 6px;
+  padding: 8px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 46px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.cad-compact-bike-bay:hover {
+  transform: translateY(-2px);
+  z-index: 10;
+}
+
+.cad-compact-bike-bay.bay-selected {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4) !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+}
+
+.cad-compact-bike-bay.bay-dimmed {
+  opacity: 0.35;
+  filter: grayscale(0.6);
+}
+
+.cad-compact-bike-bay.bay-status-available {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+.cad-compact-bike-bay.bay-status-available:hover {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.14);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+}
+
+.cad-compact-bike-bay.bay-status-reserved {
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.cad-compact-bike-bay.bay-status-reserved:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.14);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
+}
+
+.cad-compact-bike-bay.bay-status-booked {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+.cad-compact-bike-bay.bay-status-booked:hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+}
+
+.cad-compact-bay-id {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
+.cad-compact-bay-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+}
+.cad-compact-bay-dot.green {
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+}
+.cad-compact-bay-dot.amber {
+  background: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+}
+.cad-compact-bay-dot.red {
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
 }
 
 .cad-standard-bay {
