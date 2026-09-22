@@ -90,3 +90,36 @@ export const getStayDurationCategory = (entryTimestamp) => {
   }
   return { label: 'Short Stay (<1h)', color: 'emerald' }
 }
+
+/**
+ * Authoritatively calculate parking duration from entryTimestamp and exitTimestamp (ms).
+ * Accurately handles seconds, minutes, hours, and sessions crossing midnight or multi-day stays.
+ */
+export const calculateAuthoritativeDuration = (entryTimestamp, exitTimestamp = Date.now()) => {
+  const start = Number(entryTimestamp) || Number(exitTimestamp) || Date.now()
+  const end = Number(exitTimestamp) || Date.now()
+  const durationMs = Math.max(0, end - start)
+
+  const totalSeconds = Math.floor(durationMs / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  let durationStr
+  if (hours > 0) {
+    durationStr = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+  } else if (minutes > 0) {
+    durationStr = `${minutes}m`
+  } else {
+    durationStr = `${seconds}s`
+  }
+
+  return {
+    durationMs,
+    durationStr,
+    hours,
+    minutes,
+    seconds
+  }
+}
+
