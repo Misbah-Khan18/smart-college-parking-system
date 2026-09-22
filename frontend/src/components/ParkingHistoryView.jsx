@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { INITIAL_PARKING_HISTORY } from '../data/initialSlots'
 import parkingHeroImg from '../assets/parking-history-hero.jpg'
 import './ParkingHistoryView.css'
 
@@ -8,7 +7,7 @@ export default function ParkingHistoryView({
   user = null,
   userProfile = null
 }) {
-  const recordsData = history && history.length > 0 ? history : INITIAL_PARKING_HISTORY
+  const recordsData = useMemo(() => Array.isArray(history) ? history : [], [history])
 
   const studentName = userProfile?.displayName || user?.displayName
   const rollNumber = userProfile?.campusId || userProfile?.rollNumber
