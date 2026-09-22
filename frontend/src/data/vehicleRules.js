@@ -58,3 +58,28 @@ export function getFloorForVehicleType(vehicleType) {
   const normalized = (vehicleType || '').toLowerCase().trim()
   return VEHICLE_FLOOR_LABELS[normalized] || (normalized === 'bike' ? 'Basement' : 'Ground Floor')
 }
+
+/**
+ * Returns the slot ID prefix for a given vehicle type.
+ * Scooties → 'G-' (Ground Floor), Bikes → 'B-' (Basement)
+ * @param {string} vehicleType
+ * @returns {string}
+ */
+export function getSlotPrefixForVehicleType(vehicleType) {
+  const normalized = (vehicleType || '').toLowerCase().trim()
+  return normalized === 'bike' ? 'B-' : 'G-'
+}
+
+/**
+ * Returns true if the given slotId is valid for the given vehicleType.
+ * Scooties must use Ground Floor slots (G-xx), Bikes must use Basement slots (B-xx).
+ * @param {string} slotId
+ * @param {string} vehicleType
+ * @returns {boolean}
+ */
+export function isSlotAllowedForVehicleType(slotId, vehicleType) {
+  const normalized = (vehicleType || '').toLowerCase().trim()
+  const id = (slotId || '').toUpperCase().trim()
+  if (normalized === 'bike') return id.startsWith('B-') || id.startsWith('B')
+  return id.startsWith('G-') || id.startsWith('G')
+}

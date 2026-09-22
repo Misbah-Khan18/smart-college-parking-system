@@ -338,3 +338,28 @@ export const logout = async () => {
     throw error
   }
 }
+
+/**
+ * Sign in as a demo student (no real credentials required).
+ * Stores a synthetic demo session in localStorage so the app
+ * treats the visitor as a logged-in Student.
+ */
+export const signInDemoStudent = async () => {
+  const demoUser = {
+    uid: 'demo-student-001',
+    email: 'demo.student@soc.edu',
+    displayName: 'Demo Student',
+    role: 'Student',
+    isDemo: true,
+    campusId: 'DEMO001',
+    stream: 'BCA (Bachelor of Computer Applications)',
+    phoneNumber: '',
+    photoURL: null,
+  }
+  try {
+    localStorage.setItem('demo_user_session', JSON.stringify(demoUser))
+  } catch {
+    // ignore storage errors
+  }
+  return demoUser
+}
