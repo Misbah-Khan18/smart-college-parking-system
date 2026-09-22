@@ -1,3 +1,19 @@
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+  serverTimestamp,
+  writeBatch
+} from 'firebase/firestore'
+import { auth, db } from '../firebase/firebase.js'
 import { INITIAL_REGISTERED_VEHICLES } from '../data/initialSlots.js'
 import {
   VEHICLE_FLOOR_RULES,
@@ -18,7 +34,10 @@ export {
   getFloorForVehicleType
 }
 
-const STORAGE_KEY = 'registered_vehicles_list'
+const VEHICLES_COLLECTION = 'registered_vehicles'
+
+// Module-level in-memory cache to support synchronous reads for immediate UI rendering
+let _cachedVehicles = []
 
 /**
  * Normalize and clean vehicle license plate number
@@ -42,7 +61,6 @@ export function normalizePlate(plate) {
 export function isValidIndianPhone(phone) {
   if (!phone) return false
   const cleaned = phone.replace(/[\s\-()]/g, '')
-  // Match 10 digits starting with 6, 7, 8, 9, or with +91 or 0 prefix
   const regex = /^(?:(?:\+|0{0,2})91(\s*-\s*)?|[0]?)?[6789]\d{9}$/
   return regex.test(cleaned)
 }
@@ -123,137 +141,6 @@ export function validateVehicleInput(data, existingVehicles = [], editingId = nu
 }
 
 /**
- * Retrieve all registered vehicles from storage, seeded initially from INITIAL_REGISTERED_VEHICLES
- * @returns {Array} List of registered vehicle objects
- */
-export function getRegisteredVehicles() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed
-      }
-    }
-  } catch (err) {
-    console.error('Error loading registered vehicles from storage:', err)
-  }
-
-  // Seed with default data if empty
-  const seeded = INITIAL_REGISTERED_VEHICLES.map((v) => ({
-    ...v,
-    registeredAt: v.registeredAt || new Date().toISOString().split('T')[0],
-    preferredFloor: getFloorForVehicleType(v.vehicleType)
-  }))
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded))
-  } catch (err) {
-    console.error('Error seeding initial registered vehicles:', err)
-  }
-
-  return seeded
-}
-
-/**
- * Save full list of registered vehicles to localStorage
- * @param {Array} vehicles 
- */
-function saveVehicles(vehicles) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(vehicles))
-  } catch (err) {
-    console.error('Error saving registered vehicles:', err)
-  }
-}
-
-/**
- * Register a new student and their vehicle
- * @param {Object} vehicleData 
- * @returns {Object} Newly registered vehicle record
- */
-export function registerVehicle(vehicleData) {
-  const currentList = getRegisteredVehicles()
-  
-  const validation = validateVehicleInput(vehicleData, currentList)
-  if (!validation.isValid) {
-    const firstError = Object.values(validation.errors)[0]
-    const err = new Error(firstError)
-    err.validationErrors = validation.errors
-    throw err
-  }
-
-  const cleanPlate = normalizePlate(vehicleData.vehicleNumber)
-  const cleanRoll = vehicleData.rollNumber.trim().toUpperCase()
-  const vType = vehicleData.vehicleType.toLowerCase()
-
-  const newRecord = {
-    id: `REG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`,
-    studentName: vehicleData.studentName.trim(),
-    rollNumber: cleanRoll,
-    stream: vehicleData.stream.trim(),
-    phoneNumber: vehicleData.phoneNumber.trim(),
-    vehicleNumber: cleanPlate,
-    vehicleType: vType,
-    preferredFloor: getFloorForVehicleType(vType),
-    isEv: Boolean(vehicleData.isEv),
-    category: 'Student',
-    status: 'Active',
-    registeredAt: new Date().toISOString().split('T')[0],
-    registeredTimestamp: Date.now()
-  }
-
-  const updatedList = [newRecord, ...currentList]
-  saveVehicles(updatedList)
-  return newRecord
-}
-
-/**
- * Update an existing vehicle registration
- * @param {string} id 
- * @param {Object} updatedData 
- * @returns {Object} Updated vehicle record
- */
-export function updateVehicle(id, updatedData) {
-  const currentList = getRegisteredVehicles()
-  const existingIndex = currentList.findIndex((v) => v.id === id)
-  
-  if (existingIndex === -1) {
-    throw new Error('Registration record not found.')
-  }
-
-  const validation = validateVehicleInput(updatedData, currentList, id)
-  if (!validation.isValid) {
-    const firstError = Object.values(validation.errors)[0]
-    const err = new Error(firstError)
-    err.validationErrors = validation.errors
-    throw err
-  }
-
-  const cleanPlate = normalizePlate(updatedData.vehicleNumber)
-  const cleanRoll = updatedData.rollNumber.trim().toUpperCase()
-  const vType = updatedData.vehicleType.toLowerCase()
-
-  const updatedRecord = {
-    ...currentList[existingIndex],
-    studentName: updatedData.studentName.trim(),
-    rollNumber: cleanRoll,
-    stream: updatedData.stream.trim(),
-    phoneNumber: updatedData.phoneNumber.trim(),
-    vehicleNumber: cleanPlate,
-    vehicleType: vType,
-    preferredFloor: getFloorForVehicleType(vType),
-    isEv: updatedData.isEv !== undefined ? Boolean(updatedData.isEv) : currentList[existingIndex].isEv,
-    updatedAt: new Date().toISOString().split('T')[0]
-  }
-
-  const updatedList = [...currentList]
-  updatedList[existingIndex] = updatedRecord
-  saveVehicles(updatedList)
-  return updatedRecord
-}
-
-/**
  * Check if a vehicle is currently occupying an active parking slot
  * @param {string} vehicleNumber 
  * @param {Array} currentSlots 
@@ -271,14 +158,231 @@ export function isVehicleCurrentlyParked(vehicleNumber, currentSlots = []) {
 }
 
 /**
- * Delete a registered vehicle
+ * Idempotently seed registered vehicles in Firestore if collection is empty
+ */
+export async function seedRegisteredVehiclesIfEmpty() {
+  console.log('[Firestore] Checking registered_vehicles seed status...')
+  try {
+    const vehRef = collection(db, VEHICLES_COLLECTION)
+    const snapshot = await getDocs(vehRef)
+
+    if (!snapshot.empty && snapshot.size > 0) {
+      console.log(`[Firestore] registered_vehicles already seeded (${snapshot.size} vehicles present).`)
+      return { seeded: false, count: snapshot.size }
+    }
+
+    console.log(`[Firestore] Seeding ${INITIAL_REGISTERED_VEHICLES.length} initial registered vehicles to Firestore...`)
+    const batch = writeBatch(db)
+
+    INITIAL_REGISTERED_VEHICLES.forEach((v) => {
+      const docRef = doc(db, VEHICLES_COLLECTION, v.id)
+      batch.set(docRef, {
+        ...v,
+        campusId: v.rollNumber,
+        preferredFloor: getFloorForVehicleType(v.vehicleType),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+    })
+
+    await batch.commit()
+    console.log('[Firestore] Registered vehicles seed completed successfully.')
+    return { seeded: true, count: INITIAL_REGISTERED_VEHICLES.length }
+  } catch (err) {
+    console.warn('[Firestore] Seed registered vehicles notice:', err.message)
+    return { seeded: false, error: err }
+  }
+}
+
+/**
+ * Real-time subscription to registered vehicles collection via Firestore onSnapshot
+ * Role-aware: Admins receive campus-wide list; students query only their own registered vehicle.
+ * @param {Function} onUpdate - callback receiving updated array of vehicles
+ * @param {Function} onError - optional error callback
+ * @param {Object} filter - optional filter { isAdmin, studentId, rollNumber, vehicleNumber }
+ * @returns {Function} Unsubscribe function
+ */
+export function subscribeToRegisteredVehicles(onUpdate, onError, filter = {}) {
+  try {
+    const vehRef = collection(db, VEHICLES_COLLECTION)
+    let vehQuery = null
+
+    if (filter && filter.isAdmin) {
+      vehQuery = query(vehRef, orderBy('createdAt', 'desc'))
+    } else if (filter) {
+      if (filter.studentId) {
+        vehQuery = query(vehRef, where('studentId', '==', filter.studentId))
+      } else if (filter.rollNumber) {
+        vehQuery = query(vehRef, where('rollNumber', '==', filter.rollNumber))
+      } else if (filter.vehicleNumber) {
+        vehQuery = query(vehRef, where('vehicleNumber', '==', filter.vehicleNumber))
+      }
+    }
+
+    if (!vehQuery) {
+      onUpdate([])
+      return () => {}
+    }
+
+    const unsubscribe = onSnapshot(
+      vehQuery,
+      (snapshot) => {
+        const vehicles = []
+        snapshot.forEach((docSnap) => {
+          vehicles.push({ id: docSnap.id, ...docSnap.data() })
+        })
+
+        // Sort descending by registration date/id
+        vehicles.sort((a, b) => {
+          const idA = a.id || ''
+          const idB = b.id || ''
+          return idB.localeCompare(idA)
+        })
+
+        _cachedVehicles = vehicles
+        onUpdate(vehicles)
+      },
+      (error) => {
+        console.error('[Firestore] subscribeToRegisteredVehicles error:', error)
+        if (onError) onError(error)
+      }
+    )
+
+    return unsubscribe
+  } catch (err) {
+    console.error('[Firestore] Could not establish registered_vehicles listener:', err)
+    return () => {}
+  }
+}
+
+/**
+ * Synchronous getter returning latest cached registered vehicles
+ * @returns {Array} List of registered vehicle objects
+ */
+export function getRegisteredVehicles() {
+  return _cachedVehicles
+}
+
+/**
+ * Asynchronous fetch of all registered vehicles directly from Firestore
+ * @returns {Promise<Array>}
+ */
+export async function getRegisteredVehiclesAsync() {
+  try {
+    const vehRef = collection(db, VEHICLES_COLLECTION)
+    const snapshot = await getDocs(vehRef)
+    const list = []
+    snapshot.forEach((d) => list.push({ id: d.id, ...d.data() }))
+    _cachedVehicles = list
+    return list
+  } catch (err) {
+    console.error('[Firestore] getRegisteredVehiclesAsync error:', err)
+    return _cachedVehicles
+  }
+}
+
+/**
+ * Register a new student and their vehicle in Firestore
+ * @param {Object} vehicleData 
+ * @returns {Promise<Object>} Newly registered vehicle record
+ */
+export async function registerVehicle(vehicleData) {
+  const currentList = _cachedVehicles.length > 0 ? _cachedVehicles : await getRegisteredVehiclesAsync()
+  
+  const validation = validateVehicleInput(vehicleData, currentList)
+  if (!validation.isValid) {
+    const firstError = Object.values(validation.errors)[0]
+    const err = new Error(firstError)
+    err.validationErrors = validation.errors
+    throw err
+  }
+
+  const cleanPlate = normalizePlate(vehicleData.vehicleNumber)
+  const cleanRoll = vehicleData.rollNumber.trim().toUpperCase()
+  const vType = vehicleData.vehicleType.toLowerCase()
+  const docId = `REG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+
+  const newRecord = {
+    id: docId,
+    studentId: vehicleData.studentId || (auth.currentUser ? auth.currentUser.uid : ''),
+    studentName: vehicleData.studentName.trim(),
+    rollNumber: cleanRoll,
+    campusId: cleanRoll,
+    stream: vehicleData.stream.trim(),
+    phoneNumber: vehicleData.phoneNumber.trim(),
+    vehicleNumber: cleanPlate,
+    vehicleType: vType,
+    preferredFloor: getFloorForVehicleType(vType),
+    isEv: Boolean(vehicleData.isEv),
+    category: vehicleData.category || 'Student',
+    status: 'Active',
+    passId: `SMP-${cleanRoll}-${Date.now().toString().slice(-4)}`,
+    registeredAt: new Date().toISOString().split('T')[0],
+    registeredTimestamp: Date.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }
+
+  const docRef = doc(db, VEHICLES_COLLECTION, docId)
+  await setDoc(docRef, newRecord)
+
+  return newRecord
+}
+
+/**
+ * Update an existing vehicle registration in Firestore
+ * @param {string} id 
+ * @param {Object} updatedData 
+ * @returns {Promise<Object>} Updated vehicle record
+ */
+export async function updateVehicle(id, updatedData) {
+  const currentList = _cachedVehicles.length > 0 ? _cachedVehicles : await getRegisteredVehiclesAsync()
+  const existingRecord = currentList.find((v) => v.id === id)
+  
+  if (!existingRecord) {
+    throw new Error('Registration record not found.')
+  }
+
+  const validation = validateVehicleInput(updatedData, currentList, id)
+  if (!validation.isValid) {
+    const firstError = Object.values(validation.errors)[0]
+    const err = new Error(firstError)
+    err.validationErrors = validation.errors
+    throw err
+  }
+
+  const cleanPlate = normalizePlate(updatedData.vehicleNumber)
+  const cleanRoll = updatedData.rollNumber.trim().toUpperCase()
+  const vType = updatedData.vehicleType.toLowerCase()
+
+  const payload = {
+    studentName: updatedData.studentName.trim(),
+    rollNumber: cleanRoll,
+    campusId: cleanRoll,
+    stream: updatedData.stream.trim(),
+    phoneNumber: updatedData.phoneNumber.trim(),
+    vehicleNumber: cleanPlate,
+    vehicleType: vType,
+    preferredFloor: getFloorForVehicleType(vType),
+    isEv: updatedData.isEv !== undefined ? Boolean(updatedData.isEv) : Boolean(existingRecord.isEv),
+    updatedAt: serverTimestamp()
+  }
+
+  const docRef = doc(db, VEHICLES_COLLECTION, id)
+  await updateDoc(docRef, payload)
+
+  return { ...existingRecord, ...payload, id }
+}
+
+/**
+ * Delete a registered vehicle from Firestore
  * Throws an error if the vehicle is currently parked in a parking bay
  * @param {string} id 
  * @param {Array} currentSlots 
- * @returns {Array} Updated list of registered vehicles
+ * @returns {Promise<boolean>}
  */
-export function deleteVehicle(id, currentSlots = []) {
-  const currentList = getRegisteredVehicles()
+export async function deleteVehicle(id, currentSlots = []) {
+  const currentList = _cachedVehicles.length > 0 ? _cachedVehicles : await getRegisteredVehiclesAsync()
   const record = currentList.find((v) => v.id === id)
 
   if (!record) {
@@ -295,15 +399,15 @@ export function deleteVehicle(id, currentSlots = []) {
     throw error
   }
 
-  const updatedList = currentList.filter((v) => v.id !== id)
-  saveVehicles(updatedList)
-  return updatedList
+  const docRef = doc(db, VEHICLES_COLLECTION, id)
+  await deleteDoc(docRef)
+  return true
 }
 
 /**
  * Search registered vehicles by Student Name, Roll Number, or Vehicle License Plate
- * Suitable for future ANPR / Vehicle Entry module
  * @param {string} query 
+ * @param {Array} list 
  * @returns {Array} Matched vehicle records
  */
 export function searchVehicle(query, vehicleList = null) {
@@ -333,3 +437,20 @@ export function searchVehicle(query, vehicleList = null) {
     )
   })
 }
+
+/**
+ * Fetch a specific vehicle by ID
+ */
+export async function getVehicleById(vehicleId) {
+  if (!vehicleId) return null
+  try {
+    const docRef = doc(db, VEHICLES_COLLECTION, vehicleId)
+    const snap = await getDoc(docRef)
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+  } catch (err) {
+    console.warn('[Firestore] getVehicleById notice:', err?.message)
+    return null
+  }
+}
+
+
