@@ -200,47 +200,47 @@ export default function PassModal({ pass, onClose }) {
               )}
             </div>
 
-            {/* ── METRO GATE RECEIVER TERMINAL (System.in) INTERFACE ── */}
-            <div className="system-in-gate-panel">
-              <div className="system-in-header">
-                <div className="system-in-badge font-mono">
-                  <span className={`system-in-dot ${gateScanState === 'granted' ? 'dot-green' : ''}`} />
-                  <span>RECEIVER UNIT &bull; [System.in]</span>
+            {/* ── ENTRY GATE BARRIER SCANNER ── */}
+            <div className="entry-gate-scanner-card">
+              <div className="scanner-card-header">
+                <div className="scanner-badge">
+                  <span className={`scanner-status-dot ${gateScanState === 'granted' ? 'dot-green' : ''}`} />
+                  <span>Entry Gate Scanner</span>
                 </div>
-                <span className="system-in-stage-label font-mono">
-                  {gateScanState === 'granted' ? 'BARRIER RELEASED' : gateScanState === 'scanning' ? 'OPTICAL SCANNING...' : 'READY FOR SCAN'}
+                <span className="scanner-state-label font-mono">
+                  {gateScanState === 'granted' ? 'GATE OPEN' : gateScanState === 'scanning' ? 'VERIFYING...' : 'READY'}
                 </span>
               </div>
 
               {gateScanState === 'idle' && (
                 <button
                   type="button"
-                  id="btn-scan-system-in"
-                  className="btn-present-system-in"
+                  id="btn-scan-at-gate"
+                  className="btn-scan-at-gate"
                   onClick={handleScanAtGate}
                 >
-                  <span>🎯 Scan Receipt on Receiver (System.in)</span>
+                  <span>📲 Tap to Scan Pass &amp; Open Gate Barrier</span>
                 </button>
               )}
 
               {gateScanState === 'scanning' && (
-                <div className="system-in-scanning-view font-mono">
-                  <div className="system-in-laser-beam" />
-                  <span className="text-xs text-cyan">READING RECEIPT TOKEN: {qrToken || 'VERIFYING...'}</span>
+                <div className="scanner-active-view font-mono">
+                  <div className="scanner-laser-bar" />
+                  <span className="scanner-scanning-text">Verifying parking pass at gate...</span>
                 </div>
               )}
 
               {gateScanState === 'granted' && (
-                <div className="system-in-granted-view">
-                  <div className="boom-barrier-animated-row">
+                <div className="gate-open-success-view">
+                  <div className="gate-barrier-row">
                     <div className="barrier-pillar">
                       <div className="pillar-light" />
                     </div>
                     <div className={`barrier-pole ${barrierOpen ? 'barrier-up' : ''}`} />
-                    <span className="barrier-open-badge font-mono">LANE 02 OPEN</span>
+                    <span className="gate-status-pill font-mono">BARRIER OPEN</span>
                   </div>
-                  <p className="text-xs font-bold text-emerald mt-1">
-                    ✅ Gate Boom Barrier Raised! Proceed to park in Bay {assignedSlotId || 'G-76'}.
+                  <p className="gate-success-msg">
+                    ✅ Barrier raised! Proceed to park in Bay {assignedSlotId || 'G-76'}.
                   </p>
                 </div>
               )}
