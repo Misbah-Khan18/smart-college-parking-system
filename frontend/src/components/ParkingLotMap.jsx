@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react'
 import {
-  SearchIcon,
-  PlusCircleIcon
+  SearchIcon
 } from './Icons'
 
 export default function ParkingLotMap({
   slots = [],
   onSelectSlot,
-  onOpenBooking,
   onReleaseSlot,
   selectedSlotId: controlledSelectedId,
   currentUserId,
@@ -146,16 +144,6 @@ export default function ParkingLotMap({
             🟡 Reserved ({reservedCount})
           </button>
         </div>
-
-        {/* Action Button */}
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => onOpenBooking && onOpenBooking(null)}
-        >
-          <PlusCircleIcon className="w-4 h-4" />
-          <span>Park / Reserve</span>
-        </button>
       </div>
 
       {/* Grid Legend */}
@@ -216,7 +204,6 @@ export default function ParkingLotMap({
                         <span className="available-cyan-dot"></span>
                         Available
                       </span>
-                      <small className="slot-action-hint">+ Click to Park</small>
                     </div>
                   )}
 

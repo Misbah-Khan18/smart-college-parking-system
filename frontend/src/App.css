@@ -4470,11 +4470,28 @@
 }
 
 /* Quick Nav Grid */
-.student-quick-nav-grid,
-.admin-features-grid {
+.student-quick-nav-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
+}
+
+.admin-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .admin-features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .admin-features-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .quick-nav-card,

@@ -1942,10 +1942,6 @@ export default function App() {
                       slot.status ===
                       'available'
                     ) {
-                      handleOpenBookingModal(
-                        slot
-                      )
-
                       return
                     }
 
@@ -2019,14 +2015,6 @@ export default function App() {
                     }
                   }}
 
-                  onOpenBooking={(
-                    slot
-                  ) =>
-                    handleOpenBookingModal(
-                      slot
-                    )
-                  }
-
                   onReleaseSlot={
                     handleReleaseSlot
                   }
@@ -2068,29 +2056,6 @@ export default function App() {
                       setActivePass(
                         pass
                       )
-                    }
-                  />
-                )}
-
-
-              {/* VEHICLE EXIT */}
-
-              {activeTab ===
-                'vehicle-exit' && (
-                  <VehicleExitView
-                    slots={slots}
-                    activeSessions={
-                      activeSessions
-                    }
-                    onReleaseSlot={
-                      handleReleaseSlot
-                    }
-                    user={user}
-                    userProfile={
-                      userProfile
-                    }
-                    showToast={
-                      showToast
                     }
                   />
                 )}
