@@ -146,17 +146,6 @@ export default function AdminDashboardView({
 
         <div
           className="admin-feature-tile glass-card"
-          onClick={() => onNavigateTab && onNavigateTab('vehicle-exit')}
-        >
-          <span className="aft-icon">🛑</span>
-          <div className="aft-text">
-            <h4>Vehicle Exit</h4>
-            <p>Gate 2 checkout &amp; bay release</p>
-          </div>
-        </div>
-
-        <div
-          className="admin-feature-tile glass-card"
           onClick={() => onNavigateTab && onNavigateTab('reports-history')}
         >
           <span className="aft-icon">📜</span>
