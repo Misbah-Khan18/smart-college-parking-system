@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { XIcon, ShieldIcon, CheckIcon } from './Icons'
+import { playScannerBeep, playSuccessChime, playGateOpenBuzz } from '../utils/gateAudio'
+import './MetroGatePaymentGateway.css'
 
 export default function PassModal({ pass, onClose }) {
   const qrToken = pass ? (pass.qrToken || pass.passId || pass.reservationId || pass.id || '') : ''
@@ -8,6 +10,10 @@ export default function PassModal({ pass, onClose }) {
   const [qrSrc, setQrSrc] = useState('')
   const [qrGenerating, setQrGenerating] = useState(Boolean(pass && qrToken))
   const [qrError, setQrError] = useState(!pass || !qrToken)
+
+  // System.in Gate Reader state: 'idle' | 'scanning' | 'granted'
+  const [gateScanState, setGateScanState] = useState('idle')
+  const [barrierOpen, setBarrierOpen] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -64,6 +70,20 @@ export default function PassModal({ pass, onClose }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
+  }
+
+  // Trigger System.in Optical Scan
+  const handleScanAtGate = () => {
+    if (gateScanState === 'scanning' || gateScanState === 'granted') return
+    playScannerBeep()
+    setGateScanState('scanning')
+
+    setTimeout(() => {
+      playSuccessChime()
+      playGateOpenBuzz()
+      setGateScanState('granted')
+      setBarrierOpen(true)
+    }, 1200)
   }
 
   // Assigned bay
@@ -176,6 +196,52 @@ export default function PassModal({ pass, onClose }) {
                   >
                     {copied ? <CheckIcon className="w-3 h-3 text-emerald" /> : '📋 Copy'}
                   </button>
+                </div>
+              )}
+            </div>
+
+            {/* ── METRO GATE RECEIVER TERMINAL (System.in) INTERFACE ── */}
+            <div className="system-in-gate-panel">
+              <div className="system-in-header">
+                <div className="system-in-badge font-mono">
+                  <span className={`system-in-dot ${gateScanState === 'granted' ? 'dot-green' : ''}`} />
+                  <span>RECEIVER UNIT &bull; [System.in]</span>
+                </div>
+                <span className="system-in-stage-label font-mono">
+                  {gateScanState === 'granted' ? 'BARRIER RELEASED' : gateScanState === 'scanning' ? 'OPTICAL SCANNING...' : 'READY FOR SCAN'}
+                </span>
+              </div>
+
+              {gateScanState === 'idle' && (
+                <button
+                  type="button"
+                  id="btn-scan-system-in"
+                  className="btn-present-system-in"
+                  onClick={handleScanAtGate}
+                >
+                  <span>🎯 Scan Receipt on Receiver (System.in)</span>
+                </button>
+              )}
+
+              {gateScanState === 'scanning' && (
+                <div className="system-in-scanning-view font-mono">
+                  <div className="system-in-laser-beam" />
+                  <span className="text-xs text-cyan">READING RECEIPT TOKEN: {qrToken || 'VERIFYING...'}</span>
+                </div>
+              )}
+
+              {gateScanState === 'granted' && (
+                <div className="system-in-granted-view">
+                  <div className="boom-barrier-animated-row">
+                    <div className="barrier-pillar">
+                      <div className="pillar-light" />
+                    </div>
+                    <div className={`barrier-pole ${barrierOpen ? 'barrier-up' : ''}`} />
+                    <span className="barrier-open-badge font-mono">LANE 02 OPEN</span>
+                  </div>
+                  <p className="text-xs font-bold text-emerald mt-1">
+                    ✅ Gate Boom Barrier Raised! Proceed to park in Bay {assignedSlotId || 'G-76'}.
+                  </p>
                 </div>
               )}
             </div>
