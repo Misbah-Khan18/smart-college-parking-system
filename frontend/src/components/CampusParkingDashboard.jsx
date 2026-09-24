@@ -8,7 +8,13 @@ import {
 } from '../data/campusMasterPlanData'
 import './CampusParkingDashboard.css'
 
-export default function CampusParkingDashboard({ slots = [], userProfile, onOpenBooking }) {
+export default function CampusParkingDashboard({
+  slots = [],
+  userProfile,
+  onOpenBooking,
+  activeReservation = null,
+  onCancelReservation = null
+}) {
   // 1. Active Floor State (persists within same session) - 'ground' | 'basement'
   const [activeFloor, setActiveFloor] = useState(() => {
     const saved = sessionStorage.getItem('campus_active_floor')
@@ -170,6 +176,20 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
   const handleReserveFromBottomBar = (bay) => {
     if (!bay) return
 
+    // Prevent double booking if student already has an active reservation
+    if (activeReservation) {
+      const activeBayId =
+        activeReservation.slotId ||
+        (activeReservation.id?.startsWith('RES-') ? activeReservation.id.split('-')[1] : activeReservation.id) ||
+        'an allocated bay'
+      showToast(
+        'Active Reservation Already Exists',
+        `You currently have Bay ${activeBayId} reserved. Please release it before booking a new bay.`,
+        '⚠️'
+      )
+      return
+    }
+
     // If parent booking handler exists, launch booking + payment flow
     if (onOpenBooking) {
       const live = liveSlotMap.get(bay.id)
@@ -213,6 +233,12 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
   // Cancel / Release Slot Action from Bottom Detail Bar
   const handleCancelReservationFromBottomBar = (bay) => {
     if (!bay) return
+
+    if (onCancelReservation) {
+      onCancelReservation(bay)
+      return
+    }
+
     const updatedProps = {
       status: 'available',
       label: 'FREE',
@@ -847,7 +873,17 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
 
             {/* Right: Actions */}
             <div className="cad-bottom-actions">
-              {selectedBay.status === 'available' ? (
+              {activeReservation && selectedBay.id?.toUpperCase() === (activeReservation.slotId || activeReservation.id?.split('-')[1] || '').toUpperCase() ? (
+                <button
+                  type="button"
+                  id="btn-cancel-my-reservation"
+                  className="cad-bottom-btn-reserved"
+                  style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)', color: '#fca5a5' }}
+                  onClick={() => handleCancelReservationFromBottomBar(selectedBay)}
+                >
+                  🗑️ Release My Bay ({selectedBay.id})
+                </button>
+              ) : selectedBay.status === 'available' ? (
                 <button
                   type="button"
                   id="btn-reserve-slot"
