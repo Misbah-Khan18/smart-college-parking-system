@@ -17,7 +17,7 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
     return 'ground'
   })
 
-  // 2. Master Bay State per floor (80 Ground + 80 Basement = 160 bays)
+  // 2. Master Bay State per floor (140 Ground + 140 Basement = 280 bays)
   const [groundBays, setGroundBays] = useState(() => createInitialBayData())
   const [basementBays, setBasementBays] = useState(() => createBasementBayData())
 
@@ -465,7 +465,7 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
               {activeFloor === 'basement' ? 'Basement Parking Layout' : 'Ground Floor Parking Layout'}
             </h1>
             <span className="cad-header-subtitle">
-              {activeFloor === 'basement' ? 'SOCMAC Smart Park • Basement — Bikes (80 Bays)' : 'SOCMAC Smart Park • Ground Floor — Two-Wheelers & Bikes (140 Bays)'}
+              {activeFloor === 'basement' ? 'SOCMAC Smart Park • Basement — Bikes (140 Bays)' : 'SOCMAC Smart Park • Ground Floor — Two-Wheelers & Bikes (140 Bays)'}
             </span>
           </div>
 
@@ -488,98 +488,122 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
 
         {/* ------------------------------------------------------------------
             FLOOR MAP CANVAS
-            ------------------------------------------------------------------ */}
+        ------------------------------------------------------------------ */}
         <div className="cad-map-scroll-wrapper" tabIndex={0} role="region" aria-label="Parking Layout Blueprint Map">
           {activeFloor === 'basement' ? (
             
             /* ================================================================
-               BASEMENT — MAP LAYOUT (B-01 TO B-80)
-               ─── Row 1: P1 Bike Parking (50ft, full-width) — B-01 to B-30
-               ─── Row 2: IN Gate | F1 Parking (28ft, left) | gap | F1 Parking (28ft, right) | OUT Gate
+               BASEMENT — MAP LAYOUT (B-01 TO B-140)
+               ─── Row 1: P1 Bike (25ft, left) | Entry/Exit Gate | P2 Bike (25ft, right)
+               ─── Row 2: F1 Parking (28ft, left) | Circulation Lane | F1 Parking (28ft, right)
                ─── Row 3: P3 Parking (25ft, left) | Lift Core | P3 Parking (25ft, right)
                ================================================================ */
-            <div className="cad-map-canvas cad-lg-canvas">
+            <div className="cad-map-canvas cad-ground-canvas">
 
-              {/* Basement Ingress Banner */}
-              <div className="cad-lg-warning-bar">
-                <div className="cad-lg-warning-left">
-                  <span className="cad-lg-warning-dot">●</span>
-                  <span className="cad-lg-warning-title">↓ SUBTERRANEAN INGRESS · RFID CONTROLLED · SPEED LIMIT 10 KM/H</span>
+              {/* Subterranean Ingress Banner */}
+              <div className="cad-ingress-banner">
+                <div className="cad-ingress-left">
+                  <span className="cad-ingress-pulse" />
+                  <span className="cad-ingress-title">↓ SUBTERRANEAN VEHICULAR INGRESS · RFID AUTOMATED GATE</span>
                 </div>
-                <div className="cad-lg-warning-right">
-                  <span className="cad-lg-clearance-text">Clearance: <strong className="cad-lg-clearance-val">3.40m</strong></span>
-                  <span className="cad-lg-radar-text">Radar: <strong className="cad-lg-radar-val">Online</strong></span>
+                <div className="cad-ingress-right">
+                  <span className="cad-ingress-pill speed">MAX <strong>10 KM/H</strong></span>
+                  <span className="cad-ingress-pill clearance">CLEARANCE <strong>3.4M</strong></span>
+                  <span className="cad-ingress-pill rfid">RFID <strong>ONLINE</strong></span>
                 </div>
               </div>
 
-              {/* ── ROW 1: P1 Bike Parking — Full Width (50ft) ── */}
-              <div className="bsmt-row bsmt-row-top">
-                <div className="gf-zone bsmt-zone-p1">
+              {/* ── ROW 1: P1 Bike | Entry/Exit Gate | P2 Bike ── */}
+              <div className="gf-row gf-row-top">
+
+                {/* P1 — 25ft Bike Area (Left) */}
+                <div className="gf-zone gf-zone-f1">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
                       <div className="gf-zone-title">P1 · Bike Parking Area</div>
-                      <div className="gf-zone-sub">50 ft · B-01 – B-30 (30 Bays)</div>
+                      <div className="gf-zone-sub">25 ft · B-01 – B-20</div>
                     </div>
                   </div>
-                  <div className="gf-bay-grid bsmt-grid-6col">
-                    {Array.from({ length: 30 }, (_, i) => `B-${String(i + 1).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 1).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
-              </div>
 
-              {/* ── ROW 2: IN Gate | F1 Left | gap | F1 Right | OUT Gate ── */}
-              <div className="bsmt-row bsmt-row-middle">
-
-                {/* IN Gate */}
-                <div className="bsmt-gate-side bsmt-gate-in">
-                  <div className="bsmt-gate-label">IN</div>
+                {/* Entry / Exit Gate */}
+                <div
+                  className="gf-gate-block"
+                  onClick={() => setGateModalOpen(true)}
+                  role="button"
+                  tabIndex={0}
+                  title="Click to view RFID Gate Telemetry"
+                >
+                  <div className="gf-gate-icon-wrap">🚧</div>
+                  <div className="gf-gate-label">Entry / Exit</div>
+                  <div className="gf-gate-status-row">
+                    <span className="cad-gate-dot" />
+                    <span>RFID · ONLINE</span>
+                  </div>
                 </div>
 
+                {/* P2 — 25ft Bike Area (Right) */}
+                <div className="gf-zone gf-zone-f1">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">P2 · Bike Parking Area</div>
+                      <div className="gf-zone-sub">25 ft · B-21 – B-40</div>
+                    </div>
+                  </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 21).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* ── ROW 2: F1 Parking (left) | Circulation Lane | F1 Parking (right) ── */}
+              <div className="gf-row gf-row-middle">
+
                 {/* F1 — 28ft Parking (Left) */}
-                <div className="gf-zone bsmt-zone-f1">
+                <div className="gf-zone gf-zone-f1">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
                       <div className="gf-zone-title">F1 · Parking Area</div>
-                      <div className="gf-zone-sub">28 ft · B-31 – B-50</div>
+                      <div className="gf-zone-sub">28 ft · B-41 – B-65</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 31).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 41).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
-                {/* Internal Circulation Gap */}
-                <div className="gf-circ-lane bsmt-circ-lane">
-                  <span className="gf-circ-arrow">←</span>
+                {/* Internal Circulation Lane */}
+                <div className="gf-circ-lane">
+                  <span className="gf-circ-arrow">↓</span>
                   <span className="gf-circ-text">LANE</span>
-                  <span className="gf-circ-arrow">→</span>
+                  <span className="gf-circ-arrow">↑</span>
                 </div>
 
                 {/* F1 — 28ft Parking (Right) */}
-                <div className="gf-zone bsmt-zone-f1">
+                <div className="gf-zone gf-zone-f1">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
                       <div className="gf-zone-title">F1 · Parking Area</div>
-                      <div className="gf-zone-sub">28 ft · B-51 – B-70</div>
+                      <div className="gf-zone-sub">28 ft · B-66 – B-90</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 51).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 66).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
-                </div>
-
-                {/* OUT Gate */}
-                <div className="bsmt-gate-side bsmt-gate-out">
-                  <div className="bsmt-gate-label">OUT</div>
                 </div>
 
               </div>
 
               {/* ── ROW 3: P3 Parking (left) | Lift Core | P3 Parking (right) ── */}
-              <div className="bsmt-row bsmt-row-bottom">
+              <div className="gf-row gf-row-bottom">
 
                 {/* P3 — 25ft Parking (Left) */}
                 <div className="gf-zone bsmt-zone-p3">
@@ -587,11 +611,11 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
                       <div className="gf-zone-title">P3 · Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · B-71 – B-75</div>
+                      <div className="gf-zone-sub">25 ft · B-91 – B-115</div>
                     </div>
                   </div>
-                  <div className="gf-bay-grid bsmt-grid-5col-auto">
-                    {Array.from({ length: 5 }, (_, i) => `B-${String(i + 71).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 91).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
@@ -608,11 +632,11 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
                       <div className="gf-zone-title">P3 · Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · B-76 – B-80</div>
+                      <div className="gf-zone-sub">25 ft · B-116 – B-140</div>
                     </div>
                   </div>
-                  <div className="gf-bay-grid bsmt-grid-5col-auto">
-                    {Array.from({ length: 5 }, (_, i) => `B-${String(i + 76).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 116).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
