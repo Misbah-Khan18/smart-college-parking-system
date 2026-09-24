@@ -48,6 +48,7 @@ export async function createParkingSession({
   entryTime = null,
   entryTimestamp = null
 }) {
+  if (!db) throw new Error('Firestore is not available.')
   const cleanPlate = normalizePlate(vehicleNumber)
   const sessionId = `SESS-${slotId.replace(/[^a-zA-Z0-9]/g, '')}-${Date.now()}`
   const nowTs = entryTimestamp || Date.now()
@@ -107,6 +108,7 @@ export async function endParkingSession({
   entryTime = null,
   entryTimestamp = null
 }) {
+  if (!db) throw new Error('Firestore is not available.')
   const cleanPlate = normalizePlate(vehicleNumber)
   const cleanSlotId = (slotId || '').toUpperCase().trim()
 
@@ -322,6 +324,7 @@ export async function endParkingSession({
  * Role-aware: Admins query campus-wide; students query only their own active sessions.
  */
 export function subscribeToActiveSessions(onUpdate, onError, filter = {}) {
+  if (!db) { onUpdate([]); return () => {} }
   try {
     const sessionsRef = collection(db, SESSIONS_COLLECTION)
     let activeQuery = null
@@ -366,6 +369,7 @@ export function subscribeToActiveSessions(onUpdate, onError, filter = {}) {
  * Role-aware: Admins query full history; students query only their own records.
  */
 export function subscribeToParkingHistory(onUpdate, onError, filter = {}) {
+  if (!db) { onUpdate([]); return () => {} }
   try {
     const historyRef = collection(db, HISTORY_COLLECTION)
     let historyQuery = null

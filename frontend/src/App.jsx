@@ -2181,6 +2181,7 @@ export default function App() {
                     history={
                       parkingHistory
                     }
+                    activeReservation={activeReservation}
                   />
                 )}
 

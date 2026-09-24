@@ -65,6 +65,10 @@ export function sortSlots(slotsArray) {
  * - NEVER overwrites existing slots or active reservations.
  */
 export async function seedParkingSlotsIfEmpty() {
+  if (!db) {
+    console.warn('[Firestore] db is null — Firestore disabled, skipping seed.')
+    return { seeded: false, count: 0 }
+  }
   const currentUser = auth.currentUser
   const currentUid = currentUser ? currentUser.uid : 'NOT AUTHENTICATED'
   console.log('[SEED DEBUG] authenticated UID:', currentUid)
@@ -149,6 +153,11 @@ let hasReceivedFirestoreSlots = false
  * @returns {Function} Unsubscribe function
  */
 export function subscribeToSlots(onUpdate, onError) {
+  if (!db) {
+    console.warn('[Firestore] db is null — using INITIAL_SLOTS only.')
+    onUpdate(sortSlots(INITIAL_SLOTS.map(s => ({ ...s, status: 'available' }))))
+    return () => {}
+  }
   // Only hydrate from cache if we have not yet received live Firestore data
   if (!hasReceivedFirestoreSlots) {
     try {
@@ -506,6 +515,7 @@ export async function reserveSlotWithTransaction({
   reservedUntil = null,
   amountPaidINR = 0
 }) {
+  if (!db) throw new Error('Firestore is not available. Please check your connection.')
   if (!slotId) {
     throw new Error('Please select a parking slot before activating your pass.')
   }
@@ -756,6 +766,7 @@ export function subscribeToUserReservation(userId, onUpdate, onError) {
  * Atomically marks reservation cancelled and restores slot back to 'available'.
  */
 export async function cancelUserReservation({ reservationId, slotId, userId }) {
+  if (!db) throw new Error('Firestore is not available. Cannot cancel reservation.')
   const currentUid = userId || auth.currentUser?.uid
   if (!currentUid) {
     throw new Error('Authentication required to cancel a reservation.')

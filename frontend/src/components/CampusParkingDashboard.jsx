@@ -604,154 +604,153 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
           ) : (
 
             /* ================================================================
-               GROUND FLOOR LAYOUT (80 BAYS: G-01 TO G-80)
+               GROUND FLOOR — MAP LAYOUT (G-01 TO G-140)
+               ─── Row 1: P1 Scooty (25ft, left) | Entry/Exit Gate | P2 Scooty (25ft, right)
+               ─── Row 2: F1 Parking (28ft, left) | Circulation Lane | F1 Parking (28ft, right)
+               ─── Row 3: P3 Parking (25ft, left) | Lift Core | P3 Parking (25ft, right)
                ================================================================ */
             <div className="cad-map-canvas cad-ground-canvas">
-              
-              {/* Technical Ingress Banner */}
+
+              {/* Ingress Banner */}
               <div className="cad-ingress-banner">
                 <div className="cad-ingress-left">
                   <span className="cad-ingress-pulse" />
-                  <span className="cad-ingress-title">
-                    ↓ MAIN CAMPUS VEHICULAR INGRESS &amp; OVERHEAD CANOPY
-                  </span>
+                  <span className="cad-ingress-title">↓ CAMPUS VEHICULAR INGRESS · RFID AUTOMATED GATE</span>
                 </div>
                 <div className="cad-ingress-right">
-                  <span className="cad-ingress-pill speed">
-                    SPEED LIMIT: <strong>10 KM/H</strong>
-                  </span>
-                  <span className="cad-ingress-pill clearance">
-                    CLEARANCE: <strong>3.5M</strong>
-                  </span>
-                  <span className="cad-ingress-pill rfid">
-                    RFID GATE: <strong>ONLINE</strong>
-                  </span>
+                  <span className="cad-ingress-pill speed">MAX <strong>10 KM/H</strong></span>
+                  <span className="cad-ingress-pill clearance">CLEARANCE <strong>3.5M</strong></span>
+                  <span className="cad-ingress-pill rfid">RFID <strong>ONLINE</strong></span>
                 </div>
               </div>
 
-              {/* North Top Row: West 4x4 Grid [] | Main Gate Entry RFID Portal | East 4x4 Grid [] */}
-              <div className="cad-top-row-container">
-                
-                {/* West Wing Bike Grid: G-01 - G-16 (16 slots in 4x4 boxy grid []) */}
-                <div className="cad-cluster-block west-cluster box-grid">
-                  <div className="cad-cluster-label">WEST WING &bull; G-01 – G-16 (BIKE GRID)</div>
-                  <div className="cad-cluster-bays">
-                    {['G-01', 'G-02', 'G-03', 'G-04', 'G-05', 'G-06', 'G-07', 'G-08', 'G-09', 'G-10', 'G-11', 'G-12', 'G-13', 'G-14', 'G-15', 'G-16'].map(id => renderBayCard(id))}
+              {/* ── ROW 1: P1 Scooty | Entry/Exit | P2 Scooty ── */}
+              <div className="gf-row gf-row-top">
+
+                {/* P1 — 25ft Scooty Area (Left) */}
+                <div className="gf-zone gf-zone-scooty">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🛵</span>
+                    <div>
+                      <div className="gf-zone-title">P1 · Scooty Area</div>
+                      <div className="gf-zone-sub">25 ft · G-01 – G-20</div>
+                    </div>
+                  </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 20 }, (_, i) => `G-${String(i + 1).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
-                {/* Main Gate Entry RFID Portal: Compact, Centered & Aligned */}
+                {/* Entry / Exit Gate */}
                 <div
-                  className="cad-gate-portal-block"
+                  className="gf-gate-block"
                   onClick={() => setGateModalOpen(true)}
                   role="button"
                   tabIndex={0}
-                  title="Click to view Automated RFID Gate Telemetry"
+                  title="Click to view RFID Gate Telemetry"
                 >
-                  <div className="cad-gate-portal-header">
-                    <span className="cad-gate-icon">🚧</span>
-                    <span className="cad-gate-title">MAIN GATE</span>
-                  </div>
-                  <div className="cad-gate-sub">ENTRY / EXIT</div>
-                  <div className="cad-gate-status">
+                  <div className="gf-gate-icon-wrap">🚧</div>
+                  <div className="gf-gate-label">Entry / Exit</div>
+                  <div className="gf-gate-status-row">
                     <span className="cad-gate-dot" />
-                    <span>RFID &bull; ONLINE</span>
+                    <span>RFID · ONLINE</span>
                   </div>
                 </div>
 
-                {/* East Wing Bike Grid: G-17 - G-32 (16 slots in 4x4 boxy grid []) */}
-                <div className="cad-cluster-block east-cluster box-grid">
-                  <div className="cad-cluster-label">EAST WING &bull; G-17 – G-32 (BIKE GRID)</div>
-                  <div className="cad-cluster-bays">
-                    {['G-17', 'G-18', 'G-19', 'G-20', 'G-21', 'G-22', 'G-23', 'G-24', 'G-25', 'G-26', 'G-27', 'G-28', 'G-29', 'G-30', 'G-31', 'G-32'].map(id => renderBayCard(id))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Middle Section: West Ingress Flank | Central Ingress Concourse (32 BAYS) | East Ingress Flank */}
-              <div className="cad-middle-band">
-                
-                {/* West Ingress Flank: G-33 - G-44 (12 slots) */}
-                <div className="cad-mid-flank-section">
-                  <div className="cad-section-mini-tag">WEST INGRESS FLANK &bull; G-33 – G-44</div>
-                  <div className="cad-mid-flank-bays">
-                    {['G-33', 'G-34', 'G-35', 'G-36', 'G-37', 'G-38', 'G-39', 'G-40', 'G-41', 'G-42', 'G-43', 'G-44'].map(id => renderBayCard(id))}
-                  </div>
-                </div>
-
-                {/* Central Ingress Concourse: 32 Student Bays in the center (G-81 to G-112) with slim transit corridor */}
-                <div className="cad-cluster-block cad-center-concourse-cluster">
-                  <div className="cad-slim-driveway-strip">
-                    <div className="cad-slim-lane">
-                      <span className="cad-slim-dir">INGRESS FLOW →</span>
-                      <span className="cad-slim-pill">RFID ACTIVE &bull; 10 KM/H</span>
-                      <span className="cad-slim-dir">← EGRESS BYPASS</span>
+                {/* P2 — 25ft Scooty Area (Right) */}
+                <div className="gf-zone gf-zone-scooty">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🛵</span>
+                    <div>
+                      <div className="gf-zone-title">P2 · Scooty Area</div>
+                      <div className="gf-zone-sub">25 ft · G-21 – G-40</div>
                     </div>
                   </div>
-
-                  <div className="cad-concourse-header-row">
-                    <span className="cad-cluster-label">CENTRAL INGRESS CONCOURSE &bull; G-81 – G-112 (32 STUDENT BAYS)</span>
-                    <span className="cad-concourse-badge">⚡ PRIME STUDENT ZONE</span>
-                  </div>
-
-                  <div className="cad-central-bays-grid">
-                    {Array.from({ length: 32 }, (_, i) => `G-${String(i + 81).padStart(2, '0')}`).map(id => renderBayCard(id))}
-                  </div>
-                </div>
-
-                {/* East Ingress Flank: G-45 - G-57 (13 slots) */}
-                <div className="cad-mid-flank-section">
-                  <div className="cad-section-mini-tag">EAST INGRESS FLANK &bull; G-45 – G-57</div>
-                  <div className="cad-mid-flank-bays">
-                    {['G-45', 'G-46', 'G-47', 'G-48', 'G-49', 'G-50', 'G-51', 'G-52', 'G-53', 'G-54', 'G-55', 'G-56', 'G-57'].map(id => renderBayCard(id))}
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 20 }, (_, i) => `G-${String(i + 21).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
               </div>
 
-              {/* South Perimeter: Accounts & Exam IT Bays (G-58 - G-80) */}
-              <div className="cad-south-perimeter-container">
-                <div className="cad-south-header">
-                  <span className="cad-south-title">▼ ACCOUNTS &amp; EXAM IT DEPT BAYS (G-58 – G-80)</span>
-                  <span className="cad-south-meta">STANDARD BAYS &bull; SURVEILLANCE &bull; LIFT CORE PROXIMITY</span>
-                </div>
+              {/* ── ROW 2: F1 Parking (left) | Circulation Lane | F1 Parking (right) ── */}
+              <div className="gf-row gf-row-middle">
 
-                <div className="cad-south-rows">
-                  {/* Row 1: G-58 to G-65 */}
-                  <div className="cad-dept-row">
-                    {['G-58', 'G-59', 'G-60', 'G-61', 'G-62', 'G-63', 'G-64', 'G-65'].map(id => renderBayCard(id))}
-                  </div>
-                  {/* Row 2: G-66 to G-73 */}
-                  <div className="cad-dept-row">
-                    {['G-66', 'G-67', 'G-68', 'G-69', 'G-70', 'G-71', 'G-72', 'G-73'].map(id => renderBayCard(id))}
-                  </div>
-                  {/* Row 3: G-74 to G-80 */}
-                  <div className="cad-dept-row">
-                    {['G-74', 'G-75', 'G-76', 'G-77', 'G-78', 'G-79', 'G-80'].map(id => renderBayCard(id))}
-                  </div>
-                </div>
-              </div>
-
-              {/* South Concourse Extension: G-113 to G-140 (28 bays) */}
-              <div className="cad-dense-bike-concourse">
-                <div className="cad-south-header">
-                  <div className="cad-dense-title-group">
-                    <span className="cad-dense-indicator">🛵</span>
-                    <span className="cad-south-title">SOUTH PERIMETER EXTENSION &bull; G-113 TO G-140 (28 BAYS)</span>
-                  </div>
-                  <span className="cad-south-meta">OVERFLOW BAYS &bull; SURVEILLANCE COVERED</span>
-                </div>
-
-                <div className="cad-dense-row-block">
-                  <div className="cad-dense-bike-row-wrapper">
-                    <div className="cad-dense-bike-row">
-                      {Array.from({ length: 28 }, (_, i) => `G-${String(i + 113).padStart(2, '0')}`).map(id =>
-                        renderBayCard(id, true)
-                      )}
+                {/* F1 — 28ft Parking (Left) */}
+                <div className="gf-zone gf-zone-f1">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">F1 · Parking Area</div>
+                      <div className="gf-zone-sub">28 ft · G-41 – G-65</div>
                     </div>
                   </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 41).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  </div>
                 </div>
+
+                {/* Internal Circulation Lane */}
+                <div className="gf-circ-lane">
+                  <span className="gf-circ-arrow">↓</span>
+                  <span className="gf-circ-text">LANE</span>
+                  <span className="gf-circ-arrow">↑</span>
+                </div>
+
+                {/* F1 — 28ft Parking (Right) */}
+                <div className="gf-zone gf-zone-f1">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">F1 · Parking Area</div>
+                      <div className="gf-zone-sub">28 ft · G-66 – G-90</div>
+                    </div>
+                  </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 66).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* ── ROW 3: P3 Parking (left) | Lift Core | P3 Parking (right) ── */}
+              <div className="gf-row gf-row-bottom">
+
+                {/* P3 — 25ft Parking (Left) */}
+                <div className="gf-zone gf-zone-p3">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🛵</span>
+                    <div>
+                      <div className="gf-zone-title">P3 · Parking Area</div>
+                      <div className="gf-zone-sub">25 ft · G-91 – G-115</div>
+                    </div>
+                  </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 91).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  </div>
+                </div>
+
+                {/* Lift Core */}
+                <div className="gf-lift-block">
+                  <div className="gf-lift-icon-wrap">🛗</div>
+                  <div className="gf-lift-label">Lift</div>
+                  <div className="gf-lift-sub">Basement Access</div>
+                </div>
+
+                {/* P3 — 25ft Parking (Right) */}
+                <div className="gf-zone gf-zone-p3">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🛵</span>
+                    <div>
+                      <div className="gf-zone-title">P3 · Parking Area</div>
+                      <div className="gf-zone-sub">25 ft · G-116 – G-140</div>
+                    </div>
+                  </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 116).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  </div>
+                </div>
+
               </div>
 
             </div>
