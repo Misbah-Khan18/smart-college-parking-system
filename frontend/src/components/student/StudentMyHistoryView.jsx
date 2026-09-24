@@ -3,7 +3,8 @@ import ParkingHistoryView from '../ParkingHistoryView'
 export default function StudentMyHistoryView({
   user,
   userProfile,
-  history = []
+  history = [],
+  activeReservation = null
 }) {
   const records = Array.isArray(history) ? history : []
 
@@ -12,6 +13,7 @@ export default function StudentMyHistoryView({
       history={records}
       user={user}
       userProfile={userProfile}
+      activeReservation={activeReservation}
     />
   )
 }

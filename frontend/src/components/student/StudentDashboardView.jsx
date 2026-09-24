@@ -23,15 +23,19 @@ export default function StudentDashboardView({
 
   // Find user's active reservation strictly by authenticated Firebase UID
   const userReservedSlot = useMemo(() => {
-    if (activeReservation && activeReservation.slotId) {
-      return slots.find((s) => s.id === activeReservation.slotId) || activeReservation
+    if (activeReservation) {
+      const rawSlot = activeReservation.slotId || (activeReservation.id?.startsWith('RES-') ? activeReservation.id.split('-')[1] : activeReservation.id)
+      const cleanId = rawSlot ? rawSlot.toUpperCase() : null
+      const found = cleanId ? slots.find((s) => s.id?.toUpperCase() === cleanId) : null
+      return {
+        ...found,
+        ...activeReservation,
+        id: cleanId || activeReservation.id,
+        slotId: cleanId || activeReservation.slotId
+      }
     }
-    return slots.find(
-      (s) => (s.status === 'reserved' || s.status === 'RESERVED') && user?.uid && (
-        s.reservedBy === user.uid || s.studentId === user.uid || s.userId === user.uid
-      )
-    )
-  }, [slots, activeReservation, user])
+    return null
+  }, [slots, activeReservation])
 
   // Calculations
   const totalSlots = slots.length || 160
@@ -95,7 +99,7 @@ export default function StudentDashboardView({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <strong style={{ fontSize: '17px', color: '#f8fafc' }}>
-                  Bay {userReservedSlot.id || userReservedSlot.slotId} &bull; Reserved
+                  Bay {userReservedSlot.slotId || (userReservedSlot.id?.startsWith('RES-') ? userReservedSlot.id.split('-')[1] : userReservedSlot.id)} &bull; Reserved
                 </strong>
                 <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24', fontWeight: 700 }}>
                   🟡 ACTIVE RESERVATION
@@ -112,8 +116,8 @@ export default function StudentDashboardView({
               type="button"
               className="btn btn-primary btn-sm"
               onClick={() => onViewPass && onViewPass({
-                id: userReservedSlot.passId || `SOC-${userReservedSlot.id || userReservedSlot.slotId}`,
-                slotId: userReservedSlot.id || userReservedSlot.slotId,
+                id: userReservedSlot.passId || `SOC-${userReservedSlot.slotId || userReservedSlot.id}`,
+                slotId: userReservedSlot.slotId || userReservedSlot.id,
                 plate: userReservedSlot.plate || userReservedSlot.vehiclePlate || vehiclePlate,
                 owner: displayName,
                 userName: displayName,
@@ -135,7 +139,16 @@ export default function StudentDashboardView({
               type="button"
               className="btn btn-sm"
               style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#fca5a5' }}
-              onClick={() => onCancelReservation && onCancelReservation(userReservedSlot)}
+              onClick={() => {
+                const targetSlot = userReservedSlot.slotId || (userReservedSlot.id?.startsWith('RES-') ? userReservedSlot.id.split('-')[1] : userReservedSlot.id)
+                const targetResId = userReservedSlot.reservationId || (userReservedSlot.id?.startsWith('RES-') ? userReservedSlot.id : null)
+                onCancelReservation && onCancelReservation({
+                  ...userReservedSlot,
+                  slotId: targetSlot,
+                  id: targetSlot,
+                  reservationId: targetResId
+                })
+              }}
               title="Release/Cancel reservation"
             >
               🗑️ Release Bay

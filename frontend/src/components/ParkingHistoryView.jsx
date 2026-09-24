@@ -5,9 +5,32 @@ import './ParkingHistoryView.css'
 export default function ParkingHistoryView({
   history = [],
   user = null,
-  userProfile = null
+  userProfile = null,
+  activeReservation = null
 }) {
-  const recordsData = useMemo(() => Array.isArray(history) ? history : [], [history])
+  const completedRecords = useMemo(() => Array.isArray(history) ? history : [], [history])
+
+  // Merge active reservation (if any) as a synthetic 'Active' record at the top
+  const recordsData = useMemo(() => {
+    if (!activeReservation) return completedRecords
+    const activeRecord = {
+      id: activeReservation.id || activeReservation.reservationId || 'ACTIVE-NOW',
+      slotId: activeReservation.slotId || '—',
+      vehicleNumber: activeReservation.plate || activeReservation.vehiclePlate || activeReservation.vehicleNumber || '—',
+      vehicleType: activeReservation.vehicleType || activeReservation.type || 'scooty',
+      studentName: activeReservation.userName || activeReservation.studentName || userProfile?.displayName || '—',
+      rollNumber: activeReservation.rollNumber || userProfile?.campusId || '—',
+      stream: activeReservation.stream || userProfile?.stream || '—',
+      floor: activeReservation.floor || 'Ground Floor',
+      date: activeReservation.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      entryTime: activeReservation.entryTime || '—',
+      exitTime: '—',
+      duration: 'In Progress',
+      status: 'Active',
+      _isActive: true
+    }
+    return [activeRecord, ...completedRecords]
+  }, [activeReservation, completedRecords, userProfile])
 
   const studentName = userProfile?.displayName || user?.displayName
   const rollNumber = userProfile?.campusId || userProfile?.rollNumber
@@ -17,7 +40,7 @@ export default function ParkingHistoryView({
   const [search, setSearch] = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'Completed'
+  const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'Active' | 'Completed'
   const [vehicleFilter, setVehicleFilter] = useState('all') // 'all' | 'bike' | 'scooty'
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedRecord, setSelectedRecord] = useState(null)
@@ -53,9 +76,8 @@ export default function ParkingHistoryView({
       // 2. Status filter
       if (statusFilter !== 'all') {
         const itemStatus = (item.status || 'Completed').toLowerCase()
-        if (itemStatus !== statusFilter.toLowerCase()) {
-          return false
-        }
+        if (statusFilter.toLowerCase() === 'active' && itemStatus !== 'active') return false
+        if (statusFilter.toLowerCase() === 'completed' && itemStatus !== 'completed') return false
       }
 
       // 3. Date Range Filter
@@ -202,7 +224,8 @@ export default function ParkingHistoryView({
             aria-label="Filter by Status"
           >
             <option value="all">All Statuses</option>
-            <option value="Completed">Completed</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
           </select>
           <span className="ph-select-arrow">▼</span>
         </div>
@@ -356,9 +379,9 @@ export default function ParkingHistoryView({
 
                     {/* Column 5: Status */}
                     <td>
-                      <span className="ph-status-badge">
-                        <span className="ph-status-dot" />
-                        <span>{item.status || 'Completed'}</span>
+                      <span className={`ph-status-badge${item._isActive ? ' ph-status-badge--active' : ''}`}>
+                        <span className={`ph-status-dot${item._isActive ? ' ph-dot-pulse' : ''}`} />
+                        <span>{item._isActive ? 'Active' : (item.status || 'Completed')}</span>
                       </span>
                     </td>
                   </tr>

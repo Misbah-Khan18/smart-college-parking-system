@@ -398,12 +398,40 @@ const basementSlots = [
       type: 'bike',
       isEv: i % 6 === 0
     })
+  ),
+
+  // ==========================================
+  // B-81 TO B-110: BASEMENT ROW 5 — BIKE (30 BAYS)
+  // ==========================================
+  ...Array.from({ length: 30 }, (_, i) =>
+    createSlot({
+      id: `B-${String(i + 81).padStart(2, '0')}`,
+      floor: 'Basement',
+      section: 'P3 Bike Parking Left (25ft)',
+      zone: 'Basement - Bike Parking',
+      type: 'bike',
+      isEv: i % 5 === 0
+    })
+  ),
+
+  // ==========================================
+  // B-111 TO B-140: BASEMENT ROW 6 — BIKE (30 BAYS)
+  // ==========================================
+  ...Array.from({ length: 30 }, (_, i) =>
+    createSlot({
+      id: `B-${String(i + 111).padStart(2, '0')}`,
+      floor: 'Basement',
+      section: 'P3 Bike Parking Right (25ft)',
+      zone: 'Basement - Bike Parking',
+      type: 'bike',
+      isEv: i % 6 === 0
+    })
   )
 ]
 
 
 // ==========================================
-// EXPORT ALL 160 PARKING SLOTS
+// EXPORT ALL 280 PARKING SLOTS (140 Ground + 140 Basement)
 // ==========================================
 
 export const INITIAL_SLOTS = [

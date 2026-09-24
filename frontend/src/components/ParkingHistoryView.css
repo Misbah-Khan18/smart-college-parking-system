@@ -552,6 +552,25 @@
   box-shadow: 0 0 6px #34d399;
 }
 
+/* Active reservation variant — amber pulsing badge */
+.ph-status-badge--active {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+}
+
+.ph-dot-pulse {
+  background: #fbbf24;
+  box-shadow: 0 0 6px #fbbf24;
+  animation: ph-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ph-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.45; transform: scale(1.5); }
+}
+
 /* Empty State */
 .ph-empty-state {
   display: flex;

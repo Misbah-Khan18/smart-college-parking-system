@@ -164,21 +164,21 @@ export const createInitialBayData = () => {
     } else if (i > 57 && i <= 80) {
       section = i <= 68 ? 'Accounts Dept Wing — Perimeter Bay' : 'Exam IT Dept Wing — Perimeter Bay'
       dimensions = '2.5m × 5.0m'
-    } else if (i > 80 && i <= 110) {
-      section = 'South Concourse Under Ingress — Bike Row 1'
-      dimensions = '1.2m × 2.5m'
-    } else if (i > 110) {
-      section = 'South Concourse Under Ingress — Bike Row 2'
-      dimensions = '1.2m × 2.5m'
+    } else if (i > 80 && i <= 112) {
+      section = 'Central Ingress Concourse — Student Bay'
+      dimensions = '1.8m × 3.0m'
+    } else if (i > 112) {
+      section = 'South Perimeter Extension — Student Bay'
+      dimensions = '1.5m × 2.6m'
     }
 
     bays.push({
       id,
       slotNumber: i,
       floor: 'Ground Floor',
-      type: i > 57 && i <= 80 ? 'scooty' : 'bike',
+      type: 'scooty',
       section,
-      wing: 'Ground Floor — Two-Wheelers',
+      wing: 'Ground Floor — Scooties',
       row: `R${Math.ceil(i / 20)}`,
       status,
       label: status.toUpperCase(),
@@ -227,10 +227,13 @@ export const createBasementBayData = () => {
     'B-45': { status: 'occupied', assignedTo: 'Gaurav Patil (Mech-Y2)', plate: 'MH-12-GP-4545', mins: 80 },
     'B-50': { status: 'occupied', assignedTo: 'Akshay More (Civil)', plate: 'MH-14-AM-5050', mins: 60 },
     'B-62': { status: 'occupied', assignedTo: 'Kartik Iyer (MBA)', plate: 'MH-12-KI-6262', mins: 115 },
-    'B-75': { status: 'occupied', assignedTo: 'Nikhil Rathi (IT)', plate: 'MH-14-NR-7575', mins: 50 }
+    'B-75': { status: 'occupied', assignedTo: 'Nikhil Rathi (IT)', plate: 'MH-14-NR-7575', mins: 50 },
+    'B-88': { status: 'occupied', assignedTo: 'Aditya Kulkarni (Mech-Y3)', plate: 'MH-12-AK-8800', mins: 65 },
+    'B-102': { status: 'occupied', assignedTo: 'Saurabh Joshi (Civil)', plate: 'MH-14-SJ-1020', mins: 110 },
+    'B-120': { status: 'reserved', assignedTo: 'Campus Security Reserve', plate: 'MH-12-SEC-03', mins: 180 }
   }
 
-  for (let i = 1; i <= 80; i++) {
+  for (let i = 1; i <= 140; i++) {
     const id = `B-${String(i).padStart(2, '0')}`
     const seed = sampleData[id]
     const status = seed ? seed.status : 'available'
@@ -238,10 +241,12 @@ export const createBasementBayData = () => {
     const isOccupied = status === 'occupied' || status === 'booked'
     const statusChangesAt = isOccupied ? getOccupiedExpiry(seed.mins) : isReserved ? getReservedExpiry(seed.mins) : null
 
-    let section = 'Basement Row 1'
-    if (i > 20 && i <= 40) section = 'Basement Row 2'
-    else if (i > 40 && i <= 60) section = 'Basement Row 3'
-    else if (i > 60) section = 'Basement Row 4'
+    let section = 'P1 Bike Area (25ft)'
+    if (i > 20 && i <= 40) section = 'P2 Bike Area (25ft)'
+    else if (i > 40 && i <= 65) section = 'F1 Bike Parking Left (28ft)'
+    else if (i > 65 && i <= 90) section = 'F1 Bike Parking Right (28ft)'
+    else if (i > 90 && i <= 115) section = 'P3 Bike Parking Left (25ft)'
+    else if (i > 115) section = 'P3 Bike Parking Right (25ft)'
 
     bays.push({
       id,
@@ -250,7 +255,7 @@ export const createBasementBayData = () => {
       type: 'bike',
       section,
       wing: 'Basement — Bikes',
-      row: `R${Math.ceil(i / 20)}`,
+      row: i <= 40 ? 'R1' : i <= 90 ? 'R2' : 'R3',
       status,
       label: status.toUpperCase(),
       dotColor: status === 'available' ? 'green' : status === 'reserved' ? 'amber' : 'red',

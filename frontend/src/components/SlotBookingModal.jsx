@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { XIcon, ShieldIcon } from './Icons'
 import { normalizeSlotId } from '../services/parkingService'
+import MetroGatePaymentGateway from './MetroGatePaymentGateway'
 import GatePassActivationScreen from './GatePassActivationScreen'
 
 const PERMIT_TIERS = [
@@ -98,7 +99,8 @@ function SlotBookingContent({
   const [isProcessing, setIsProcessing] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // Gate activation screen — shown instead of a plain spinner
+  // State for Metro Gate Payment Gateway (between Step 1 Reserve Modal and Step 2 Pass Receipt)
+  const [pendingPaymentPayload, setPendingPaymentPayload] = useState(null)
   const [gateScreenPass, setGateScreenPass] = useState(null)
 
   // ── Always re-sync vehicle data when userProfile / user changes ──
@@ -152,7 +154,7 @@ function SlotBookingContent({
     (s) => normalizeSlotId(s.id) === normalizeSlotId(chosenSlotId)
   )
 
-  const handleActivateSubmit = async (e) => {
+  const handleActivateSubmit = (e) => {
     e.preventDefault()
     setErrorMsg('')
 
@@ -167,8 +169,6 @@ function SlotBookingContent({
       setErrorMsg('Vehicle license plate number is required.')
       return
     }
-
-    setIsProcessing(true)
 
     const days = tier.days || 1
     const expiryDate = new Date(getNow() + days * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
@@ -201,22 +201,32 @@ function SlotBookingContent({
       reservedUntil: expiryDate,
       days,
       qrToken: `SOC-${targetSlotId}-${cleanPlate}-${getNow()}`
+    }
+
+    // Route to Metro Gate Payment Gateway (Between Image 1 and Image 2)
+    setPendingPaymentPayload(payload)
   }
+
+  // Called when payment is confirmed in MetroGatePaymentGateway
+  const handlePaymentSuccess = async (paidPayload) => {
+    setIsProcessing(true)
+    setErrorMsg('')
 
     try {
       if (onActivatePass) {
-        await onActivatePass(payload)
+        await onActivatePass(paidPayload)
       } else if (onPermitActivated) {
-        onPermitActivated(payload)
+        onPermitActivated(paidPayload)
       }
 
-      // Show the gate animation AFTER the Firestore write succeeds
+      setPendingPaymentPayload(null)
       setIsProcessing(false)
-      setGateScreenPass(payload)
+      onClose()
     } catch (err) {
       console.error('[SlotBookingModal] Pass Activation Error:', err)
-      setErrorMsg(err.message || 'Failed to activate pass and reserve slot.')
+      setErrorMsg(err.message || 'Payment confirmed, but failed to record slot reservation.')
       setIsProcessing(false)
+      setPendingPaymentPayload(null)
     }
   }
 
@@ -226,7 +236,19 @@ function SlotBookingContent({
     onClose()
   }
 
-  // Show gate animation full-screen overlay
+  // 1. Show Metro Gate Payment Gateway (between Step 1 and Step 2)
+  if (pendingPaymentPayload) {
+    return (
+      <MetroGatePaymentGateway
+        isOpen={true}
+        bookingData={pendingPaymentPayload}
+        onPaymentSuccess={handlePaymentSuccess}
+        onCancel={() => setPendingPaymentPayload(null)}
+      />
+    )
+  }
+
+  // 2. Show gate animation full-screen overlay if active
   if (gateScreenPass) {
     return <GatePassActivationScreen passData={gateScreenPass} onDone={handleGateDone} />
   }
