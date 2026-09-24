@@ -208,7 +208,7 @@ export function subscribeToRegisteredVehicles(onUpdate, onError, filter = {}) {
     let vehQuery = null
 
     if (filter && filter.isAdmin) {
-      vehQuery = query(vehRef)
+      vehQuery = query(vehRef, orderBy('createdAt', 'desc'))
     } else if (filter) {
       if (filter.studentId) {
         vehQuery = query(vehRef, where('studentId', '==', filter.studentId))
@@ -437,4 +437,20 @@ export function searchVehicle(query, vehicleList = null) {
     )
   })
 }
+
+/**
+ * Fetch a specific vehicle by ID
+ */
+export async function getVehicleById(vehicleId) {
+  if (!vehicleId) return null
+  try {
+    const docRef = doc(db, VEHICLES_COLLECTION, vehicleId)
+    const snap = await getDoc(docRef)
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+  } catch (err) {
+    console.warn('[Firestore] getVehicleById notice:', err?.message)
+    return null
+  }
+}
+
 

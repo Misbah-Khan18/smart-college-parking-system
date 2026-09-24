@@ -153,12 +153,11 @@ export async function endParkingSession({
 
   // 2. Fetch slot document to verify status and merge bay details
   const targetSlotId = activeSessionDoc?.data()?.slotId || cleanSlotId
-  let slotDocSnap = null
   let slotData = {}
 
   if (targetSlotId) {
     const slotDocRef = doc(db, SLOTS_COLLECTION, targetSlotId)
-    slotDocSnap = await getDoc(slotDocRef)
+    const slotDocSnap = await getDoc(slotDocRef)
     if (slotDocSnap.exists()) {
       slotData = slotDocSnap.data()
     }
@@ -416,3 +415,16 @@ export function subscribeToParkingHistory(onUpdate, onError, filter = {}) {
     return () => {}
   }
 }
+
+/**
+ * Update an active parking session document
+ */
+export async function updateParkingSession(sessionId, updates) {
+  if (!sessionId) return
+  const sessionRef = doc(db, SESSIONS_COLLECTION, sessionId)
+  await updateDoc(sessionRef, {
+    ...updates,
+    updatedAt: serverTimestamp()
+  })
+}
+

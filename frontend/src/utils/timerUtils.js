@@ -105,7 +105,7 @@ export const calculateAuthoritativeDuration = (entryTimestamp, exitTimestamp = D
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
 
-  let durationStr = ''
+  let durationStr
   if (hours > 0) {
     durationStr = minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
   } else if (minutes > 0) {

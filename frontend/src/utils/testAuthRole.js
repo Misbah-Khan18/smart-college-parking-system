@@ -26,6 +26,11 @@ const localStorageMock = {
   clear: () => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]) }
 }
 
+localStorageMock.setItem('mock_test', 'success')
+assert(localStorageMock.getItem('mock_test') === 'success', 'localStorageMock correctly stores and retrieves data')
+localStorageMock.removeItem('mock_test')
+assert(localStorageMock.getItem('mock_test') === null, 'localStorageMock correctly removes keys')
+
 // ----------------------------------------------------
 // Test 1: Role-Based Admin Evaluation Logic
 // ----------------------------------------------------
@@ -50,7 +55,13 @@ function mergeUserProfile(firestoreProfile, rawCustomStorageJson) {
   if (rawCustomStorageJson) {
     try {
       const parsed = JSON.parse(rawCustomStorageJson)
-      const { role, uid, email, displayName, photoURL, campusId, ...vehicleProps } = parsed || {}
+      const vehicleProps = { ...(parsed || {}) }
+      delete vehicleProps.role
+      delete vehicleProps.uid
+      delete vehicleProps.email
+      delete vehicleProps.displayName
+      delete vehicleProps.photoURL
+      delete vehicleProps.campusId
       customVehicleData = vehicleProps
     } catch {
       // ignore

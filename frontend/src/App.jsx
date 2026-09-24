@@ -284,6 +284,7 @@ export default function App() {
 
 
   const [activeTab, setActiveTab] = useState('home')
+  const [studentParkingViewMode, setStudentParkingViewMode] = useState('campus') // 'campus' | 'grid'
 
   const [isSlotsInitialized, setIsSlotsInitialized] = useState(false)
 
@@ -563,6 +564,7 @@ export default function App() {
   }, [
     user,
     isAdminUser,
+    userProfile?.displayName,
     userProfile?.campusId,
     userProfile?.rollNumber,
     userProfile?.defaultPlate,
@@ -646,14 +648,12 @@ export default function App() {
       ) {
         const parsedCustom = JSON.parse(savedCustom)
 
-        const {
-          role,
-          uid,
-          email,
-          displayName,
-          photoURL,
-          ...safeCustom
-        } = parsedCustom || {}
+        const safeCustom = { ...(parsedCustom || {}) }
+        delete safeCustom.role
+        delete safeCustom.uid
+        delete safeCustom.email
+        delete safeCustom.displayName
+        delete safeCustom.photoURL
 
         finalData = {
           ...demoData,
@@ -813,6 +813,7 @@ export default function App() {
 
           userName:
             userName ||
+            owner ||
             userProfile?.displayName ||
             user?.displayName ||
             'Campus Member',
@@ -886,6 +887,20 @@ export default function App() {
         )
 
         setSelectedSlot(null)
+
+        setSlots((prev) =>
+          prev.map((s) =>
+            normalizeSlotId(s.id) === cleanSlotId
+              ? {
+                  ...s,
+                  status: 'reserved',
+                  plate: result.passData.vehiclePlate,
+                  owner: result.passData.owner,
+                  type: result.passData.vehicleType
+                }
+              : s
+          )
+        )
 
 
         const nowDate =
@@ -2044,24 +2059,61 @@ export default function App() {
 
               {/* AVAILABLE PARKING */}
 
-              {activeTab ===
-                'student-available-parking' && (
-                  <CampusParkingDashboard
-                    slots={slots}
-                    userProfile={
-                      userProfile
-                    }
-                    onOpenBooking={(
-                      slot,
-                      type
-                    ) =>
-                      handleOpenBookingModal(
-                        slot,
-                        type || 'slot'
-                      )
-                    }
-                  />
-                )}
+              {activeTab === 'student-available-parking' && (
+                <div>
+                  {/* View Mode Toggle: Campus Master Layout vs Quick Grid */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '14px',
+                      padding: '8px 14px',
+                      background: 'rgba(15, 23, 42, 0.65)',
+                      border: '1px solid rgba(51, 65, 85, 0.6)',
+                      borderRadius: '12px'
+                    }}
+                  >
+                    <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+                      Parking View: <strong style={{ color: '#f1f5f9' }}>{studentParkingViewMode === 'campus' ? 'Campus Master Blueprint' : 'Quick Bay Grid'}</strong>
+                    </span>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className={`btn btn-xs ${studentParkingViewMode === 'campus' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setStudentParkingViewMode('campus')}
+                      >
+                        🗺️ Campus Blueprint
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-xs ${studentParkingViewMode === 'grid' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => setStudentParkingViewMode('grid')}
+                      >
+                        ⚡ Quick Bay Grid
+                      </button>
+                    </div>
+                  </div>
+
+                  {studentParkingViewMode === 'campus' ? (
+                    <CampusParkingDashboard
+                      slots={slots}
+                      userProfile={userProfile}
+                      onOpenBooking={(slot, type) =>
+                        handleOpenBookingModal(slot, type || 'slot')
+                      }
+                    />
+                  ) : (
+                    <StudentAvailableParkingView
+                      slots={slots}
+                      userProfile={userProfile}
+                      onOpenBooking={(slot, type) =>
+                        handleOpenBookingModal(slot, type || 'slot')
+                      }
+                    />
+                  )}
+                </div>
+              )}
 
 
               {/* MY VEHICLE */}

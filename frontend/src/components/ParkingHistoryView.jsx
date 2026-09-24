@@ -7,7 +7,7 @@ export default function ParkingHistoryView({
   user = null,
   userProfile = null
 }) {
-  const recordsData = Array.isArray(history) ? history : []
+  const recordsData = useMemo(() => Array.isArray(history) ? history : [], [history])
 
   const studentName = userProfile?.displayName || user?.displayName
   const rollNumber = userProfile?.campusId || userProfile?.rollNumber

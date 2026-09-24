@@ -55,7 +55,7 @@ export default function VehicleExitView({
         floor: slot.floor || session?.floor || (slot.id.startsWith('G') ? 'Ground Floor' : 'Basement'),
         section: slot.section || session?.section || '',
         entryTime: slot.entryTime || session?.entryTime || 'Earlier Today',
-        entryTimestamp: slot.entryTimestamp || session?.entryTimestamp || Date.now()
+        entryTimestamp: slot.entryTimestamp || session?.entryTimestamp || 0
       }
     })
 
@@ -132,6 +132,10 @@ export default function VehicleExitView({
             }, 600)
           }, 3500)
         }, 500)
+
+        if (onReleaseSlot) {
+          onReleaseSlot(result.slotId || targetSlot)
+        }
 
         if (showToast) {
           showToast(
