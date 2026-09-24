@@ -493,110 +493,129 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
           {activeFloor === 'basement' ? (
             
             /* ================================================================
-               BASEMENT FLOOR LAYOUT (80 BAYS: B-01 TO B-80)
+               BASEMENT — MAP LAYOUT (B-01 TO B-80)
+               ─── Row 1: P1 Bike Parking (50ft, full-width) — B-01 to B-30
+               ─── Row 2: IN Gate | F1 Parking (28ft, left) | gap | F1 Parking (28ft, right) | OUT Gate
+               ─── Row 3: P3 Parking (25ft, left) | Lift Core | P3 Parking (25ft, right)
                ================================================================ */
             <div className="cad-map-canvas cad-lg-canvas">
-              
-              {/* Warning Strip */}
+
+              {/* Basement Ingress Banner */}
               <div className="cad-lg-warning-bar">
                 <div className="cad-lg-warning-left">
                   <span className="cad-lg-warning-dot">●</span>
-                  <span className="cad-lg-warning-title">
-                    ↓ SUBTERRANEAN INGRESS &amp; CANOPY CLEARANCE [SPEED LIMIT: 10 KM/H]
-                  </span>
+                  <span className="cad-lg-warning-title">↓ SUBTERRANEAN INGRESS · RFID CONTROLLED · SPEED LIMIT 10 KM/H</span>
                 </div>
                 <div className="cad-lg-warning-right">
-                  <span className="cad-lg-clearance-text">
-                    Max Clearance: <strong className="cad-lg-clearance-val">3.40m</strong>
-                  </span>
-                  <span className="cad-lg-radar-text">
-                    Induction Radar: <strong className="cad-lg-radar-val">Online</strong>
-                  </span>
+                  <span className="cad-lg-clearance-text">Clearance: <strong className="cad-lg-clearance-val">3.40m</strong></span>
+                  <span className="cad-lg-radar-text">Radar: <strong className="cad-lg-radar-val">Online</strong></span>
                 </div>
               </div>
 
-              {/* North Wing Bay Cluster: B-01 to B-40 */}
-              <div className="cad-lg-wing-section">
-                <div className="cad-lg-wing-header">
-                  <div className="cad-lg-wing-title">
-                    <span className="cad-lg-wing-arrow">▲</span> NORTH WING (B-01 TO B-40) — BIKES
+              {/* ── ROW 1: P1 Bike Parking — Full Width (50ft) ── */}
+              <div className="bsmt-row bsmt-row-top">
+                <div className="gf-zone bsmt-zone-p1">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">P1 · Bike Parking Area</div>
+                      <div className="gf-zone-sub">50 ft · B-01 – B-30 (30 Bays)</div>
+                    </div>
                   </div>
-                  <div className="cad-lg-wing-meta">
-                    40 STANDARD BIKE BAYS (2.5m × 5.0m)
-                  </div>
-                </div>
-
-                <div className="cad-south-rows">
-                  {/* Row 1: B-01 to B-10 */}
-                  <div className="cad-south-row">
-                    {['B-01', 'B-02', 'B-03', 'B-04', 'B-05', 'B-06', 'B-07', 'B-08', 'B-09', 'B-10'].map(id => renderBayCard(id))}
-                  </div>
-                  {/* Row 2: B-11 to B-20 */}
-                  <div className="cad-south-row">
-                    {['B-11', 'B-12', 'B-13', 'B-14', 'B-15', 'B-16', 'B-17', 'B-18', 'B-19', 'B-20'].map(id => renderBayCard(id))}
-                  </div>
-                  {/* Row 3: B-21 to B-30 */}
-                  <div className="cad-south-row">
-                    {['B-21', 'B-22', 'B-23', 'B-24', 'B-25', 'B-26', 'B-27', 'B-28', 'B-29', 'B-30'].map(id => renderBayCard(id))}
-                  </div>
-                  {/* Row 4: B-31 to B-40 */}
-                  <div className="cad-south-row">
-                    {['B-31', 'B-32', 'B-33', 'B-34', 'B-35', 'B-36', 'B-37', 'B-38', 'B-39', 'B-40'].map(id => renderBayCard(id))}
+                  <div className="gf-bay-grid bsmt-grid-6col">
+                    {Array.from({ length: 30 }, (_, i) => `B-${String(i + 1).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
               </div>
 
-              {/* Central Subterranean Artery */}
-              <div className="cad-lg-central-artery">
-                <div className="cad-artery-tab tab-in">IN</div>
-                
-                <div className="cad-artery-road-segment segment-left">
-                  <div className="cad-road-dashed-line" />
-                  <span className="cad-road-text">◄ WESTBOUND LANE (10 KM/H)</span>
+              {/* ── ROW 2: IN Gate | F1 Left | gap | F1 Right | OUT Gate ── */}
+              <div className="bsmt-row bsmt-row-middle">
+
+                {/* IN Gate */}
+                <div className="bsmt-gate-side bsmt-gate-in">
+                  <div className="bsmt-gate-label">IN</div>
                 </div>
 
-                <div className="cad-artery-road-center">
-                  <span className="cad-artery-center-dot" />
-                  <span className="cad-artery-center-label">Central Artery &bull; Two-Way Flow</span>
+                {/* F1 — 28ft Parking (Left) */}
+                <div className="gf-zone bsmt-zone-f1">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">F1 · Parking Area</div>
+                      <div className="gf-zone-sub">28 ft · B-31 – B-50</div>
+                    </div>
+                  </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 31).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  </div>
                 </div>
 
-                <div className="cad-artery-road-segment segment-right">
-                  <div className="cad-road-dashed-line" />
-                  <span className="cad-road-text">EASTBOUND LANE (10 KM/H) ►</span>
+                {/* Internal Circulation Gap */}
+                <div className="gf-circ-lane bsmt-circ-lane">
+                  <span className="gf-circ-arrow">←</span>
+                  <span className="gf-circ-text">LANE</span>
+                  <span className="gf-circ-arrow">→</span>
                 </div>
 
-                <div className="cad-artery-tab tab-out">OUT</div>
+                {/* F1 — 28ft Parking (Right) */}
+                <div className="gf-zone bsmt-zone-f1">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">F1 · Parking Area</div>
+                      <div className="gf-zone-sub">28 ft · B-51 – B-70</div>
+                    </div>
+                  </div>
+                  <div className="gf-bay-grid gf-grid-5col">
+                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 51).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                  </div>
+                </div>
+
+                {/* OUT Gate */}
+                <div className="bsmt-gate-side bsmt-gate-out">
+                  <div className="bsmt-gate-label">OUT</div>
+                </div>
+
               </div>
 
-              {/* South Wing Bay Cluster: B-41 to B-80 */}
-              <div className="cad-lg-wing-section">
-                <div className="cad-lg-wing-header">
-                  <div className="cad-lg-wing-title">
-                    <span className="cad-lg-wing-arrow">▼</span> SOUTH WING (B-41 TO B-80) — BIKES
+              {/* ── ROW 3: P3 Parking (left) | Lift Core | P3 Parking (right) ── */}
+              <div className="bsmt-row bsmt-row-bottom">
+
+                {/* P3 — 25ft Parking (Left) */}
+                <div className="gf-zone bsmt-zone-p3">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">P3 · Parking Area</div>
+                      <div className="gf-zone-sub">25 ft · B-71 – B-75</div>
+                    </div>
                   </div>
-                  <div className="cad-lg-wing-meta">
-                    40 STANDARD BIKE BAYS (2.5m × 5.0m)
+                  <div className="gf-bay-grid bsmt-grid-5col-auto">
+                    {Array.from({ length: 5 }, (_, i) => `B-${String(i + 71).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
-                <div className="cad-south-rows">
-                  {/* Row 1: B-41 to B-50 */}
-                  <div className="cad-south-row">
-                    {['B-41', 'B-42', 'B-43', 'B-44', 'B-45', 'B-46', 'B-47', 'B-48', 'B-49', 'B-50'].map(id => renderBayCard(id))}
+                {/* Lift Core */}
+                <div className="gf-lift-block">
+                  <div className="gf-lift-icon-wrap">🛗</div>
+                  <div className="gf-lift-label">Lift</div>
+                  <div className="gf-lift-sub">Ground Floor Access</div>
+                </div>
+
+                {/* P3 — 25ft Parking (Right) */}
+                <div className="gf-zone bsmt-zone-p3">
+                  <div className="gf-zone-header">
+                    <span className="gf-zone-icon">🏍️</span>
+                    <div>
+                      <div className="gf-zone-title">P3 · Parking Area</div>
+                      <div className="gf-zone-sub">25 ft · B-76 – B-80</div>
+                    </div>
                   </div>
-                  {/* Row 2: B-51 to B-60 */}
-                  <div className="cad-south-row">
-                    {['B-51', 'B-52', 'B-53', 'B-54', 'B-55', 'B-56', 'B-57', 'B-58', 'B-59', 'B-60'].map(id => renderBayCard(id))}
-                  </div>
-                  {/* Row 3: B-61 to B-70 */}
-                  <div className="cad-south-row">
-                    {['B-61', 'B-62', 'B-63', 'B-64', 'B-65', 'B-66', 'B-67', 'B-68', 'B-69', 'B-70'].map(id => renderBayCard(id))}
-                  </div>
-                  {/* Row 4: B-71 to B-80 */}
-                  <div className="cad-south-row">
-                    {['B-71', 'B-72', 'B-73', 'B-74', 'B-75', 'B-76', 'B-77', 'B-78', 'B-79', 'B-80'].map(id => renderBayCard(id))}
+                  <div className="gf-bay-grid bsmt-grid-5col-auto">
+                    {Array.from({ length: 5 }, (_, i) => `B-${String(i + 76).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
+
               </div>
 
             </div>
