@@ -33,7 +33,6 @@ import PaymentCancelPage from './pages/PaymentCancelPage'
 
 // Student Views
 import StudentDashboardView from './components/student/StudentDashboardView'
-import StudentAvailableParkingView from './components/student/StudentAvailableParkingView'
 import CampusParkingDashboard from './components/CampusParkingDashboard'
 import StudentMyVehicleView from './components/student/StudentMyVehicleView'
 import StudentMyStatusView from './components/student/StudentMyStatusView'
@@ -51,6 +50,14 @@ import {
   seedParkingSlotsIfEmpty,
   normalizeSlotId
 } from './services/parkingService'
+
+import {
+  subscribeToRealtimeSync,
+  broadcastSlotReserved,
+  broadcastSlotReleased,
+  acquireSlotBookingLock,
+  releaseSlotBookingLock
+} from './services/realtimeSyncService'
 
 import {
   subscribeToRegisteredVehicles,
@@ -284,7 +291,6 @@ export default function App() {
 
 
   const [activeTab, setActiveTab] = useState('home')
-  const [studentParkingViewMode, setStudentParkingViewMode] = useState('campus') // 'campus' | 'grid'
 
   const [isSlotsInitialized, setIsSlotsInitialized] = useState(false)
 
@@ -553,6 +559,60 @@ export default function App() {
     }
 
 
+    // 6. Realtime Cross-Tab / Cross-Component Sync Listener
+    const unsubRealtimeSync = subscribeToRealtimeSync((evt) => {
+      if (!evt) return
+      if (evt.type === 'SLOT_RESERVED' && evt.slotId) {
+        const cleanId = normalizeSlotId(evt.slotId)
+        setSlots((prev) => {
+          const exists = prev.some((s) => normalizeSlotId(s.id) === cleanId)
+          if (exists) {
+            return prev.map((s) =>
+              normalizeSlotId(s.id) === cleanId
+                ? {
+                    ...s,
+                    status: 'reserved',
+                    plate: evt.passData?.vehiclePlate || evt.reservation?.plate || s.plate,
+                    owner: evt.passData?.owner || evt.reservation?.userName || s.owner,
+                    type: evt.passData?.vehicleType || s.type
+                  }
+                : s
+            )
+          }
+          return [
+            ...prev,
+            {
+              id: cleanId,
+              status: 'reserved',
+              plate: evt.passData?.vehiclePlate || evt.reservation?.plate,
+              owner: evt.passData?.owner || evt.reservation?.userName,
+              type: evt.passData?.vehicleType || (cleanId.startsWith('G') ? 'scooty' : 'bike')
+            }
+          ]
+        })
+      } else if (evt.type === 'SLOT_RELEASED' && evt.slotId) {
+        const cleanId = normalizeSlotId(evt.slotId)
+        setSlots((prev) =>
+          prev.map((s) =>
+            normalizeSlotId(s.id) === cleanId
+              ? {
+                  ...s,
+                  status: 'available',
+                  reservedBy: '',
+                  reservedByName: '',
+                  reservedByEmail: '',
+                  studentId: '',
+                  userId: '',
+                  plate: '',
+                  owner: '',
+                  reservedUntil: null
+                }
+              : s
+          )
+        )
+      }
+    })
+
     // Cleanup subscriptions
     return () => {
       unsubSlots()
@@ -560,6 +620,7 @@ export default function App() {
       unsubHistory()
       unsubSessions()
       unsubReservation()
+      unsubRealtimeSync()
     }
   }, [
     user,
@@ -803,6 +864,34 @@ export default function App() {
       )
     }
 
+    // Single active reservation guard: Prevent duplicate active bookings
+    if (activeReservation) {
+      const existingBay =
+        activeReservation?.slotId ||
+        (activeReservation?.id?.startsWith('RES-') ? activeReservation.id.split('-')[1] : activeReservation.id) ||
+        'an allocated bay'
+      showToast(
+        'Active Reservation Already Exists',
+        `You currently have Bay ${existingBay} reserved. Please release it before booking a new bay.`,
+        'warning'
+      )
+      throw new Error(
+        `You already have an active parking reservation in Bay ${existingBay}. Please release your existing bay first.`
+      )
+    }
+
+    // High-concurrency booking lock (load balancer / race condition guard)
+    if (!acquireSlotBookingLock(cleanSlotId)) {
+      showToast(
+        'Bay Processing',
+        `Bay ${cleanSlotId} is currently being booked by another student. Please select another slot.`,
+        'warning'
+      )
+      throw new Error(
+        `Bay ${cleanSlotId} is currently undergoing checkout.`
+      )
+    }
+
 
     try {
       const result =
@@ -888,20 +977,50 @@ export default function App() {
 
         setSelectedSlot(null)
 
-        setSlots((prev) =>
-          prev.map((s) =>
-            normalizeSlotId(s.id) === cleanSlotId
-              ? {
-                  ...s,
-                  status: 'reserved',
-                  plate: result.passData.vehiclePlate,
-                  owner: result.passData.owner,
-                  type: result.passData.vehicleType
-                }
-              : s
-          )
-        )
+        releaseSlotBookingLock(cleanSlotId)
 
+        setSlots((prev) => {
+          const exists = prev.some((s) => normalizeSlotId(s.id) === cleanSlotId)
+          if (exists) {
+            return prev.map((s) =>
+              normalizeSlotId(s.id) === cleanSlotId
+                ? {
+                    ...s,
+                    status: 'reserved',
+                    plate: result.passData.vehiclePlate,
+                    owner: result.passData.owner,
+                    type: result.passData.vehicleType,
+                    reservedBy: currentUid,
+                    userId: currentUid,
+                    studentId: currentUid
+                  }
+                : s
+            )
+          }
+          return [
+            ...prev,
+            {
+              id: cleanSlotId,
+              floor: result.passData.floor || (cleanSlotId.startsWith('G') ? 'Ground Floor' : 'Basement'),
+              section,
+              zone,
+              status: 'reserved',
+              plate: result.passData.vehiclePlate,
+              owner: result.passData.owner,
+              type: result.passData.vehicleType,
+              reservedBy: currentUid,
+              userId: currentUid,
+              studentId: currentUid
+            }
+          ]
+        })
+
+        // Realtime cross-tab broadcast
+        broadcastSlotReserved({
+          slotId: cleanSlotId,
+          reservation: result.reservation,
+          passData: result.passData
+        })
 
         const nowDate =
           new Date().toLocaleDateString(
@@ -913,7 +1032,6 @@ export default function App() {
             }
           )
 
-
         const nowTime =
           new Date().toLocaleTimeString(
             [],
@@ -924,26 +1042,15 @@ export default function App() {
             }
           )
 
-
         setConfirmationData({
           slotId: result.slotId,
-
-          floor:
-            result.passData.floor,
-
-          passType:
-            result.passData.passType,
-
+          floor: result.passData.floor,
+          passType: result.passData.passType,
           dateStr: nowDate,
           timeStr: nowTime,
-
-          vehicleNumber:
-            result.passData.vehiclePlate,
-
-          passData:
-            result.passData
+          vehicleNumber: result.passData.vehiclePlate,
+          passData: result.passData
         })
-
 
         showToast(
           'Pass Activated & Slot Reserved! 🎉',
@@ -951,14 +1058,15 @@ export default function App() {
           'success'
         )
 
-
         return result
       }
 
+      releaseSlotBookingLock(cleanSlotId)
       throw new Error(
         'Unable to reserve the selected parking bay.'
       )
     } catch (err) {
+      releaseSlotBookingLock(cleanSlotId)
       console.error(
         '[App] Pass activation error:',
         err
@@ -983,69 +1091,85 @@ export default function App() {
   const handleCancelReservation = async (
     slotOrRes
   ) => {
-    const slotId =
+    const rawSlotId =
       slotOrRes?.slotId ||
-      slotOrRes?.id
+      (slotOrRes?.id?.startsWith('RES-') ? slotOrRes.id.split('-')[1] : slotOrRes?.id) ||
+      activeReservation?.slotId
+    const cleanSlotId = normalizeSlotId(rawSlotId)
 
     const reservationId =
       slotOrRes?.reservationId ||
+      (slotOrRes?.id?.startsWith('RES-') ? slotOrRes.id : null) ||
       activeReservation?.id ||
       null
 
     const currentUid =
       user?.uid ||
-      auth.currentUser?.uid
+      auth.currentUser?.uid ||
+      userProfile?.id ||
+      activeReservation?.userId ||
+      'DEMO_STUDENT'
 
-
-    if (!slotId && !reservationId) {
+    if (!cleanSlotId && !reservationId) {
       return
     }
 
-
     if (
       window.confirm(
-        `Release reservation for Bay ${slotId || 'current bay'}? The bay will become available for other members.`
+        `Release reservation for Bay ${cleanSlotId || 'current bay'}? The bay will become available immediately for other members.`
       )
     ) {
+      // 1. Optimistic 0ms instant local & cross-tab release
+      setActiveReservation(null)
+      setActivePass(null)
+      setConfirmationData(null)
+
+      if (cleanSlotId) {
+        setSlots((prev) =>
+          prev.map((s) =>
+            normalizeSlotId(s.id) === cleanSlotId
+              ? {
+                  ...s,
+                  status: 'available',
+                  reservedBy: '',
+                  reservedByName: '',
+                  reservedByEmail: '',
+                  studentId: '',
+                  userId: '',
+                  plate: '',
+                  owner: '',
+                  reservedUntil: null,
+                  passId: '',
+                  passType: null,
+                  entryTime: null,
+                  entryTimestamp: null
+                }
+              : s
+          )
+        )
+      }
+
+      broadcastSlotReleased({
+        slotId: cleanSlotId,
+        reservationId,
+        userId: currentUid
+      })
+
+      showToast(
+        'Reservation Released',
+        `Bay ${cleanSlotId || ''} is now available again.`,
+        'info'
+      )
+
+      // 2. Persist to Firestore asynchronously
       try {
         await cancelUserReservation({
-          slotId,
+          slotId: cleanSlotId,
           reservationId,
           userId: currentUid
         })
-
-
-        setActiveReservation(null)
-
-
-        if (
-          activePass &&
-          (
-            activePass.slotId === slotId ||
-            activePass.reservationId === reservationId
-          )
-        ) {
-          setActivePass(null)
-        }
-
-
-        showToast(
-          'Reservation Released',
-          `Bay ${slotId || ''} is now available again.`,
-          'info'
-        )
       } catch (err) {
-        console.error(
-          '[App] Cancel reservation:',
-          err
-        )
-
-        showToast(
-          'Cancel Failed',
-          err.message ||
-          'Could not cancel reservation.',
-          'error'
-        )
+        console.warn('[App] Firestore background cancel notice:', err?.message)
       }
     }
   }
@@ -2062,56 +2186,15 @@ export default function App() {
               {activeTab === 'student-available-parking' && (
                 <div>
                   {/* View Mode Toggle: Campus Master Layout vs Quick Grid */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '14px',
-                      padding: '8px 14px',
-                      background: 'rgba(15, 23, 42, 0.65)',
-                      border: '1px solid rgba(51, 65, 85, 0.6)',
-                      borderRadius: '12px'
-                    }}
-                  >
-                    <span style={{ fontSize: '13px', color: '#94a3b8' }}>
-                      Parking View: <strong style={{ color: '#f1f5f9' }}>{studentParkingViewMode === 'campus' ? 'Campus Master Blueprint' : 'Quick Bay Grid'}</strong>
-                    </span>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        type="button"
-                        className={`btn btn-xs ${studentParkingViewMode === 'campus' ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setStudentParkingViewMode('campus')}
-                      >
-                        🗺️ Campus Blueprint
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-xs ${studentParkingViewMode === 'grid' ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => setStudentParkingViewMode('grid')}
-                      >
-                        ⚡ Quick Bay Grid
-                      </button>
-                    </div>
-                  </div>
-
-                  {studentParkingViewMode === 'campus' ? (
-                    <CampusParkingDashboard
-                      slots={slots}
-                      userProfile={userProfile}
-                      onOpenBooking={(slot, type) =>
-                        handleOpenBookingModal(slot, type || 'slot')
-                      }
-                    />
-                  ) : (
-                    <StudentAvailableParkingView
-                      slots={slots}
-                      userProfile={userProfile}
-                      onOpenBooking={(slot, type) =>
-                        handleOpenBookingModal(slot, type || 'slot')
-                      }
-                    />
-                  )}
+                  <CampusParkingDashboard
+                    slots={slots}
+                    userProfile={userProfile}
+                    activeReservation={activeReservation}
+                    onCancelReservation={handleCancelReservation}
+                    onOpenBooking={(slot, type) =>
+                      handleOpenBookingModal(slot, type || 'slot')
+                    }
+                  />
                 </div>
               )}
 
@@ -2191,6 +2274,7 @@ export default function App() {
                     history={
                       parkingHistory
                     }
+                    activeReservation={activeReservation}
                   />
                 )}
 
