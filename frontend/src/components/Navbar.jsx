@@ -12,13 +12,7 @@ const STUDENT_TABS = [
 
 const ADMIN_TABS = [
   { id: 'admin-dashboard',  icon: '📊', label: 'Dashboard' },
-  { id: 'map',              icon: '🅿️', label: 'Parking Map' },
-  { id: 'register',         icon: '📋', label: 'Registration' },
-  { id: 'vehicle-entry',    icon: '🚗', label: 'Entry' },
-  { id: 'vehicle-exit',     icon: '🛑', label: 'Exit' },
   { id: 'reports-history',  icon: '📜', label: 'Reports' },
-  { id: 'wrong-parking',    icon: '⚠️', label: 'Violations' },
-  { id: 'gate-scanner',     icon: '🛡️', label: 'Gate Scanner' },
 ]
 
 export default function Navbar({ user, userProfile, onLogout, activeTab, setActiveTab }) {

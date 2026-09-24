@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   signInWithGoogle,
   loginWithEmail,
-  signInDemoStudent,
   resetPassword,
 } from '../firebase/auth'
 import {
@@ -17,7 +16,7 @@ import {
 } from '../components/Icons'
 import './Login.css'
 
-export default function Login({ onDemoLogin }) {
+export default function Login() {
   const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -59,7 +58,7 @@ export default function Login({ onDemoLogin }) {
       case 'auth/popup-blocked':
         return 'Popup was blocked by browser. Please allow popups for this site.'
       default:
-        return err?.message || 'Authentication failed. You can also use Demo Sign In below.'
+        return err?.message || 'Authentication failed. Please try again.'
     }
   }
 
@@ -120,28 +119,6 @@ export default function Login({ onDemoLogin }) {
       setError(formatAuthError(err))
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleQuickDemo = async (role = 'Student') => {
-    setError('')
-    setSuccess('')
-
-    if (role === 'Student') {
-      setLoading(true)
-      try {
-        await signInDemoStudent()
-      } catch (err) {
-        console.error('Student Demo Auth Error:', err)
-        setError(formatAuthError(err))
-      } finally {
-        setLoading(false)
-      }
-    } else {
-      // Admin authentication requires a real registered administrator account
-      setMode('login')
-      setLoginEmail('shaikhalzuni123@gmail.com')
-      setError('Administrator access requires signing in with an authorized Admin account configured in Firestore.')
     }
   }
 
@@ -481,29 +458,6 @@ export default function Login({ onDemoLogin }) {
             </button>
           </form>
         )}
-
-        {/* Quick Demo Login Option */}
-        <div className="demo-section">
-          <div className="demo-divider">
-            <span>QUICK PREVIEW ACCESS</span>
-          </div>
-          <div className="demo-buttons">
-            <button
-              type="button"
-              className="demo-btn student-demo"
-              onClick={() => handleQuickDemo('Student')}
-            >
-              <span>🎓 Student Demo</span>
-            </button>
-            <button
-              type="button"
-              className="demo-btn admin-demo"
-              onClick={() => handleQuickDemo('Admin')}
-            >
-              <span>🛡️ Admin Demo</span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   )
