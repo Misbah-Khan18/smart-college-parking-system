@@ -529,16 +529,16 @@
   background: rgba(245, 158, 11, 0.04);
   border: 1px dashed rgba(245, 158, 11, 0.35);
   border-radius: 9px;
-  padding: 6px 10px;
+  padding: 4px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
-  min-height: 80px;
+  min-height: 56px;
   box-sizing: border-box;
 }
 
@@ -599,12 +599,12 @@
 }
 
 /* ==========================================================================
-   GROUND FLOOR: MIDDLE BAND (WEST STACK, CIRCULATION DRIVEWAY, EAST POD)
+   GROUND FLOOR: MIDDLE BAND (WEST FLANK, CENTRAL CONCOURSE, EAST FLANK)
    ========================================================================== */
 .cad-middle-band {
   display: grid;
-  grid-template-columns: minmax(180px, 250px) 1fr minmax(180px, 250px);
-  gap: 14px;
+  grid-template-columns: minmax(130px, 170px) 1fr minmax(130px, 170px);
+  gap: 12px;
   align-items: stretch;
 }
 
@@ -620,15 +620,65 @@
   gap: 6px;
 }
 
-.cad-center-driveway.compact {
-  padding: 10px 16px;
+/* Central Ingress Concourse (32 Bays) */
+.cad-center-concourse-cluster {
+  background: rgba(10, 18, 33, 0.7);
+  border: 1px solid var(--border-cad-dim);
+  border-radius: 9px;
+  padding: 8px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   gap: 8px;
 }
-.cad-center-driveway.compact .cad-driveway-core {
-  padding: 8px 0;
+
+.cad-slim-driveway-strip {
+  background: rgba(8, 14, 28, 0.85);
+  border: 1px dashed rgba(56, 189, 248, 0.25);
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+.cad-slim-lane {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+.cad-slim-pill {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-weight: 700;
+  font-size: 0.62rem;
+}
+
+.cad-concourse-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cad-concourse-badge {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.cad-central-bays-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(40px, 1fr));
+  gap: 6px;
 }
 
 .cad-section-mini-tag {

@@ -669,7 +669,7 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
 
               </div>
 
-              {/* Middle Section: West Ingress Flank | Compact Streamlined Driveway | East Ingress Flank (25 slots total) */}
+              {/* Middle Section: West Ingress Flank | Central Ingress Concourse (32 BAYS) | East Ingress Flank */}
               <div className="cad-middle-band">
                 
                 {/* West Ingress Flank: G-33 - G-44 (12 slots) */}
@@ -680,25 +680,23 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                   </div>
                 </div>
 
-                {/* Center Compact Circulation Ingress Driveway */}
-                <div className="cad-center-driveway compact">
-                  <div className="cad-driveway-lane lane-top">
-                    <span className="cad-lane-direction">INGRESS FLOW →</span>
-                    <div className="cad-driveway-dashed" />
-                    <span className="cad-lane-meta">MAX 10 KM/H</span>
-                  </div>
-
-                  <div className="cad-driveway-core">
-                    <div className="cad-radar-status-badge">
-                      <span className="cad-radar-pulse-dot" />
-                      <span>INDUCTION SENSOR RADAR &bull; LANES CLEAR</span>
+                {/* Central Ingress Concourse: 32 Student Bays in the center (G-81 to G-112) with slim transit corridor */}
+                <div className="cad-cluster-block cad-center-concourse-cluster">
+                  <div className="cad-slim-driveway-strip">
+                    <div className="cad-slim-lane">
+                      <span className="cad-slim-dir">INGRESS FLOW →</span>
+                      <span className="cad-slim-pill">RFID ACTIVE &bull; 10 KM/H</span>
+                      <span className="cad-slim-dir">← EGRESS BYPASS</span>
                     </div>
                   </div>
 
-                  <div className="cad-driveway-lane lane-bottom">
-                    <span className="cad-lane-direction">← EGRESS &amp; INTERNAL BYPASS</span>
-                    <div className="cad-driveway-dashed" />
-                    <span className="cad-lane-meta">ONE-WAY FLOW</span>
+                  <div className="cad-concourse-header-row">
+                    <span className="cad-cluster-label">CENTRAL INGRESS CONCOURSE &bull; G-81 – G-112 (32 STUDENT BAYS)</span>
+                    <span className="cad-concourse-badge">⚡ PRIME STUDENT ZONE</span>
+                  </div>
+
+                  <div className="cad-central-bays-grid">
+                    {Array.from({ length: 32 }, (_, i) => `G-${String(i + 81).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
@@ -735,34 +733,20 @@ export default function CampusParkingDashboard({ slots = [], userProfile, onOpen
                 </div>
               </div>
 
-              {/* Dedicated High-Capacity Bike Concourse: 2 Rows Under Ingress with 30 slots each (G-81 to G-140) */}
+              {/* South Concourse Extension: G-113 to G-140 (28 bays) */}
               <div className="cad-dense-bike-concourse">
                 <div className="cad-south-header">
                   <div className="cad-dense-title-group">
-                    <span className="cad-dense-indicator">🏍️</span>
-                    <span className="cad-south-title">SOUTH INGRESS CONCOURSE — HIGH-CAPACITY BIKE BAYS (60 BAYS)</span>
+                    <span className="cad-dense-indicator">🛵</span>
+                    <span className="cad-south-title">SOUTH PERIMETER EXTENSION &bull; G-113 TO G-140 (28 BAYS)</span>
                   </div>
-                  <span className="cad-south-meta">2 ROWS &bull; 30 BIKE SLOTS PER ROW &bull; G-81 TO G-140</span>
+                  <span className="cad-south-meta">OVERFLOW BAYS &bull; SURVEILLANCE COVERED</span>
                 </div>
 
-                {/* Bike Row 1: G-81 to G-110 (30 slots) */}
                 <div className="cad-dense-row-block">
-                  <div className="cad-dense-row-tag">BIKE ROW 1 &bull; G-81 TO G-110 (30 BAYS)</div>
                   <div className="cad-dense-bike-row-wrapper">
                     <div className="cad-dense-bike-row">
-                      {Array.from({ length: 30 }, (_, i) => `G-${String(i + 81).padStart(2, '0')}`).map(id =>
-                        renderBayCard(id, true)
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bike Row 2: G-111 to G-140 (30 slots) */}
-                <div className="cad-dense-row-block">
-                  <div className="cad-dense-row-tag">BIKE ROW 2 &bull; G-111 TO G-140 (30 BAYS)</div>
-                  <div className="cad-dense-bike-row-wrapper">
-                    <div className="cad-dense-bike-row">
-                      {Array.from({ length: 30 }, (_, i) => `G-${String(i + 111).padStart(2, '0')}`).map(id =>
+                      {Array.from({ length: 28 }, (_, i) => `G-${String(i + 113).padStart(2, '0')}`).map(id =>
                         renderBayCard(id, true)
                       )}
                     </div>

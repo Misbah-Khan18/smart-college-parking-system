@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react'
 import QRCode from 'qrcode'
 import { XIcon, ShieldIcon, CheckIcon } from './Icons'
-import { playScannerBeep, playSuccessChime, playGateOpenBuzz } from '../utils/gateAudio'
-import './MetroGatePaymentGateway.css'
 
 export default function PassModal({ pass, onClose }) {
   const qrToken = pass ? (pass.qrToken || pass.passId || pass.reservationId || pass.id || '') : ''
@@ -10,10 +8,6 @@ export default function PassModal({ pass, onClose }) {
   const [qrSrc, setQrSrc] = useState('')
   const [qrGenerating, setQrGenerating] = useState(Boolean(pass && qrToken))
   const [qrError, setQrError] = useState(!pass || !qrToken)
-
-  // System.in Gate Reader state: 'idle' | 'scanning' | 'granted'
-  const [gateScanState, setGateScanState] = useState('idle')
-  const [barrierOpen, setBarrierOpen] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -70,20 +64,6 @@ export default function PassModal({ pass, onClose }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
-  }
-
-  // Trigger System.in Optical Scan
-  const handleScanAtGate = () => {
-    if (gateScanState === 'scanning' || gateScanState === 'granted') return
-    playScannerBeep()
-    setGateScanState('scanning')
-
-    setTimeout(() => {
-      playSuccessChime()
-      playGateOpenBuzz()
-      setGateScanState('granted')
-      setBarrierOpen(true)
-    }, 1200)
   }
 
   // Assigned bay
@@ -196,52 +176,6 @@ export default function PassModal({ pass, onClose }) {
                   >
                     {copied ? <CheckIcon className="w-3 h-3 text-emerald" /> : '📋 Copy'}
                   </button>
-                </div>
-              )}
-            </div>
-
-            {/* ── ENTRY GATE BARRIER SCANNER ── */}
-            <div className="entry-gate-scanner-card">
-              <div className="scanner-card-header">
-                <div className="scanner-badge">
-                  <span className={`scanner-status-dot ${gateScanState === 'granted' ? 'dot-green' : ''}`} />
-                  <span>Entry Gate Scanner</span>
-                </div>
-                <span className="scanner-state-label font-mono">
-                  {gateScanState === 'granted' ? 'GATE OPEN' : gateScanState === 'scanning' ? 'VERIFYING...' : 'READY'}
-                </span>
-              </div>
-
-              {gateScanState === 'idle' && (
-                <button
-                  type="button"
-                  id="btn-scan-at-gate"
-                  className="btn-scan-at-gate"
-                  onClick={handleScanAtGate}
-                >
-                  <span>📲 Tap to Scan Pass &amp; Open Gate Barrier</span>
-                </button>
-              )}
-
-              {gateScanState === 'scanning' && (
-                <div className="scanner-active-view font-mono">
-                  <div className="scanner-laser-bar" />
-                  <span className="scanner-scanning-text">Verifying parking pass at gate...</span>
-                </div>
-              )}
-
-              {gateScanState === 'granted' && (
-                <div className="gate-open-success-view">
-                  <div className="gate-barrier-row">
-                    <div className="barrier-pillar">
-                      <div className="pillar-light" />
-                    </div>
-                    <div className={`barrier-pole ${barrierOpen ? 'barrier-up' : ''}`} />
-                    <span className="gate-status-pill font-mono">BARRIER OPEN</span>
-                  </div>
-                  <p className="gate-success-msg">
-                    ✅ Barrier raised! Proceed to park in Bay {assignedSlotId || 'G-76'}.
-                  </p>
                 </div>
               )}
             </div>

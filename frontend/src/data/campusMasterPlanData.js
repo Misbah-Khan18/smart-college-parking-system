@@ -164,21 +164,21 @@ export const createInitialBayData = () => {
     } else if (i > 57 && i <= 80) {
       section = i <= 68 ? 'Accounts Dept Wing — Perimeter Bay' : 'Exam IT Dept Wing — Perimeter Bay'
       dimensions = '2.5m × 5.0m'
-    } else if (i > 80 && i <= 110) {
-      section = 'South Concourse Under Ingress — Bike Row 1'
-      dimensions = '1.2m × 2.5m'
-    } else if (i > 110) {
-      section = 'South Concourse Under Ingress — Bike Row 2'
-      dimensions = '1.2m × 2.5m'
+    } else if (i > 80 && i <= 112) {
+      section = 'Central Ingress Concourse — Student Bay'
+      dimensions = '1.8m × 3.0m'
+    } else if (i > 112) {
+      section = 'South Perimeter Extension — Student Bay'
+      dimensions = '1.5m × 2.6m'
     }
 
     bays.push({
       id,
       slotNumber: i,
       floor: 'Ground Floor',
-      type: i > 57 && i <= 80 ? 'scooty' : 'bike',
+      type: 'scooty',
       section,
-      wing: 'Ground Floor — Two-Wheelers',
+      wing: 'Ground Floor — Scooties',
       row: `R${Math.ceil(i / 20)}`,
       status,
       label: status.toUpperCase(),
