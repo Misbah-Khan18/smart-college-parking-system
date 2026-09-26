@@ -1,0 +1,450 @@
+/* ==========================================================================
+   BOOKMYSHOW-STYLE PARKING MAP VIEWPORT STYLES
+   Smooth Pan & Zoom, Floating HUD, Radar Mini-Map, Section Quick-Jump
+   ========================================================================== */
+
+.bms-viewport-container {
+  position: relative;
+  width: 100%;
+  height: 720px;
+  min-height: 520px;
+  max-height: 85vh;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, #0d1a33 0%, #060c18 100%);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(6, 182, 212, 0.04);
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.bms-viewport-container.is-dragging {
+  cursor: grabbing;
+}
+
+/* Background Blueprint Grid Lines */
+.bms-grid-underlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: 
+    linear-gradient(to right, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  z-index: 0;
+}
+
+/* Content Canvas Wrapper (Transforms via CSS GPU matrix) */
+.bms-canvas-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  z-index: 1;
+}
+
+.bms-canvas-layer.smooth-animate {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Ensure Blueprint layout retains natural dimensions inside viewport */
+.bms-canvas-layer .cad-map-canvas {
+  width: 1140px !important;
+  min-width: 1140px !important;
+  max-width: 1140px !important;
+  box-sizing: border-box;
+}
+
+/* Override responsive 1-column collapse inside the zoomable viewport */
+.bms-canvas-layer .gf-row-top,
+.bms-canvas-layer .gf-row-middle,
+.bms-canvas-layer .gf-row-bottom {
+  grid-template-columns: 1fr auto 1fr !important;
+  display: grid !important;
+}
+
+.bms-canvas-layer .gf-gate-block,
+.bms-canvas-layer .gf-lift-block,
+.bms-canvas-layer .gf-circ-lane {
+  width: 90px !important;
+  flex-direction: column !important;
+  height: auto !important;
+  padding: 12px 8px !important;
+}
+
+.bms-canvas-layer .gf-grid-5col {
+  grid-template-columns: repeat(5, minmax(38px, 1fr)) !important;
+}
+
+/* ==========================================================================
+   FLOATING HUD CONTROLS (ZOOM / FIT / FULLSCREEN / SECTION JUMP)
+   ========================================================================== */
+
+.bms-hud-controls {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.bms-hud-dock {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 20, 38, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  border-radius: 30px;
+  padding: 4px 6px;
+}
+
+.bms-hud-btn {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #94a3b8;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.bms-hud-btn:hover {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  transform: scale(1.05);
+}
+
+.bms-hud-btn:active {
+  transform: scale(0.95);
+}
+
+.bms-hud-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.bms-zoom-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #38bdf8;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  cursor: pointer;
+  min-width: 48px;
+  text-align: center;
+  transition: all 0.18s ease;
+}
+
+.bms-zoom-badge:hover {
+  background: rgba(56, 189, 248, 0.22);
+  color: #ffffff;
+}
+
+/* Quick Jump Section Bar */
+.bms-quick-jump-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.bms-jump-pill {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
+  color: #cbd5e1;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 14px;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.bms-jump-pill:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+/* ==========================================================================
+   MOBILE INTERACTION HINT PILL
+   ========================================================================== */
+
+.bms-touch-hint {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: rgba(10, 20, 38, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px dashed rgba(56, 189, 248, 0.45);
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #38bdf8;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 9;
+  pointer-events: none;
+  animation: bmsHintPulse 2s infinite ease-in-out;
+  transition: opacity 0.5s ease;
+}
+
+.bms-touch-hint.fade-out {
+  opacity: 0;
+}
+
+@keyframes bmsHintPulse {
+  0%, 100% { opacity: 0.85; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.02); }
+}
+
+/* ==========================================================================
+   RADAR MINI-MAP HUD (BOOKMYSHOW VIEWPORT FINDER)
+   ========================================================================== */
+
+.bms-minimap-container {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+.bms-minimap-card {
+  background: rgba(7, 14, 27, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 15px rgba(56, 189, 248, 0.1);
+  border-radius: 12px;
+  padding: 8px;
+  width: 190px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bms-minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.bms-minimap-title {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bms-radar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: bmsDotGlow 1.8s infinite;
+}
+
+@keyframes bmsDotGlow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.bms-minimap-toggle {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+}
+
+.bms-minimap-toggle:hover {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+}
+
+/* Mini-Map Schematic Canvas Box */
+.bms-minimap-canvas-box {
+  position: relative;
+  width: 100%;
+  height: 120px;
+  background: #040914;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+/* Zone wireframes inside Mini-Map */
+.bms-mm-zone {
+  position: absolute;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 3px;
+  background: rgba(14, 116, 144, 0.12);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.45rem;
+  color: rgba(148, 163, 184, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.bms-mm-gate {
+  position: absolute;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px dashed rgba(245, 158, 11, 0.5);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.5rem;
+  pointer-events: none;
+}
+
+.bms-mm-lane {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 1px dashed rgba(56, 189, 248, 0.2);
+  border-right: 1px dashed rgba(56, 189, 248, 0.2);
+  pointer-events: none;
+}
+
+/* Active Viewfinder Rect inside Mini-Map */
+.bms-minimap-viewfinder {
+  position: absolute;
+  border: 2px solid #38bdf8;
+  background: rgba(56, 189, 248, 0.22);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4), inset 0 0 6px rgba(56, 189, 248, 0.3);
+  border-radius: 3px;
+  pointer-events: auto;
+  cursor: move;
+  transition: border-color 0.15s ease;
+}
+
+.bms-minimap-viewfinder:hover {
+  border-color: #ffffff;
+  background: rgba(56, 189, 248, 0.3);
+}
+
+/* Collapsed Mini-Map Floating Button */
+.bms-minimap-collapsed-btn {
+  background: rgba(10, 20, 38, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+.bms-minimap-collapsed-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   MOBILE & TABLET RESPONSIVE TUNING
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .bms-viewport-container {
+    height: 580px;
+    border-radius: 10px;
+  }
+
+  .bms-hud-controls {
+    top: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+
+  .bms-quick-jump-bar {
+    display: none; /* Hide quick jump pills on narrow mobile to keep HUD clean */
+  }
+
+  .bms-minimap-card {
+    width: 150px;
+    padding: 6px;
+  }
+
+  .bms-minimap-canvas-box {
+    height: 95px;
+  }
+
+  .bms-minimap-container {
+    bottom: 8px;
+    right: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bms-viewport-container {
+    height: 520px;
+  }
+
+  .bms-hud-dock {
+    padding: 3px 4px;
+    gap: 2px;
+  }
+
+  .bms-hud-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .bms-hud-btn svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .bms-zoom-badge {
+    font-size: 0.65rem;
+    padding: 3px 6px;
+    min-width: 40px;
+  }
+}

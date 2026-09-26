@@ -7,6 +7,7 @@ import {
   getDisplaySlotId
 } from '../data/campusMasterPlanData'
 import './CampusParkingDashboard.css'
+import ParkingMapViewport from './map/ParkingMapViewport'
 
 export default function CampusParkingDashboard({
   slots = [],
@@ -513,9 +514,9 @@ export default function CampusParkingDashboard({
         </div>
 
         {/* ------------------------------------------------------------------
-            FLOOR MAP CANVAS
+            FLOOR MAP CANVAS (BOOKMYSHOW INTERACTIVE VIEWPORT)
         ------------------------------------------------------------------ */}
-        <div className="cad-map-scroll-wrapper" tabIndex={0} role="region" aria-label="Parking Layout Blueprint Map">
+        <ParkingMapViewport activeFloor={activeFloor} selectedBay={selectedBay}>
           {activeFloor === 'basement' ? (
             
             /* ================================================================
@@ -824,7 +825,7 @@ export default function CampusParkingDashboard({
 
             </div>
           )}
-        </div>
+        </ParkingMapViewport>
 
         {/* ====================================================================
             3. PERSISTENT BOTTOM DETAIL BAR (VISIBLE ON BOTH FLOORS ONCE SELECTED)
