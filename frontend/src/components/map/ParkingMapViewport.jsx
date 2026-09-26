@@ -128,22 +128,23 @@ export default function ParkingMapViewport({
   }, [transform])
 
   const lastCenteredBayIdRef = useRef(null)
+  const selectedBayId = selectedBay?.id
 
   // Center on newly selected bay if user selects one
   useEffect(() => {
-    if (!selectedBay || !selectedBay.id) {
+    if (!selectedBayId) {
       lastCenteredBayIdRef.current = null
       return
     }
 
     // Only auto-center once per unique selected bay ID
-    if (lastCenteredBayIdRef.current === selectedBay.id) return
-    lastCenteredBayIdRef.current = selectedBay.id
+    if (lastCenteredBayIdRef.current === selectedBayId) return
+    lastCenteredBayIdRef.current = selectedBayId
 
     // Don't auto-jump if user is actively panning or pinching
     if (dragRef.current.active || touchRef.current.isPinching) return
 
-    const bayEl = document.getElementById(`bay-${selectedBay.id}`)
+    const bayEl = document.getElementById(`bay-${selectedBayId}`)
     if (bayEl && containerRef.current && contentRef.current) {
       const containerRect = containerRef.current.getBoundingClientRect()
       const bayRect = bayEl.getBoundingClientRect()
@@ -182,7 +183,7 @@ export default function ParkingMapViewport({
         })
       }
     }
-  }, [selectedBay.id, clampPosition, selectedBay])
+  }, [selectedBayId, clampPosition])
 
   // Zoom centered at given screen coordinate (e.g. mouse pointer or viewport center)
   const zoomAtPoint = useCallback((factor, focusX, focusY, animate = false) => {
