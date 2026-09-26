@@ -121,9 +121,25 @@ export default function ParkingMapViewport({
     return () => window.removeEventListener('resize', handleResize)
   }, [fitToScreen, activeFloor])
 
+  // Reference to latest transform to avoid infinite re-render loops in effects
+  const transformRef = useRef(transform)
+  useEffect(() => {
+    transformRef.current = transform
+  }, [transform])
+
+  const lastCenteredBayIdRef = useRef(null)
+
   // Center on newly selected bay if user selects one
   useEffect(() => {
-    if (!selectedBay || !selectedBay.id) return
+    if (!selectedBay || !selectedBay.id) {
+      lastCenteredBayIdRef.current = null
+      return
+    }
+
+    // Only auto-center once per unique selected bay ID
+    if (lastCenteredBayIdRef.current === selectedBay.id) return
+    lastCenteredBayIdRef.current = selectedBay.id
+
     // Don't auto-jump if user is actively panning or pinching
     if (dragRef.current.active || touchRef.current.isPinching) return
 
@@ -132,14 +148,17 @@ export default function ParkingMapViewport({
       const containerRect = containerRef.current.getBoundingClientRect()
       const bayRect = bayEl.getBoundingClientRect()
       
+      const currentScale = transformRef.current.scale
+      const currentX = transformRef.current.x
+      const currentY = transformRef.current.y
+
       // Calculate bay offset inside the natural content coordinates
-      const currentScale = transform.scale
-      const bayCenterX = (bayRect.left + bayRect.width / 2 - containerRect.left - transform.x) / currentScale
-      const bayCenterY = (bayRect.top + bayRect.height / 2 - containerRect.top - transform.y) / currentScale
+      const bayCenterX = (bayRect.left + bayRect.width / 2 - containerRect.left - currentX) / currentScale
+      const bayCenterY = (bayRect.top + bayRect.height / 2 - containerRect.top - currentY) / currentScale
 
       // If bay is currently outside or near boundary of viewport, center smoothly
-      const screenX = transform.x + bayCenterX * currentScale
-      const screenY = transform.y + bayCenterY * currentScale
+      const screenX = currentX + bayCenterX * currentScale
+      const screenY = currentY + bayCenterY * currentScale
 
       const isOutside = (
         screenX < 60 || screenX > containerRect.width - 60 ||
@@ -163,7 +182,7 @@ export default function ParkingMapViewport({
         })
       }
     }
-  }, [selectedBay, clampPosition, transform.scale, transform.x, transform.y])
+  }, [selectedBay.id, clampPosition, selectedBay])
 
   // Zoom centered at given screen coordinate (e.g. mouse pointer or viewport center)
   const zoomAtPoint = useCallback((factor, focusX, focusY, animate = false) => {
