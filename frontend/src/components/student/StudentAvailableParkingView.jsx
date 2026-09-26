@@ -187,28 +187,24 @@ export default function StudentAvailableParkingView({
       {/* Active Section Info Header */}
       <div className="section-active-badge-header">
         <div className="sabh-left">
-              <div className="sabh-content">
-                <span className="sabh-icon">{sectionInfo.icon}</span>
-                <div>
-                  <h4
-                    className="sabh-title"
-                    dangerouslySetInnerHTML={{ __html: sectionInfo.title }}
-                  ></h4>
-                  <p className="sabh-desc">{sectionInfo.description}</p>
-                </div>
-              </div>
-              <div className="sabh-count-pill">
-                <CheckIcon className="w-4 h-4 text-emerald" />
-                <span>{filteredSlots.length} Open Bays</span>
-                {userProfile?.vehicleType && (
-                  <span className="text-xs opacity-80 font-normal">
-                    &bull; {userProfile.vehicleType === 'scooty' ? 'Ground' : 'Basement'} Assigned
-                  </span>
-                )}
-              </div>
-            </div>
+          <span className="sabh-icon">{sectionInfo.icon}</span>
+          <div>
+            <h4
+              className="sabh-title"
+              dangerouslySetInnerHTML={{ __html: sectionInfo.title }}
+            ></h4>
+            <p className="sabh-desc">{sectionInfo.description}</p>
           </div>
-        )}
+        </div>
+        <div className="sabh-count-pill">
+          <CheckIcon className="w-4 h-4 text-emerald" />
+          <span>{filteredSlots.length} Open Bays</span>
+          {userProfile?.vehicleType && (
+            <span className="text-xs opacity-80 font-normal">
+              &bull; {userProfile.vehicleType === 'scooty' ? 'Ground' : 'Basement'} Assigned
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Available Slots Grid */}
