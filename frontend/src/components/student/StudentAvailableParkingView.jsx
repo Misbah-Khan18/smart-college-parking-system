@@ -1,20 +1,47 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react';
+import { db } from '../../firebase/auth'; // Adjust path if needed
+import { collection, onSnapshot } from 'firebase/firestore';
 import {
   CheckIcon,
-  PlusCircleIcon
-} from '../Icons'
+  PlusCircleIcon,
+  LoaderIcon
+} from '../Icons';
 
 export default function StudentAvailableParkingView({
-  slots = [],
   userProfile,
   onOpenBooking
 }) {
-  const [selectedFloor, setSelectedFloor] = useState('all') // 'all' | 'Ground Floor' | 'Basement'
-  const [selectedSection, setSelectedSection] = useState('all') // 'all' | section name | 'ground-all' | 'basement-all'
+  const [selectedFloor, setSelectedFloor] = useState('all');
+  const [selectedSection, setSelectedSection] = useState('all');
+  const [slots, setSlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Real-time Firestore subscription
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'parkingSlots'),
+      (snapshot) => {
+        const updatedSlots = [];
+        snapshot.forEach((doc) => {
+          updatedSlots.push({ id: doc.id, ...doc.data() });
+        });
+        setSlots(updatedSlots);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Firestore subscription error:", err);
+        setError("Failed to load parking slots");
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
 
   const availableSlots = useMemo(() => {
-    return slots.filter((s) => s.status === 'available')
-  }, [slots])
+    return slots.filter((s) => s.status.toLowerCase() === 'available');
+  }, [slots]);
 
   const groundAvailable = availableSlots.filter((s) => s.floor === 'Ground Floor').length
   const basementAvailable = availableSlots.filter((s) => s.floor === 'Basement').length
@@ -88,8 +115,30 @@ export default function StudentAvailableParkingView({
 
   return (
     <div className="student-page-container">
-      {/* Sleek Direct Dropdown Selector Bar */}
-      <div className="parking-section-selector-bar glass-card mb-4">
+      {/* Mobile-optimized loading state */}
+      {loading && (
+        <div className="loading-state glass-card p-5 text-center">
+          <LoaderIcon className="w-8 h-8 text-primary animate-spin mx-auto mb-3" />
+          <p className="text-muted">Loading parking bays...</p>
+        </div>
+      )}
+      
+      {/* Error state */}
+      {error && (
+        <div className="error-state glass-card p-5 text-center">
+          <span className="text-danger">⚠️</span>
+          <p className="text-danger">{error}</p>
+          <button 
+            className="btn btn-secondary btn-sm mt-2"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Parking selector bar */}
+      <div className="parking-section-selector-bar glass-card mb-4 p-3 sm:p-4">
         <select
           id="section-select"
           className="section-dropdown-select w-full"
@@ -98,7 +147,7 @@ export default function StudentAvailableParkingView({
           aria-label="Select Parking Floor or Section"
         >
           <optgroup label="🌟 All Campus Parking">
-            <option value="all">🌐 All Open Bays ({availableSlots.length} bays available)</option>
+          <option value="all">🌐 All Open Bays ({availableSlots.length} available)</option>
           </optgroup>
 
           <optgroup label="🛵 Ground Floor — Scooties (80 Bays)">
@@ -149,10 +198,10 @@ export default function StudentAvailableParkingView({
         </div>
         <div className="sabh-count-pill">
           <CheckIcon className="w-4 h-4 text-emerald" />
-          <span>{filteredSlots.length} Open Bays Available</span>
+          <span>{filteredSlots.length} Open Bays</span>
           {userProfile?.vehicleType && (
             <span className="text-xs opacity-80 font-normal">
-              &bull; Assigned: {userProfile.vehicleType === 'scooty' ? 'Ground' : 'Basement'}
+              &bull; {userProfile.vehicleType === 'scooty' ? 'Ground' : 'Basement'} Assigned
             </span>
           )}
         </div>
@@ -177,15 +226,17 @@ export default function StudentAvailableParkingView({
           filteredSlots.map((slot) => {
             const isScooty = slot.floor === 'Ground Floor' || slot.type === 'scooty'
             return (
-              <div key={slot.id} className="available-slot-card glass-card">
+            <div key={slot.id} className="available-slot-card glass-card p-3 sm:p-4">
                 <div className="asc-top">
-                  <span className="slot-id-pill font-mono">{slot.id}</span>
-                  <span className={`floor-tag ${isScooty ? 'floor-ground' : 'floor-basement'}`}>
-                    {isScooty ? '🛵 Ground' : '🏍️ Basement'}
-                  </span>
+                  <div className="flex justify-between items-start">
+                    <span className="slot-id-pill font-mono text-sm sm:text-base">{slot.id}</span>
+                    <span className={`floor-tag ${isScooty ? 'floor-ground' : 'floor-basement'}`}>
+                      {isScooty ? '🛵 Ground' : '🏍️ Basement'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="asc-section text-xs text-muted">
+                <div className="asc-section text-xs text-muted truncate">
                   {slot.section || 'Campus Two-Wheeler Area'}
                 </div>
 
@@ -196,11 +247,12 @@ export default function StudentAvailableParkingView({
 
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm w-full mt-2"
+                  className="btn btn-primary btn-sm w-full mt-2 sm:mt-3"
                   onClick={() => onOpenBooking && onOpenBooking(slot, 'slot')}
+                  disabled={slot.isBooked}
                 >
                   <PlusCircleIcon className="w-3.5 h-3.5" />
-                  <span>Reserve Bay</span>
+                  <span>{slot.isBooked ? 'Already Reserved' : 'Reserve Bay'}</span>
                 </button>
               </div>
             )
