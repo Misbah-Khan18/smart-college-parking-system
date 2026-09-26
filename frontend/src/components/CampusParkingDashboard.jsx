@@ -171,6 +171,13 @@ export default function CampusParkingDashboard({
   // Handle Bay Click (Selects bay and updates bottom detail bar)
   const handleBayClick = (bay) => {
     setActiveBay(bay)
+    // Ensure bottom booking detail bar is scrolled into view if partially below fold
+    setTimeout(() => {
+      const bar = document.getElementById('bay-detail-bar')
+      if (bar) {
+        bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+    }, 80)
   }
 
   // Reserve Slot Action from Bottom Detail Bar

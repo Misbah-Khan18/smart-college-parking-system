@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import './ParkingMapViewport.css'
 
 const NATURAL_WIDTH = 1140
-const NATURAL_HEIGHT = 860
+const NATURAL_HEIGHT = 1180
 const MIN_SCALE = 0.35
 const MAX_SCALE = 2.8
 
@@ -13,6 +13,7 @@ export default function ParkingMapViewport({
 }) {
   const containerRef = useRef(null)
   const contentRef = useRef(null)
+  const [contentHeight, setContentHeight] = useState(NATURAL_HEIGHT)
 
   // Camera transform state: scale and translation
   const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 })
@@ -21,6 +22,24 @@ export default function ParkingMapViewport({
   const [hasInteracted, setHasInteracted] = useState(false)
   const [minimapCollapsed, setMinimapCollapsed] = useState(false)
   const [viewportSize, setViewportSize] = useState({ width: 1000, height: 700 })
+
+  // Measure actual rendered height of map content dynamically
+  useEffect(() => {
+    if (!contentRef.current) return
+    const el = contentRef.current.firstElementChild || contentRef.current
+    const measure = () => {
+      if (el) {
+        const h = el.offsetHeight || el.scrollHeight
+        if (h && h > 700) {
+          setContentHeight(prev => (Math.abs(prev - h) > 4 ? h : prev))
+        }
+      }
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [activeFloor])
 
   // Drag & gesture tracking refs
   const dragRef = useRef({
@@ -50,35 +69,36 @@ export default function ParkingMapViewport({
   const suppressClickRef = useRef(false)
   const animTimeoutRef = useRef(null)
 
-  // Clamp translation within comfortable boundaries
+  // Clamp translation within comfortable boundaries with generous margin for bottom bays
   const clampPosition = useCallback((x, y, scale, vw, vh) => {
     const contentW = NATURAL_WIDTH * scale
-    const contentH = NATURAL_HEIGHT * scale
-    const margin = 100
+    const contentH = contentHeight * scale
+    const marginX = 100
+    const marginY = 180 // generous margin so bottom slots can be panned well into clear screen space
 
     let minX, maxX
     if (contentW <= vw) {
-      minX = (vw - contentW) / 2 - margin
-      maxX = (vw - contentW) / 2 + margin
+      minX = (vw - contentW) / 2 - marginX
+      maxX = (vw - contentW) / 2 + marginX
     } else {
-      minX = vw - contentW - margin
-      maxX = margin
+      minX = vw - contentW - marginX
+      maxX = marginX
     }
 
     let minY, maxY
     if (contentH <= vh) {
-      minY = Math.max(10, (vh - contentH) / 2 - margin)
-      maxY = Math.max(10, (vh - contentH) / 2 + margin)
+      minY = Math.max(10, (vh - contentH) / 2 - marginY)
+      maxY = Math.max(10, (vh - contentH) / 2 + marginY)
     } else {
-      minY = vh - contentH - margin
-      maxY = margin
+      minY = vh - contentH - marginY
+      maxY = marginY
     }
 
     return {
       x: Math.min(Math.max(x, minX), maxX),
       y: Math.min(Math.max(y, minY), maxY)
     }
-  }, [])
+  }, [contentHeight])
 
   // Fit whole parking layout into current viewport dimensions
   const fitToScreen = useCallback((animate = true) => {
@@ -89,12 +109,12 @@ export default function ParkingMapViewport({
     setViewportSize({ width: vw, height: vh })
 
     const scaleX = (vw - 32) / NATURAL_WIDTH
-    const scaleY = (vh - 32) / NATURAL_HEIGHT
+    const scaleY = (vh - 32) / contentHeight
     const idealScale = Math.min(scaleX, scaleY)
     const newScale = Math.min(Math.max(idealScale, MIN_SCALE), 1.05)
 
     const newX = (vw - NATURAL_WIDTH * newScale) / 2
-    const newY = Math.max(12, (vh - NATURAL_HEIGHT * newScale) / 2)
+    const newY = Math.max(12, (vh - contentHeight * newScale) / 2)
 
     if (animate) {
       setSmoothAnimate(true)
@@ -107,7 +127,7 @@ export default function ParkingMapViewport({
       x: newX,
       y: newY
     })
-  }, [])
+  }, [contentHeight])
 
   // Auto-fit on initial mount, window resize, or floor change
   useEffect(() => {
@@ -497,15 +517,16 @@ export default function ParkingMapViewport({
   }
 
   // Mini-map calculations
+  const curNaturalH = contentHeight || NATURAL_HEIGHT
   const miniW = 174
   const miniH = 120
   const ratioX = miniW / NATURAL_WIDTH
-  const ratioY = miniH / NATURAL_HEIGHT
+  const ratioY = miniH / curNaturalH
 
   const visibleLeft = Math.max(0, -transform.x / transform.scale)
   const visibleTop = Math.max(0, -transform.y / transform.scale)
   const visibleWidth = Math.min(NATURAL_WIDTH, viewportSize.width / transform.scale)
-  const visibleHeight = Math.min(NATURAL_HEIGHT, viewportSize.height / transform.scale)
+  const visibleHeight = Math.min(curNaturalH, viewportSize.height / transform.scale)
 
   const viewfinderBox = {
     left: Math.max(0, Math.min(miniW - 10, visibleLeft * ratioX)),
@@ -626,14 +647,14 @@ export default function ParkingMapViewport({
           <button
             type="button"
             className="bms-jump-pill"
-            onClick={() => handleJumpToSection(570, 480, 1.3)}
+            onClick={() => handleJumpToSection(570, 520, 1.3)}
           >
             🏍️ F1 Central
           </button>
           <button
             type="button"
             className="bms-jump-pill"
-            onClick={() => handleJumpToSection(570, 760, 1.3)}
+            onClick={() => handleJumpToSection(570, 950, 1.3)}
           >
             🅿️ P3 South
           </button>
@@ -676,33 +697,33 @@ export default function ParkingMapViewport({
               title="Click anywhere to pan camera"
             >
               {/* Row 1: P1, Gate, P2 */}
-              <div className="bms-mm-zone" style={{ top: '8%', left: '5%', width: '40%', height: '24%' }}>
+              <div className="bms-mm-zone" style={{ top: '6%', left: '5%', width: '40%', height: '25%' }}>
                 P1
               </div>
-              <div className="bms-mm-gate" style={{ top: '8%', left: '46%', width: '8%', height: '24%' }}>
+              <div className="bms-mm-gate" style={{ top: '6%', left: '46%', width: '8%', height: '25%' }}>
                 🚧
               </div>
-              <div className="bms-mm-zone" style={{ top: '8%', left: '55%', width: '40%', height: '24%' }}>
+              <div className="bms-mm-zone" style={{ top: '6%', left: '55%', width: '40%', height: '25%' }}>
                 P2
               </div>
 
               {/* Row 2: F1 Left, Lane, F1 Right */}
-              <div className="bms-mm-zone" style={{ top: '38%', left: '5%', width: '40%', height: '28%' }}>
+              <div className="bms-mm-zone" style={{ top: '35%', left: '5%', width: '40%', height: '30%' }}>
                 F1 Left
               </div>
-              <div className="bms-mm-lane" style={{ top: '38%', left: '46%', width: '8%', height: '28%' }} />
-              <div className="bms-mm-zone" style={{ top: '38%', left: '55%', width: '40%', height: '28%' }}>
+              <div className="bms-mm-lane" style={{ top: '35%', left: '46%', width: '8%', height: '30%' }} />
+              <div className="bms-mm-zone" style={{ top: '35%', left: '55%', width: '40%', height: '30%' }}>
                 F1 Right
               </div>
 
               {/* Row 3: P3 Left, Lift, P3 Right */}
-              <div className="bms-mm-zone" style={{ top: '72%', left: '5%', width: '40%', height: '22%' }}>
+              <div className="bms-mm-zone" style={{ top: '68%', left: '5%', width: '40%', height: '28%' }}>
                 P3 Left
               </div>
-              <div className="bms-mm-gate" style={{ top: '72%', left: '46%', width: '8%', height: '22%', background: 'rgba(16, 185, 129, 0.15)' }}>
+              <div className="bms-mm-gate" style={{ top: '68%', left: '46%', width: '8%', height: '28%', background: 'rgba(16, 185, 129, 0.15)' }}>
                 🛗
               </div>
-              <div className="bms-mm-zone" style={{ top: '72%', left: '55%', width: '40%', height: '22%' }}>
+              <div className="bms-mm-zone" style={{ top: '68%', left: '55%', width: '40%', height: '28%' }}>
                 P3 Right
               </div>
 
