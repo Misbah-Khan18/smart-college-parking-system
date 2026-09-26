@@ -287,12 +287,21 @@ export default function ParkingMapViewport({
     return () => container.removeEventListener('wheel', handleWheel)
   }, [zoomAtPoint])
 
+  // Auto-hide gesture hint after 5 seconds
+  useEffect(() => {
+    const hintTimer = setTimeout(() => {
+      setHasInteracted(true)
+    }, 5000)
+    return () => clearTimeout(hintTimer)
+  }, [])
+
   // Native Touch Gestures (Pinch-to-zoom + 1-finger pan on mobile)
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const handleTouchStart = (e) => {
+      const cur = transformRef.current || { scale: 1, x: 0, y: 0 }
       if (e.touches.length === 2) {
         // Multi-touch pinch start
         const t1 = e.touches[0]
@@ -305,11 +314,11 @@ export default function ParkingMapViewport({
         touchRef.current = {
           ...touchRef.current,
           initialDistance: dist,
-          initialScale: transform.scale,
+          initialScale: cur.scale,
           touchMidX: midX,
           touchMidY: midY,
-          initialMapX: (midX - transform.x) / transform.scale,
-          initialMapY: (midY - transform.y) / transform.scale,
+          initialMapX: (midX - cur.x) / (cur.scale || 1),
+          initialMapY: (midY - cur.y) / (cur.scale || 1),
           isPinching: true,
           isPanning: false
         }
@@ -323,8 +332,8 @@ export default function ParkingMapViewport({
           isPinching: false,
           startX: t.clientX,
           startY: t.clientY,
-          originX: transform.x,
-          originY: transform.y,
+          originX: cur.x,
+          originY: cur.y,
           distanceMoved: 0
         }
         setSmoothAnimate(false)
@@ -373,7 +382,8 @@ export default function ParkingMapViewport({
 
         const rawX = touchRef.current.originX + dx
         const rawY = touchRef.current.originY + dy
-        const clamped = clampPosition(rawX, rawY, transform.scale, vw, vh)
+        const curScale = transformRef.current ? transformRef.current.scale : 1
+        const clamped = clampPosition(rawX, rawY, curScale, vw, vh)
 
         setTransform(prev => ({
           ...prev,
@@ -405,7 +415,7 @@ export default function ParkingMapViewport({
       container.removeEventListener('touchend', handleTouchEnd)
       container.removeEventListener('touchcancel', handleTouchEnd)
     }
-  }, [transform.scale, transform.x, transform.y, clampPosition])
+  }, [clampPosition])
 
   // Desktop Pointer Drag (Mouse Click & Pan)
   const handlePointerDown = (e) => {
@@ -413,19 +423,24 @@ export default function ParkingMapViewport({
     if (e.button !== 0) return
     if (e.pointerType === 'touch') return // Touch handled by native touch listeners above
 
+    const cur = transformRef.current || { scale: 1, x: 0, y: 0 }
     dragRef.current = {
       active: true,
       startX: e.clientX,
       startY: e.clientY,
-      originX: transform.x,
-      originY: transform.y,
+      originX: cur.x,
+      originY: cur.y,
       distanceMoved: 0
     }
     setSmoothAnimate(false)
     setIsDragging(true)
 
-    if (containerRef.current) {
-      containerRef.current.setPointerCapture(e.pointerId)
+    try {
+      if (containerRef.current) {
+        containerRef.current.setPointerCapture(e.pointerId)
+      }
+    } catch {
+      // Ignore if pointer capture fails
     }
   }
 

@@ -193,29 +193,35 @@
 
 .bms-touch-hint {
   position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 16px;
+  left: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
   background: rgba(10, 20, 38, 0.9);
   backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px dashed rgba(56, 189, 248, 0.45);
   border-radius: 20px;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 600;
   color: #38bdf8;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   z-index: 9;
   pointer-events: none;
-  animation: bmsHintPulse 2s infinite ease-in-out;
-  transition: opacity 0.5s ease;
+  white-space: nowrap;
+  max-width: calc(100% - 220px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: bmsHintPulse 2.5s infinite ease-in-out;
+  transition: opacity 0.5s ease, transform 0.5s ease, visibility 0.5s ease;
 }
 
 .bms-touch-hint.fade-out {
   opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
 }
 
 @keyframes bmsHintPulse {
@@ -419,6 +425,14 @@
   .bms-minimap-container {
     bottom: 8px;
     right: 8px;
+  }
+
+  .bms-touch-hint {
+    bottom: 8px;
+    left: 8px;
+    font-size: 0.68rem;
+    padding: 4px 10px;
+    max-width: calc(100% - 170px);
   }
 }
 
