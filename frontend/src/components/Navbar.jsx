@@ -4,16 +4,20 @@ import { logout } from '../firebase/auth'
 import NotificationCenter from './NotificationCenter'
 import { subscribeToUserNotifications } from '../services/notificationService'
 
+import { evaluateIsAdmin } from '../utils/authRoles'
+
 const STUDENT_TABS = [
   { id: 'student-dashboard',         icon: '🏠', label: 'Dashboard' },
   { id: 'student-available-parking', icon: '🅿️', label: 'Available' },
   { id: 'student-my-vehicle',        icon: '🛵', label: 'My Vehicle' },
   { id: 'student-my-status',         icon: '📍', label: 'Status' },
   { id: 'student-my-history',        icon: '📜', label: 'History' },
+  { id: 'student-reports',           icon: '📋', label: 'Reports' },
 ]
 
 const ADMIN_TABS = [
   { id: 'admin-dashboard',  icon: '📊', label: 'Dashboard' },
+  { id: 'admin-payments',   icon: '💳', label: 'Payments' },
   { id: 'reports-history',  icon: '📜', label: 'Reports' },
 ]
 
@@ -56,13 +60,7 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
     return notifications.filter((n) => !n.read).length
   }, [notifications])
 
-  const isAdmin =
-    userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin' ||
-    userProfile?.email === 'shaikhalzuni123@gmail.com' ||
-    user?.email === 'shaikhalzuni123@gmail.com' ||
-    user?.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1' ||
-    userProfile?.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
+  const isAdmin = evaluateIsAdmin(userProfile) || evaluateIsAdmin(user)
 
   const tabs = isAdmin ? ADMIN_TABS : STUDENT_TABS
   const displayName = userProfile?.displayName || user?.displayName || (isAdmin ? 'Campus Admin' : 'Campus Member')

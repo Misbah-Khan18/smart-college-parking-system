@@ -1,17 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { CameraIcon, AlertCircleIcon, CheckIcon } from '../Icons'
+import { getHumanErrorMessage } from '../../utils/qrErrorUtils'
 
 /**
  * Reusable Live QR Camera Scanner Component for Security Gate Terminals.
  *
- * Supports:
- * - Direct camera stream via getUserMedia() with html5-qrcode
- * - Environment (rear) camera prioritization with front/rear switching
- * - Friendly human-readable permission & device error handling
- * - Single-scan lock & immediate stream pause to prevent duplicate triggers
- * - Clean MediaStream unmount cleanup
- * - Responsive viewfinder with cyber-reticle guide
+ * Single-Stream Architecture:
+ * - Direct native getUserMedia() stream acquisition without disposable probe cycles
+ * - Direct stream reuse: once acquired, stream is immediately attached to <video> and kept active
+ * - Strict initialization lock preventing concurrent getUserMedia execution
+ * - Clean teardown on unmount, camera switch, or successful detection
+ * - BarcodeDetector hardware QR scanning loop with duplicate-scan lock
+ * - Real-time diagnostic error rendering
  *
  * @param {Object} props
  * @param {function(string): void} props.onScan - Callback invoked when a QR code is detected
@@ -33,287 +33,356 @@ export default function QRScanner({
   const [lastScannedCode, setLastScannedCode] = useState(null)
   const [isInitializing, setIsInitializing] = useState(false)
 
-  const scannerRef = useRef(null)
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const activeStreamRef = useRef(null)
+  const initializationInFlightRef = useRef(false)
   const isMountedRef = useRef(true)
   const scanLockRef = useRef(false)
+  const isScanningRef = useRef(false)
+  const animationFrameRef = useRef(null)
+  const barcodeDetectorRef = useRef(null)
 
-  // Map browser camera exceptions to helpful human-readable guidance
-  const getHumanErrorMessage = (err) => {
-    if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return {
-        title: 'HTTPS Connection Required',
-        message: 'Camera access requires a secure HTTPS connection. Please access over HTTPS or use manual token entry.',
-        code: 'INSECURE_CONTEXT'
-      }
+  // Stop active camera stream and cancel scanning loop
+  const stopActiveCameraStream = useCallback(() => {
+    isScanningRef.current = false
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
     }
 
-    const errStr = String(err?.message || err || '').toLowerCase()
-    const errName = String(err?.name || '')
-
-    if (errName === 'NotAllowedError' || errStr.includes('permission') || errStr.includes('denied')) {
-      return {
-        title: 'Camera Access Denied',
-        message: 'Camera permission was denied. Please allow camera permissions in your browser address bar or settings, or use manual token entry.',
-        code: 'PERMISSION_DENIED'
-      }
-    }
-
-    if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError' || errStr.includes('not found') || errStr.includes('no camera')) {
-      return {
-        title: 'No Camera Found',
-        message: 'No camera hardware was detected on this device. Please connect a webcam or use manual token entry.',
-        code: 'NO_CAMERA_DEVICE'
-      }
-    }
-
-    if (errName === 'NotReadableError' || errName === 'TrackStartError' || errStr.includes('in use') || errStr.includes('busy')) {
-      return {
-        title: 'Camera In Use',
-        message: 'The camera is currently in use by another tab or application. Please close other camera apps and retry.',
-        code: 'CAMERA_IN_USE'
-      }
-    }
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      return {
-        title: 'Browser Not Supported',
-        message: 'Your current browser does not support HTML5 camera streaming. Please use Chrome, Edge, Safari, or manual token entry.',
-        code: 'UNSUPPORTED_BROWSER'
-      }
-    }
-
-    return {
-      title: 'Camera Initialization Failed',
-      message: err?.message || 'Could not access video feed from camera. You can use manual token entry below.',
-      code: 'CAMERA_INIT_FAILED'
-    }
-  }
-
-  // Stop camera cleanly and release video tracks
-  const stopScanner = useCallback(async () => {
-    const scanner = scannerRef.current
-    if (scanner) {
+    if (streamRef.current) {
       try {
-        if (scanner.isScanning) {
-          await scanner.stop()
-        }
-      } catch (err) {
-        console.warn('[QRScanner] Stop warning:', err)
-      }
-      try {
-        scanner.clear()
-      } catch {
-        // clear() is synchronous in html5-qrcode
-      }
+        const tracks = streamRef.current.getTracks()
+        tracks.forEach((track) => {
+          try {
+            track.stop()
+          } catch {}
+        })
+      } catch {}
+      streamRef.current = null
     }
+
+    if (activeStreamRef.current && activeStreamRef.current !== streamRef.current) {
+      try {
+        const tracks = activeStreamRef.current.getTracks()
+        tracks.forEach((track) => {
+          try {
+            track.stop()
+          } catch {}
+        })
+      } catch {}
+      activeStreamRef.current = null
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+
     if (isMountedRef.current) {
       setIsScanning(false)
       setIsInitializing(false)
     }
   }, [])
 
-  // Start camera stream
-  const startScanner = useCallback(async () => {
-    if (isScanning || isInitializing) return
-    setIsInitializing(true)
-    setCameraError(null)
-    setLastScannedCode(null)
-    scanLockRef.current = false
+  // Core stream initialization with single-active-stream reuse
+  const startScannerCore = useCallback(
+    async (targetFacingMode = facingMode, targetDeviceId = selectedCameraId) => {
+      if (initializationInFlightRef.current) {
+        console.warn('[QR CAMERA] initialization already in progress')
+        return
+      }
+      initializationInFlightRef.current = true
 
-    // Check browser mediaDevices support
-    if (typeof window === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      const errInfo = getHumanErrorMessage(new Error('Browser does not support getUserMedia'))
-      setCameraError(errInfo)
-      setIsInitializing(false)
-      return
-    }
+      if (isMountedRef.current) {
+        setIsInitializing(true)
+        setCameraError(null)
+        setLastScannedCode(null)
+      }
+      scanLockRef.current = false
 
-    try {
-      // 1. Enumerate cameras if not already done
-      let availableCameras = cameras
-      if (availableCameras.length === 0) {
+      const secureContext = typeof window !== 'undefined' ? window.isSecureContext : false
+      const protocol = typeof window !== 'undefined' ? window.location.protocol : ''
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : ''
+      const mediaDevicesAvailable = typeof navigator !== 'undefined' && !!navigator.mediaDevices
+      const getUserMediaAvailable = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+
+      console.log('[QR CAMERA] preflight', {
+        secureContext,
+        protocol,
+        hostname,
+        mediaDevicesAvailable,
+        getUserMediaAvailable
+      })
+
+      if (typeof window === 'undefined' || !mediaDevicesAvailable || !getUserMediaAvailable) {
+        const errInfo = getHumanErrorMessage(new Error('Browser does not support getUserMedia'))
+        console.error('[QR CAMERA] getUserMedia failed', {
+          name: 'UNSUPPORTED_BROWSER',
+          message: 'Browser does not support navigator.mediaDevices.getUserMedia',
+          constraint: null,
+          stack: null,
+          secureContext,
+          hasMediaDevices: mediaDevicesAvailable,
+          hasGetUserMedia: getUserMediaAvailable
+        })
+        if (isMountedRef.current) {
+          setCameraError(errInfo)
+          setIsInitializing(false)
+        }
+        initializationInFlightRef.current = false
+        return
+      }
+
+      // Query permission state
+      if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
         try {
-          availableCameras = await Html5Qrcode.getCameras()
-          if (isMountedRef.current) {
-            setCameras(availableCameras || [])
+          const permStatus = await navigator.permissions.query({ name: 'camera' })
+          console.log('[QR CAMERA] permission state', permStatus.state)
+        } catch {}
+      }
+
+      // Enumerate hardware devices
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices) {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices()
+          const videoDevices = devices.filter((d) => d.kind === 'videoinput')
+          console.log(
+            '[QR CAMERA] video devices',
+            videoDevices.map((d) => ({
+              kind: d.kind,
+              deviceIdPresent: !!d.deviceId,
+              labelPresent: !!d.label
+            }))
+          )
+          const formatted = videoDevices.map((d, idx) => ({
+            id: d.deviceId,
+            label: d.label || `Camera ${idx + 1}`
+          }))
+          if (isMountedRef.current && formatted.length > 0) {
+            setCameras(formatted)
           }
-        } catch {
-          // Non-blocking device enumeration
+        } catch (devErr) {
+          console.warn('[QR CAMERA] enumerateDevices error:', devErr?.message)
         }
       }
 
-      // 2. Initialize Html5Qrcode instance
-      if (!scannerRef.current) {
-        scannerRef.current = new Html5Qrcode(scannerId, {
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-          verbose: false,
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true
-          }
+      // Build candidate constraints: Preferred ONCE -> Generic fallback ONCE
+      const candidateConstraints = []
+      if (targetDeviceId) {
+        candidateConstraints.push({
+          video: { deviceId: { exact: targetDeviceId } },
+          audio: false
+        })
+      } else {
+        candidateConstraints.push({
+          video: { facingMode: { ideal: targetFacingMode } },
+          audio: false
         })
       }
+      candidateConstraints.push({
+        video: true,
+        audio: false
+      })
 
-      // 3. Configure camera source with high-quality resolution constraints
-      // Prefers rear/environment camera and requests 1280x720 resolution without forcing exact values
-      let cameraConfig = {
-        facingMode: { ideal: facingMode },
-        width: { ideal: 1280, min: 640 },
-        height: { ideal: 720, min: 480 }
-      }
+      let acquiredStream = null
+      let lastError = null
 
-      if (selectedCameraId) {
-        cameraConfig = {
-          deviceId: { exact: selectedCameraId },
-          width: { ideal: 1280, min: 640 },
-          height: { ideal: 720, min: 480 }
-        }
-      } else if (availableCameras && availableCameras.length > 0) {
-        // Look for rear/back camera if facingMode is environment
-        const backCam = availableCameras.find(
-          (c) =>
-            c.label.toLowerCase().includes('back') ||
-            c.label.toLowerCase().includes('rear') ||
-            c.label.toLowerCase().includes('environment')
-        )
-        if (backCam && facingMode === 'environment') {
-          cameraConfig = {
-            deviceId: { exact: backCam.id },
-            width: { ideal: 1280, min: 640 },
-            height: { ideal: 720, min: 480 }
-          }
-        }
-      }
-
-      // 4. Scanning configuration: Higher FPS (25) for immediate real-time QR detection
-      const scanConfig = {
-        fps: 25,
-        disableFlip: facingMode === 'environment'
-      }
-
-      const onScanSuccess = (decodedText) => {
-        // Success callback
-        if (!decodedText || scanLockRef.current || isProcessing) return
-
-        // Lock scanner immediately to prevent duplicate detections
-        scanLockRef.current = true
-        const cleanToken = decodedText.trim()
-        setLastScannedCode(cleanToken)
-
-        // Dispatch detected token to parent validation pipeline
-        if (onScan) {
-          onScan(cleanToken)
-        }
-
-        // Stop scanning stream cleanly after successful detection
-        if (scannerRef.current && scannerRef.current.isScanning) {
+      try {
+        for (const constraints of candidateConstraints) {
+          if (!isMountedRef.current) break
           try {
-            const stopPromise = scannerRef.current.stop()
-            if (stopPromise && typeof stopPromise.catch === 'function') {
-              stopPromise.catch(() => {})
+            console.log('[QR CAMERA] requesting stream with constraints:', constraints)
+            acquiredStream = await navigator.mediaDevices.getUserMedia(constraints)
+            console.log('[QR CAMERA] camera acquisition success')
+            break // STOP IMMEDIATELY ON SUCCESS
+          } catch (tierErr) {
+            lastError = tierErr
+            console.warn('[QR CAMERA] constraint attempt rejected:', {
+              name: tierErr?.name,
+              message: tierErr?.message,
+              constraints
+            })
+            const errName = String(tierErr?.name || '')
+            if (
+              errName === 'NotAllowedError' ||
+              errName === 'PermissionDeniedError' ||
+              errName === 'SecurityError'
+            ) {
+              throw tierErr
             }
+          }
+        }
+
+        if (!acquiredStream) {
+          throw lastError || new Error('Could not access video feed from camera.')
+        }
+
+        // Reuse acquired stream directly
+        streamRef.current = acquiredStream
+        activeStreamRef.current = acquiredStream
+        console.log('[QR CAMERA] using active stream')
+        console.log(
+          '[QR CAMERA] tracks',
+          acquiredStream.getVideoTracks().map((t) => ({
+            label: t.label,
+            readyState: t.readyState,
+            enabled: t.enabled,
+            settings: typeof t.getSettings === 'function' ? t.getSettings() : {}
+          }))
+        )
+
+        // Attach directly to video element
+        const video = videoRef.current
+        if (video) {
+          video.srcObject = acquiredStream
+          video.muted = true
+          video.setAttribute('playsinline', 'true')
+          video.setAttribute('webkit-playsinline', 'true')
+
+          try {
+            await video.play()
+            console.log('[QR CAMERA] video playback started')
+          } catch (playError) {
+            console.error('[QR CAMERA] video.play() failed', {
+              name: playError?.name,
+              message: playError?.message
+            })
+          }
+        }
+
+        // Initialize BarcodeDetector if available
+        if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+          try {
+            barcodeDetectorRef.current = new window.BarcodeDetector({ formats: ['qr_code'] })
           } catch {
-            // ignore
+            try {
+              barcodeDetectorRef.current = new window.BarcodeDetector()
+            } catch {
+              barcodeDetectorRef.current = null
+            }
           }
+        }
+
+        // Start scanning loop
+        isScanningRef.current = true
+        scanLockRef.current = false
+        console.log('[QR CAMERA] scanner started')
+
+        const scanFrame = async () => {
+          if (!isScanningRef.current || scanLockRef.current || isProcessing) return
+          const v = videoRef.current
+          if (v && v.readyState >= 2 && !v.paused && !v.ended) {
+            try {
+              if (barcodeDetectorRef.current) {
+                const barcodes = await barcodeDetectorRef.current.detect(v)
+                if (barcodes && barcodes.length > 0) {
+                  const detected = barcodes[0].rawValue
+                  if (detected && !scanLockRef.current) {
+                    scanLockRef.current = true
+                    const cleanToken = detected.trim()
+                    setLastScannedCode(cleanToken)
+                    if (onScan) {
+                      onScan(cleanToken)
+                    }
+                    stopActiveCameraStream()
+                    return
+                  }
+                }
+              }
+            } catch {
+              // Frame decode miss is normal
+            }
+          }
+          if (isScanningRef.current && !scanLockRef.current) {
+            animationFrameRef.current = requestAnimationFrame(scanFrame)
+          }
+        }
+
+        animationFrameRef.current = requestAnimationFrame(scanFrame)
+
+        if (isMountedRef.current) {
+          setIsScanning(true)
+          setIsInitializing(false)
+        }
+      } catch (err) {
+        console.error('[QR CAMERA] getUserMedia failed', {
+          name: err?.name,
+          message: err?.message,
+          constraint: err?.constraint,
+          stack: err?.stack,
+          secureContext,
+          hasMediaDevices: mediaDevicesAvailable,
+          hasGetUserMedia: getUserMediaAvailable
+        })
+
+        const errInfo = getHumanErrorMessage(err)
+        if (isMountedRef.current) {
+          setCameraError(errInfo)
           setIsScanning(false)
+          setIsInitializing(false)
         }
+      } finally {
+        initializationInFlightRef.current = false
       }
+    },
+    [facingMode, selectedCameraId, isProcessing, onScan, stopActiveCameraStream]
+  )
 
-      const onScanFailure = () => {
-        // Frame decode failure (normal when QR not yet in frame) - no op
-      }
-
-      // 5. Start decoding video stream with high-res config and graceful fallback
-      try {
-        await scannerRef.current.start(
-          cameraConfig,
-          scanConfig,
-          onScanSuccess,
-          onScanFailure
-        )
-      } catch (startErr) {
-        console.warn('[QRScanner] High-res camera start failed, falling back to standard constraints:', startErr?.message)
-        // Fallback to basic constraint without resolution bounds if camera driver rejects width/height
-        const fallbackConfig = selectedCameraId
-          ? { deviceId: selectedCameraId }
-          : { facingMode: { ideal: facingMode } }
-
-        await scannerRef.current.start(
-          fallbackConfig,
-          scanConfig,
-          onScanSuccess,
-          onScanFailure
-        )
-      }
-
-      // 6. Enable hardware continuous autofocus if supported by device camera track
-      try {
-        const videoElem = document.querySelector(`#${scannerId} video`)
-        const mediaStream = videoElem?.srcObject
-        const activeTrack = mediaStream?.getVideoTracks?.()[0]
-        if (activeTrack && typeof activeTrack.getCapabilities === 'function') {
-          const capabilities = activeTrack.getCapabilities()
-          if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
-            await activeTrack.applyConstraints({
-              advanced: [{ focusMode: 'continuous' }]
-            }).catch(() => {})
-          }
-        }
-      } catch (focusErr) {
-        // Non-blocking autofocus capability notice
-      }
-
-      if (isMountedRef.current) {
-        setIsScanning(true)
-        setIsInitializing(false)
-      }
-    } catch (err) {
-      console.error('[QRScanner] Start scanner error:', err)
-      const errInfo = getHumanErrorMessage(err)
-      if (isMountedRef.current) {
-        setCameraError(errInfo)
-        setIsScanning(false)
-        setIsInitializing(false)
-      }
+  // Start Camera click handler (reuses stream if already active)
+  const handleStartCameraClick = useCallback(async () => {
+    if (isScanning || activeStreamRef.current) {
+      console.log('[QR CAMERA] camera already active, preserving stream')
+      return
     }
-  }, [isScanning, isInitializing, cameras, scannerId, facingMode, selectedCameraId, isProcessing, onScan])
+    await startScannerCore()
+  }, [isScanning, startScannerCore])
 
-  // Switch between front and rear cameras
+  // Stop Camera click handler
+  const handleStopCameraClick = useCallback(() => {
+    stopActiveCameraStream()
+  }, [stopActiveCameraStream])
+
+  // Switch between front and rear cameras cleanly
   const handleToggleFacingMode = async () => {
+    if (initializationInFlightRef.current) return
     const nextMode = facingMode === 'environment' ? 'user' : 'environment'
     setFacingMode(nextMode)
     setSelectedCameraId('')
-    if (isScanning) {
-      await stopScanner()
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          startScanner()
-        }
-      }, 200)
-    }
+    stopActiveCameraStream()
+    await new Promise((r) => setTimeout(r, 60))
+    await startScannerCore(nextMode, '')
   }
 
-  // Handle explicit device selection
+  // Handle explicit device selection from dropdown
   const handleSelectCamera = async (deviceId) => {
+    if (initializationInFlightRef.current) return
     setSelectedCameraId(deviceId)
-    if (isScanning) {
-      await stopScanner()
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          startScanner()
-        }
-      }, 200)
-    }
+    stopActiveCameraStream()
+    await new Promise((r) => setTimeout(r, 60))
+    await startScannerCore(facingMode, deviceId)
   }
 
   // Reset scanner state for next scan
-  const resetScanner = useCallback(() => {
+  const resetScanner = useCallback(async () => {
     scanLockRef.current = false
     setLastScannedCode(null)
     setCameraError(null)
-    if (!isScanning && !isProcessing) {
-      startScanner()
+    stopActiveCameraStream()
+    await new Promise((r) => setTimeout(r, 60))
+    if (isMountedRef.current && !isProcessing) {
+      await startScannerCore()
     }
-  }, [isScanning, isProcessing, startScanner])
+  }, [isProcessing, startScannerCore, stopActiveCameraStream])
+
+  // Dedicated retry action
+  const handleRetryCamera = async () => {
+    if (initializationInFlightRef.current) return
+    setCameraError(null)
+    stopActiveCameraStream()
+    await new Promise((r) => setTimeout(r, 60))
+    await startScannerCore()
+  }
 
   // Auto-start on mount if requested & cleanup on unmount
   useEffect(() => {
@@ -322,50 +391,38 @@ export default function QRScanner({
     if (autoStart) {
       timer = setTimeout(() => {
         if (isMountedRef.current) {
-          startScanner()
+          startScannerCore()
         }
-      }, 50)
+      }, 60)
     }
 
     return () => {
       if (timer) clearTimeout(timer)
       isMountedRef.current = false
-      const scanner = scannerRef.current
-      if (scanner) {
-        try {
-          if (scanner.isScanning) {
-            const stopPromise = scanner.stop()
-            if (stopPromise && typeof stopPromise.then === 'function') {
-              stopPromise
-                .then(() => {
-                  try {
-                    scanner.clear()
-                  } catch {
-                    /* ignored */
-                  }
-                })
-                .catch(() => {})
-            }
-          } else {
-            try {
-              scanner.clear()
-            } catch {
-              /* ignored */
-            }
-          }
-        } catch {
-          /* ignored */
-        }
-      }
+      stopActiveCameraStream()
     }
-  }, [autoStart, startScanner])
+  }, [autoStart, startScannerCore, stopActiveCameraStream])
 
   return (
     <div className="qr-camera-scanner-wrapper">
       {/* Viewfinder Frame Container */}
       <div className="camera-viewfinder-container">
-        {/* html5-qrcode DOM Target Element */}
-        <div id={scannerId} className={`qr-reader-surface ${isScanning ? 'active' : 'idle'}`} />
+        {/* Direct HTML5 Video Surface */}
+        <div id={scannerId} className={`qr-reader-surface ${isScanning ? 'active' : 'idle'}`}>
+          <video
+            ref={videoRef}
+            className="qr-camera-video-elem"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: isScanning ? 'block' : 'none'
+            }}
+            playsInline
+            muted
+            autoPlay
+          />
+        </div>
 
         {/* Live HUD Reticle Overlay */}
         {isScanning && (
@@ -395,8 +452,9 @@ export default function QRScanner({
             </p>
             <button
               type="button"
+              id="btn-start-camera-scanner"
               className="btn btn-primary btn-sm mt-3"
-              onClick={startScanner}
+              onClick={handleStartCameraClick}
               disabled={isProcessing}
             >
               📷 Start Camera Scanner
@@ -436,7 +494,7 @@ export default function QRScanner({
         )}
       </div>
 
-      {/* Camera Error Alert Banner */}
+      {/* Camera Error Alert Banner with Raw Browser Diagnostics & Guidance */}
       {cameraError && (
         <div className="camera-error-banner glass-card mt-3">
           <div className="flex items-start gap-2.5">
@@ -445,14 +503,37 @@ export default function QRScanner({
               <strong className="text-xs font-bold text-rose-300 block">
                 {cameraError.title}
               </strong>
-              <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                {cameraError.message}
-              </p>
-              <div className="flex items-center gap-2 mt-2">
+
+              {/* Diagnostic Box displaying actual browser error, raw message, and guidance */}
+              <div className="camera-diagnostic-box mt-2 p-2.5 rounded bg-slate-900/90 border border-rose-500/30 font-mono text-2xs space-y-1.5 text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-400">Browser error:</span>
+                  <span className="text-rose-400 font-bold">{cameraError.errorName || 'UNKNOWN_ERROR'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Details: </span>
+                  <span className="text-slate-200">{cameraError.rawMessage || cameraError.message}</span>
+                </div>
+                {cameraError.constraint && (
+                  <div>
+                    <span className="text-slate-400">Constraint: </span>
+                    <span className="text-amber-400">{cameraError.constraint}</span>
+                  </div>
+                )}
+                {cameraError.guidance && (
+                  <div className="pt-1.5 border-t border-slate-700/50">
+                    <span className="text-cyan font-sans font-semibold block text-xs mb-0.5">Guidance:</span>
+                    <span className="text-slate-300 font-sans text-xs leading-relaxed block">{cameraError.guidance}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 mt-2.5">
                 <button
                   type="button"
+                  id="btn-retry-camera-scanner"
                   className="btn btn-secondary btn-xs"
-                  onClick={startScanner}
+                  onClick={handleRetryCamera}
                 >
                   🔄 Retry Camera
                 </button>
@@ -469,7 +550,7 @@ export default function QRScanner({
             <button
               type="button"
               className="btn btn-rose btn-xs"
-              onClick={stopScanner}
+              onClick={handleStopCameraClick}
               disabled={isProcessing}
             >
               ⏹️ Stop Camera
@@ -478,7 +559,7 @@ export default function QRScanner({
             <button
               type="button"
               className="btn btn-primary btn-xs"
-              onClick={startScanner}
+              onClick={handleStartCameraClick}
               disabled={isProcessing || isInitializing}
             >
               📷 {lastScannedCode ? 'Scan Next QR' : 'Start Camera'}

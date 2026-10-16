@@ -1,0 +1,583 @@
+/* =========================================================================
+   STUDENT WRONG PARKING REPORT MODAL & HISTORY STYLES
+   ========================================================================= */
+
+.swpr-modal-card {
+  max-width: 620px;
+  width: 92%;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.94));
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(244, 63, 94, 0.15);
+  border-radius: 16px;
+  animation: swprScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes swprScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.swpr-header {
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.swpr-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.swpr-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fb7185;
+}
+
+.swpr-header-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.3px;
+}
+
+.swpr-header-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.swpr-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swpr-close-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Tabs */
+.swpr-tabs {
+  display: flex;
+  padding: 10px 22px 0;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.swpr-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  color: #94a3b8;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px 6px 0 0;
+}
+
+.swpr-tab-btn:hover {
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.swpr-tab-btn.active {
+  color: #38bdf8;
+  border-bottom-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.swpr-tab-count {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+
+.swpr-tab-btn.active .swpr-tab-count {
+  background: rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
+}
+
+/* Modal Body */
+.swpr-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Form Styles */
+.swpr-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.swpr-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .swpr-field-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.swpr-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.swpr-required {
+  color: #f43f5e;
+  margin-left: 2px;
+}
+
+.swpr-optional {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 11.5px;
+  margin-left: 4px;
+}
+
+.swpr-input,
+.swpr-select,
+.swpr-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  color: #f8fafc;
+  font-size: 13.5px;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.swpr-input:focus,
+.swpr-select:focus,
+.swpr-textarea:focus {
+  border-color: #38bdf8;
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+}
+
+.swpr-input.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.5px;
+}
+
+.swpr-select option {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 8px;
+}
+
+.swpr-textarea {
+  resize: vertical;
+  min-height: 75px;
+  line-height: 1.45;
+}
+
+.swpr-char-hint {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.swpr-reporter-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.swpr-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.swpr-error-banner {
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fca5a5;
+  font-size: 12.5px;
+}
+
+.swpr-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Success Card */
+.swpr-success-box {
+  text-align: center;
+  padding: 28px 16px;
+}
+
+.swpr-success-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  color: #34d399;
+}
+
+.swpr-success-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0 0 8px;
+}
+
+.swpr-success-desc {
+  font-size: 13.5px;
+  color: #94a3b8;
+  max-width: 420px;
+  margin: 0 auto 20px;
+  line-height: 1.5;
+}
+
+.swpr-receipt-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 18px;
+  max-width: 360px;
+  margin: 0 auto 24px;
+  text-align: left;
+}
+
+.swpr-receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.swpr-receipt-row:last-child {
+  border-bottom: none;
+}
+
+.swpr-receipt-label {
+  color: #94a3b8;
+}
+
+.swpr-receipt-val {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+/* Reports List (Tab 2) */
+.swpr-reports-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.swpr-report-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.swpr-report-card:hover {
+  border-color: rgba(56, 189, 248, 0.25);
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.swpr-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.swpr-plate-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: #38bdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 3px 10px;
+  border-radius: 6px;
+}
+
+.swpr-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.swpr-status-pill.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.swpr-status-pill.under-review {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.swpr-status-pill.resolved {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.swpr-status-pill.dismissed {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.swpr-card-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.swpr-meta-item strong {
+  color: #f8fafc;
+  margin-left: 4px;
+}
+
+.swpr-card-desc {
+  font-size: 12.5px;
+  color: #94a3b8;
+  margin: 6px 0 0;
+  line-height: 1.4;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border-left: 2px solid rgba(56, 189, 248, 0.4);
+}
+
+.swpr-admin-note {
+  margin-top: 12px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.swpr-admin-note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: #34d399;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.swpr-admin-note-text {
+  font-size: 12.5px;
+  color: #e2e8f0;
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.swpr-empty-state {
+  text-align: center;
+  padding: 36px 16px;
+  color: #94a3b8;
+}
+
+.swpr-empty-icon {
+  font-size: 38px;
+  margin-bottom: 12px;
+  display: block;
+}
+
+.swpr-loading-state {
+  text-align: center;
+  padding: 36px 16px;
+  color: #94a3b8;
+  font-size: 13.5px;
+}
+
+/* Dashboard Action Card */
+.swpr-dashboard-card {
+  padding: 18px 22px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.8));
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 16px rgba(244, 63, 94, 0.06);
+  border-radius: 14px;
+}
+
+.swpr-dc-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.swpr-dc-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.swpr-dc-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swpr-dc-sub {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.swpr-dc-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   DEDICATED STUDENT REPORTS PAGE STYLES
+   ========================================================================= */
+
+.student-reports-page {
+  width: 100%;
+  max-width: 1060px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.swpr-page-card {
+  border-radius: var(--radius-lg, 16px);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.88));
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 25px rgba(244, 63, 94, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.swpr-page-tabs {
+  padding: 12px 24px 0;
+  background: rgba(15, 23, 42, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.swpr-page-body {
+  padding: 26px 28px;
+  max-height: none;
+  overflow-y: visible;
+}
+
+@media (max-width: 640px) {
+  .swpr-page-body {
+    padding: 18px 14px;
+  }
+  .swpr-page-tabs {
+    padding: 10px 14px 0;
+  }
+}

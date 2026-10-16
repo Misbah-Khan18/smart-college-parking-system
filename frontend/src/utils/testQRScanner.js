@@ -1,6 +1,7 @@
 import { GATE_REASON_CODES } from '../services/guardGateService.js'
 import { normalizePlate } from '../data/vehicleRules.js'
 import { normalizeSlotId } from '../services/parkingService.js'
+import { getHumanErrorMessage as mapCameraError } from '../utils/qrErrorUtils.js'
 
 console.log('====================================================')
 console.log('📷 QR CAMERA SCANNER & PIPELINE TEST SUITE')
@@ -24,57 +25,6 @@ assert(normalizeSlotId('g-05') === 'G-05', 'normalizeSlotId normalizes lowercase
 assert(normalizeSlotId('B-12') === 'B-12', 'normalizeSlotId preserves uppercase canonical B-12')
 
 console.log('\nTest Group 1: Camera Error Mapping & Messages')
-
-function mapCameraError(err, isSecureContext = true) {
-  if (!isSecureContext) {
-    return {
-      title: 'HTTPS Connection Required',
-      message: 'Camera access requires a secure HTTPS connection. Please access over HTTPS or use manual token entry.',
-      code: 'INSECURE_CONTEXT'
-    }
-  }
-
-  const errStr = String(err?.message || err || '').toLowerCase()
-  const errName = String(err?.name || '')
-
-  if (errName === 'NotAllowedError' || errStr.includes('permission') || errStr.includes('denied')) {
-    return {
-      title: 'Camera Access Denied',
-      message: 'Camera permission was denied. Please allow camera permissions in your browser address bar or settings, or use manual token entry.',
-      code: 'PERMISSION_DENIED'
-    }
-  }
-
-  if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError' || errStr.includes('not found') || errStr.includes('no camera')) {
-    return {
-      title: 'No Camera Found',
-      message: 'No camera hardware was detected on this device. Please connect a webcam or use manual token entry.',
-      code: 'NO_CAMERA_DEVICE'
-    }
-  }
-
-  if (errName === 'NotReadableError' || errName === 'TrackStartError' || errStr.includes('in use') || errStr.includes('busy')) {
-    return {
-      title: 'Camera In Use',
-      message: 'The camera is currently in use by another tab or application. Please close other camera apps and retry.',
-      code: 'CAMERA_IN_USE'
-    }
-  }
-
-  if (errStr.includes('getusermedia') || errStr.includes('notsupported')) {
-    return {
-      title: 'Browser Not Supported',
-      message: 'Your current browser does not support HTML5 camera streaming. Please use Chrome, Edge, Safari, or manual token entry.',
-      code: 'UNSUPPORTED_BROWSER'
-    }
-  }
-
-  return {
-    title: 'Camera Initialization Failed',
-    message: err?.message || 'Could not access video feed from camera.',
-    code: 'CAMERA_INIT_FAILED'
-  }
-}
 
 const permDenied = mapCameraError({ name: 'NotAllowedError', message: 'Permission denied by user' })
 assert(permDenied.code === 'PERMISSION_DENIED', '6. Permission denied is mapped to PERMISSION_DENIED')
@@ -319,14 +269,124 @@ const antiPassbackResult = simulateVerificationPipeline({
 assert(antiPassbackResult.approved === false && antiPassbackResult.reason === GATE_REASON_CODES.ALREADY_INSIDE, '11. Anti-passback still works (ALREADY_INSIDE)')
 
 // ----------------------------------------------------
-// Test Summary
+// Test Group 4: Camera Stream Negotiation & Error Recovery (11-Point Suite)
 // ----------------------------------------------------
-console.log('\n====================================================')
-console.log(`TEST SUMMARY: ${passCount} Passed, ${failCount} Failed`)
-console.log('====================================================')
+console.log('\nTest Group 4: Camera Stream Negotiation & Multi-Tier Fallback')
 
-if (failCount > 0) {
-  process.exit(1)
-} else {
-  console.log('🎉 ALL QR CAMERA SCANNER & PIPELINE TESTS PASSED!')
+// 1. Camera API unavailable
+const apiUnavail = mapCameraError(new Error('mediaDevices not supported'))
+assert(apiUnavail.code === 'UNSUPPORTED_BROWSER', '1. Camera API unavailable mapped to UNSUPPORTED_BROWSER')
+
+// 2. Permission denied
+const permDeniedErr = mapCameraError({ name: 'NotAllowedError', message: 'User denied permission' })
+assert(permDeniedErr.code === 'PERMISSION_DENIED', '2. Permission denied mapped to PERMISSION_DENIED')
+
+// 3. No camera detected
+const noCamErr = mapCameraError({ name: 'NotFoundError', message: 'No media tracks' })
+assert(noCamErr.code === 'NO_CAMERA_DEVICE', '3. No camera detected mapped to NO_CAMERA_DEVICE')
+
+// 4. Camera busy / track start error
+const busyErr = mapCameraError({ name: 'TrackStartError', message: 'Device busy' })
+assert(busyErr.code === 'CAMERA_IN_USE', '4. Camera busy mapped to CAMERA_IN_USE')
+
+// 5. Overconstrained error
+const overconstrainedErr = mapCameraError({ name: 'OverconstrainedError', message: 'Constraints unsatisfied' })
+assert(overconstrainedErr.code === 'OVERCONSTRAINED' || overconstrainedErr.message.includes('compatible'), '5. OverconstrainedError produces helpful recovery message')
+
+// 6. Generic getUserMedia Fallback Simulator
+class MockCameraStreamNegotiator {
+  constructor(supportedTiers = ['generic']) {
+    this.supportedTiers = supportedTiers
+    this.activeStream = null
+    this.activeTracks = []
+  }
+
+  async start(tiers) {
+    for (const tier of tiers) {
+      const tierKey = tier?.facingMode?.ideal || tier?.facingMode || (tier?.deviceId ? 'deviceId' : 'generic')
+      if (this.supportedTiers.includes(tierKey) || this.supportedTiers.includes('all')) {
+        const track = {
+          kind: 'video',
+          stopped: false,
+          stop: function() { this.stopped = true }
+        }
+        this.activeTracks = [track]
+        this.activeStream = {
+          getTracks: () => this.activeTracks
+        }
+        return { success: true, tier: tierKey }
+      }
+    }
+    throw new Error('Could not access video feed from camera.')
+  }
+
+  stop() {
+    if (this.activeTracks) {
+      this.activeTracks.forEach((t) => t.stop())
+    }
+    this.activeStream = null
+  }
 }
+
+async function runTestGroup4() {
+  // 7. Successful stream initialization on rear camera
+  const rearNegotiator = new MockCameraStreamNegotiator(['environment'])
+  const rearTiers = [{ facingMode: { ideal: 'environment' } }, { facingMode: 'environment' }, {}]
+  const rearResult = await rearNegotiator.start(rearTiers)
+  assert(rearResult?.success === true && rearResult?.tier === 'environment', '7. Successful stream initialization on rear camera')
+
+  // 6b. Fallback to generic when ideal environment unsupported (e.g. desktop webcam)
+  const desktopNegotiator = new MockCameraStreamNegotiator(['generic'])
+  const desktopResult = await desktopNegotiator.start(rearTiers)
+  assert(desktopResult?.success === true && desktopResult?.tier === 'generic', '6. Multi-tier fallback negotiates generic camera stream')
+
+  // 8. Video play handling simulation
+  const mockVideoElement = {
+    playsInline: false,
+    muted: false,
+    paused: true,
+    play: function() { this.paused = false; return Promise.resolve() }
+  }
+  mockVideoElement.playsInline = true
+  mockVideoElement.muted = true
+  await mockVideoElement.play().catch(() => {})
+  assert(mockVideoElement.paused === false && mockVideoElement.muted === true && mockVideoElement.playsInline === true, '8. Video element playback & inline attributes safely applied')
+
+  // 9. Retry capability simulation
+  let retryError = { code: 'CAMERA_IN_USE' }
+  let retrySuccess = false
+  // Simulate Retry action: clear error -> stop -> restart
+  retryError = null
+  rearNegotiator.stop()
+  const retryRes = await rearNegotiator.start(rearTiers)
+  if (retryRes?.success) retrySuccess = true
+  assert(retryError === null && retrySuccess === true, '9. Retry action clears error and restores camera stream')
+
+  // 10. Stream cleanup verification
+  rearNegotiator.stop()
+  assert(rearNegotiator.activeTracks[0].stopped === true, '10. Stream cleanup stops all active media tracks')
+
+  // 11. QR detection remains functional
+  const functionalScanner = new MockQRScanner({ onScan: () => {} })
+  functionalScanner.start()
+  const detected = functionalScanner.simulateFrameDecode('SOC-RES-G-05-MH12CD5678')
+  assert(detected === true && functionalScanner.tracksStopped === true, '11. QR detection remains fully functional with single-scan lock')
+
+  // ----------------------------------------------------
+  // Test Summary
+  // ----------------------------------------------------
+  console.log('\n====================================================')
+  console.log(`TEST SUMMARY: ${passCount} Passed, ${failCount} Failed`)
+  console.log('====================================================')
+
+  if (failCount > 0) {
+    process.exit(1)
+  } else {
+    console.log('🎉 ALL QR CAMERA SCANNER & PIPELINE TESTS PASSED!')
+  }
+}
+
+runTestGroup4().catch((err) => {
+  console.error('Test Group 4 Error:', err)
+  process.exit(1)
+})

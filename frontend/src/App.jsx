@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
+import {
+  ROLES,
+  resolveUserRole,
+  evaluateIsAdmin
+} from './utils/authRoles'
 
 import {
   INITIAL_SLOTS
@@ -22,10 +27,12 @@ import PaymentModal from './components/PaymentModal'
 
 // Admin Views
 import AdminDashboardView from './components/admin/AdminDashboardView'
+import AdminPaymentsView from './components/admin/AdminPaymentsView'
 import VehicleEntryView from './components/admin/VehicleEntryView'
 import VehicleExitView from './components/admin/VehicleExitView'
 import WrongParkingView from './components/admin/WrongParkingView'
 import GatePermitScannerView from './components/admin/GatePermitScannerView'
+import { recordSuccessfulPayment } from './services/paymentHistoryService'
 
 // Payment Return Pages
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
@@ -37,6 +44,7 @@ import CampusParkingDashboard from './components/CampusParkingDashboard'
 import StudentMyVehicleView from './components/student/StudentMyVehicleView'
 import StudentMyStatusView from './components/student/StudentMyStatusView'
 import StudentMyHistoryView from './components/student/StudentMyHistoryView'
+import StudentReportsPageView from './components/student/StudentReportsPageView'
 
 // Firestore Services
 import {
@@ -104,7 +112,12 @@ export default function App() {
       const savedDemo = localStorage.getItem('demo_user_session')
 
       if (savedDemo) {
-        return JSON.parse(savedDemo)
+        const parsed = JSON.parse(savedDemo)
+        return {
+          ...parsed,
+          role: ROLES.STUDENT,
+          isDemo: true
+        }
       }
     } catch {
       localStorage.removeItem('demo_user_session')
@@ -119,7 +132,12 @@ export default function App() {
       const savedDemo = localStorage.getItem('demo_user_session')
 
       if (savedDemo) {
-        return JSON.parse(savedDemo)
+        const parsed = JSON.parse(savedDemo)
+        return {
+          ...parsed,
+          role: ROLES.STUDENT,
+          isDemo: true
+        }
       }
     } catch {
       // Ignore invalid cached profile
@@ -156,14 +174,7 @@ export default function App() {
         try {
           // Firestore profile is authoritative.
           const profile = await getUserProfile(currentUser.uid, currentUser)
-
-          const isKnownAdmin =
-            currentUser.email === 'shaikhalzuni123@gmail.com' ||
-            currentUser.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
-
-          const resolvedRole = isKnownAdmin
-            ? 'Security Admin'
-            : (profile?.role || 'Student')
+          const resolvedRole = resolveUserRole(currentUser, profile)
 
           const finalProfile = {
             ...(profile || {}),
@@ -172,20 +183,20 @@ export default function App() {
             displayName:
               profile?.displayName ||
               currentUser.displayName ||
-              (resolvedRole === 'Security Admin' ? 'Campus Admin' : 'Campus Member'),
+              (resolvedRole === ROLES.SECURITY_ADMIN ? 'Campus Admin' : 'Campus Member'),
             photoURL:
               profile?.photoURL ||
               currentUser.photoURL ||
               '',
             role: resolvedRole,
-            campusId: profile?.campusId || (resolvedRole === 'Security Admin' ? 'ADM-01' : ''),
+            campusId: profile?.campusId || (resolvedRole === ROLES.SECURITY_ADMIN ? 'ADM-01' : ''),
             rollNumber: profile?.rollNumber || profile?.campusId || '',
-            vehicleType: profile?.vehicleType || (resolvedRole === 'Security Admin' ? 'bike' : 'scooty'),
-            preferredFloor: profile?.preferredFloor || (resolvedRole === 'Security Admin' ? 'Basement' : 'Ground Floor'),
+            vehicleType: profile?.vehicleType || (resolvedRole === ROLES.SECURITY_ADMIN ? 'bike' : 'scooty'),
+            preferredFloor: profile?.preferredFloor || (resolvedRole === ROLES.SECURITY_ADMIN ? 'Basement' : 'Ground Floor'),
             defaultPlate: profile?.defaultPlate || profile?.vehicleNumber || profile?.vehiclePlate || '',
             vehiclePlate: profile?.vehiclePlate || profile?.defaultPlate || '',
             vehicleNumber: profile?.vehicleNumber || profile?.defaultPlate || '',
-            stream: profile?.stream || (resolvedRole === 'Security Admin' ? 'Campus Administration' : 'Registered Student'),
+            stream: profile?.stream || (resolvedRole === ROLES.SECURITY_ADMIN ? 'Campus Administration' : 'Registered Student'),
             phoneNumber: profile?.phoneNumber || ''
           }
 
@@ -199,16 +210,12 @@ export default function App() {
         } catch (err) {
           console.warn('[Auth] Profile fetch warning:', err)
 
-          const isKnownAdmin =
-            currentUser.email === 'shaikhalzuni123@gmail.com' ||
-            currentUser.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
-
-          const fallbackRole = isKnownAdmin ? 'Security Admin' : 'Student'
+          const fallbackRole = resolveUserRole(currentUser, null)
 
           setUserProfile({
             uid: currentUser.uid,
             email: currentUser.email || '',
-            displayName: currentUser.displayName || (fallbackRole === 'Security Admin' ? 'Campus Admin' : 'Campus Member'),
+            displayName: currentUser.displayName || (fallbackRole === ROLES.SECURITY_ADMIN ? 'Campus Admin' : 'Campus Member'),
             photoURL: currentUser.photoURL || '',
             role: fallbackRole
           })
@@ -220,9 +227,14 @@ export default function App() {
         if (activeDemo) {
           try {
             const parsedDemo = JSON.parse(activeDemo)
+            const safeDemo = {
+              ...parsedDemo,
+              role: ROLES.STUDENT,
+              isDemo: true
+            }
 
-            setUser(parsedDemo)
-            setUserProfile(parsedDemo)
+            setUser(safeDemo)
+            setUserProfile(safeDemo)
           } catch {
             localStorage.removeItem('demo_user_session')
             setUser(null)
@@ -351,9 +363,7 @@ export default function App() {
   // ROLE
   // ==========================================
 
-  const isAdminUser =
-    userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin'
+  const isAdminUser = evaluateIsAdmin(userProfile || user)
 
 
   // ==========================================
@@ -1717,6 +1727,30 @@ export default function App() {
           entryTimestamp:
             nowTimestamp
         })
+
+        // Record persistent payment history record (idempotent, only on success)
+        try {
+          recordSuccessfulPayment({
+            paymentId: `PAY-${slotId.replace(/[^a-zA-Z0-9]/g, '')}-${nowTimestamp}`,
+            userId: currentUid,
+            studentName: ownerName || 'Campus Member',
+            studentEmail: user?.email || userProfile?.email || '',
+            rollNumber: rollNumber || '',
+            vehicleNumber: vehicleNumber.toUpperCase(),
+            vehicleType: vehicleType || 'Scooty',
+            slotId,
+            floor: _confirmation.floor,
+            amount: 10,
+            currency: 'INR',
+            paymentMethod: 'UPI / Google Pay (Simulated)',
+            paymentStatus: 'SUCCESS',
+            transactionId: `TXN-UPI-${slotId.replace(/[^a-zA-Z0-9]/g, '')}-${nowTimestamp}`
+          }).catch((payErr) => {
+            console.warn('[App] Payment record notice:', payErr?.message)
+          })
+        } catch (payErr) {
+          console.warn('[App] Payment record sync notice:', payErr?.message)
+        }
       } catch (err) {
         console.warn(
           '[Payment] Slot sync:',
@@ -1959,11 +1993,7 @@ export default function App() {
   // MAIN APPLICATION
   // ==========================================
 
-  const isAdmin =
-    userProfile?.role ===
-    'Security Admin' ||
-    userProfile?.role ===
-    'Admin'
+  const isAdmin = evaluateIsAdmin(userProfile || user)
 
 
   const isHomeActive =
@@ -2174,6 +2204,17 @@ export default function App() {
                 )}
 
 
+              {/* PAYMENTS */}
+
+              {(activeTab === 'admin-payments' || activeTab === 'payments') && (
+                <AdminPaymentsView
+                  user={user}
+                  userProfile={userProfile}
+                  showToast={showToast}
+                />
+              )}
+
+
               {/* REPORTS / HISTORY */}
 
               {activeTab ===
@@ -2197,6 +2238,10 @@ export default function App() {
                     }
                     showToast={
                       showToast
+                    }
+                    user={user}
+                    userProfile={
+                      userProfile
                     }
                   />
                 )}
@@ -2318,6 +2363,7 @@ export default function App() {
                       )
                     }
                   }}
+                  showToast={showToast}
                 />
               )}
 
@@ -2424,6 +2470,18 @@ export default function App() {
                     activeReservation={activeReservation}
                   />
                 )}
+
+
+              {/* STUDENT WRONG PARKING REPORTS */}
+
+              {activeTab === 'student-reports' && (
+                <StudentReportsPageView
+                  user={user}
+                  userProfile={userProfile}
+                  slots={slots}
+                  showToast={showToast}
+                />
+              )}
 
             </>
           )}

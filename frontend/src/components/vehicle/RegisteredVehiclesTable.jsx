@@ -68,7 +68,7 @@ export default function RegisteredVehiclesTable({
             <p className="text-muted">
               {searchQuery
                 ? `No student or vehicle matches "${searchQuery}". Try a different keyword.`
-                : 'No vehicles have been registered yet. Use the form above to add a new registration.'}
+                : 'No vehicles have been registered yet. Student vehicle registrations will appear here once submitted.'}
             </p>
           </div>
         ) : (

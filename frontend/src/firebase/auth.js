@@ -14,6 +14,11 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import {
+  ROLES,
+  resolveUserRole,
+  evaluateIsAdmin
+} from '../utils/authRoles'
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({
@@ -55,18 +60,19 @@ export const signInWithGoogle = async () => {
       }
     }
 
-    const emailIsAdmin = user.email?.toLowerCase().includes('admin')
-    const determinedRole = existingProfile?.role || (emailIsAdmin ? 'Security Admin' : 'Student')
-    const campusId = existingProfile?.campusId || (determinedRole.includes('Admin') ? `ADM-${user.uid.slice(0, 5).toUpperCase()}` : `STU-${user.uid.slice(0, 5).toUpperCase()}`)
+    // Authoritative role resolution: defaults to Student unless known admin or already assigned in Firestore
+    const determinedRole = resolveUserRole(user, existingProfile)
+    const isAdmin = determinedRole === ROLES.ADMIN || determinedRole === ROLES.SECURITY_ADMIN
+    const campusId = existingProfile?.campusId || (isAdmin ? `ADM-${user.uid.slice(0, 5).toUpperCase()}` : `STU-${user.uid.slice(0, 5).toUpperCase()}`)
     const vehicleType = existingProfile?.vehicleType || 'scooty'
     const preferredFloor = existingProfile?.preferredFloor || (vehicleType === 'scooty' ? 'Ground Floor' : 'Basement')
-    const defaultPlate = existingProfile?.defaultPlate || (determinedRole.includes('Admin') ? '' : `MH-12-GP-${Math.floor(1000 + Math.random() * 9000)}`)
-    const stream = existingProfile?.stream || (determinedRole.includes('Admin') ? 'Campus Administration' : 'Registered Student')
+    const defaultPlate = existingProfile?.defaultPlate || (isAdmin ? '' : `MH-12-GP-${Math.floor(1000 + Math.random() * 9000)}`)
+    const stream = existingProfile?.stream || (isAdmin ? 'Campus Administration' : 'Registered Student')
     const phoneNumber = existingProfile?.phoneNumber || ''
 
     const userProfileData = {
       uid: user.uid,
-      displayName: user.displayName || existingProfile?.displayName || (determinedRole.includes('Admin') ? 'Campus Admin' : 'Campus User'),
+      displayName: user.displayName || existingProfile?.displayName || (isAdmin ? 'Campus Admin' : 'Campus User'),
       email: user.email,
       photoURL: user.photoURL || '',
       role: determinedRole,
@@ -87,7 +93,7 @@ export const signInWithGoogle = async () => {
     }
 
     // Auto-register vehicle in registry list if not present
-    if (defaultPlate.trim()) {
+    if (defaultPlate.trim() && !isAdmin) {
       try {
         const savedVehicles = localStorage.getItem('registered_vehicles_list')
         const currentList = savedVehicles ? JSON.parse(savedVehicles) : []
@@ -162,8 +168,9 @@ export const registerWithEmail = async ({
     const userCredential = await createUserWithEmailAndPassword(auth, email, password)
     const user = userCredential.user
 
-    const isAdmin = role === 'Security Admin' || role === 'Admin' || email.toLowerCase().includes('admin')
-    const finalRole = isAdmin ? 'Security Admin' : (role || 'Student')
+    // Authoritative role resolution: user cannot elevate role via registration form
+    const finalRole = resolveUserRole(user, null)
+    const isAdmin = evaluateIsAdmin({ ...user, role: finalRole })
     const finalCampusId = campusId.trim().toUpperCase() ||
       (isAdmin ? `ADM-${user.uid.slice(0, 5).toUpperCase()}` : `STU-${user.uid.slice(0, 5).toUpperCase()}`)
     const finalDisplayName = name.trim() || (isAdmin ? 'Campus Admin' : 'Campus Member')
@@ -286,14 +293,18 @@ export const resetPassword = async (email) => {
 /**
  * Retrieve user custom profile (role, campusId, plate, phone) from Firestore or Local Cache
  */
-export const getUserProfile = async (uid) => {
+export const getUserProfile = async (uid, currentUser = null) => {
   if (!uid) return null
 
   // Check local cache first
   try {
     const local = localStorage.getItem(`user_profile_${uid}`)
     if (local) {
-      return JSON.parse(local)
+      const parsed = JSON.parse(local)
+      if (currentUser) {
+        parsed.role = resolveUserRole(currentUser, parsed)
+      }
+      return parsed
     }
   } catch {
     // Ignore cache error
@@ -309,6 +320,9 @@ export const getUserProfile = async (uid) => {
       ])
       if (userDoc?.exists()) {
         const data = userDoc.data()
+        if (currentUser) {
+          data.role = resolveUserRole(currentUser, data)
+        }
         try {
           localStorage.setItem(`user_profile_${uid}`, JSON.stringify(data))
         } catch {
@@ -349,7 +363,7 @@ export const signInDemoStudent = async () => {
     uid: 'demo-student-001',
     email: 'demo.student@soc.edu',
     displayName: 'Demo Student',
-    role: 'Student',
+    role: ROLES.STUDENT,
     isDemo: true,
     campusId: 'DEMO001',
     stream: 'BCA (Bachelor of Computer Applications)',

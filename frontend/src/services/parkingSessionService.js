@@ -236,6 +236,8 @@ export async function endParkingSession({
   }
 
   // 5. Query matching wrong_parking_reports (if any) to clean up in the same writeBatch
+  // Note: Only temporary automated notices are cleaned up. Student reports (source === 'student_report'
+  // or documents with reporterUid) must NEVER be deleted upon session exit.
   const matchingNoticeRefs = []
   try {
     const wrongParkingRef = collection(db, WRONG_PARKING_COLLECTION)
@@ -243,6 +245,11 @@ export async function endParkingSession({
       const qSlotNotice = query(wrongParkingRef, where('slotId', '==', finalSlotId))
       const snapSlotNotice = await getDocs(qSlotNotice)
       snapSlotNotice.forEach((d) => {
+        const dData = d.data() || {}
+        // Explicitly exclude student-submitted reports from session-exit cleanup
+        if (dData.source === 'student_report' || dData.reporterUid) {
+          return
+        }
         if (!matchingNoticeRefs.some((r) => r.id === d.id)) {
           matchingNoticeRefs.push(d.ref)
         }
@@ -252,7 +259,12 @@ export async function endParkingSession({
       const cleanTargetComp = finalPlate.replace(/[^A-Z0-9]/g, '')
       const snapAllNotices = await getDocs(wrongParkingRef)
       snapAllNotices.forEach((d) => {
-        const rPlate = (d.data().plate || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
+        const dData = d.data() || {}
+        // Explicitly exclude student-submitted reports from session-exit cleanup
+        if (dData.source === 'student_report' || dData.reporterUid) {
+          return
+        }
+        const rPlate = (dData.plate || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
         if (rPlate && rPlate === cleanTargetComp) {
           if (!matchingNoticeRefs.some((r) => r.id === d.id)) {
             matchingNoticeRefs.push(d.ref)

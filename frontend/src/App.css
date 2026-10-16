@@ -3688,19 +3688,22 @@
 }
 
 /* =========================================================
-   REGISTERED VEHICLES TABLE & DIRECTORY (COMPACT & SLEEK)
+   REGISTERED VEHICLES TABLE & DIRECTORY (FULL-WIDTH & SLEEK)
    ========================================================= */
 
+.registered-vehicles-full-section,
 .directory-section-panel {
+  width: 100%;
   min-width: 0; /* Prevents grid breakout */
 }
 
 .registered-vehicles-container {
-  padding: 16px 18px;
+  width: 100%;
+  padding: 20px 22px;
   background: rgba(15, 23, 42, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .table-header-row {

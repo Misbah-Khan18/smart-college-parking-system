@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   CheckIcon,
   ShieldIcon,
@@ -19,10 +19,12 @@ export default function StudentDashboardView({
   onOpenBooking,
   onCancelPermit,
   onCancelReservation,
-  onEndParkingSession
+  onEndParkingSession,
+  showToast
 }) {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [isEndingParking, setIsEndingParking] = useState(false)
+
 
   const displayName = userProfile?.displayName || user?.displayName || 'Alzuni Shaikh'
   const firstName = displayName.split(' ')[0] || 'Alzuni'
@@ -406,6 +408,7 @@ export default function StudentDashboardView({
         </div>
       )}
 
+
       {/* Telemetry Grid */}
       <div className="slots-telemetry-section">
         <div className="slots-telemetry-grid">
@@ -649,6 +652,7 @@ export default function StudentDashboardView({
           </div>
         </div>
       )}
+
     </div>
   )
 }

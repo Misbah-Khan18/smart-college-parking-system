@@ -120,7 +120,7 @@ export default function AdminDashboardView({
         </div>
       </div>
 
-      {/* 7 Quick Admin Feature Tiles */}
+      {/* 6 Quick Admin Feature Tiles */}
       <div className="admin-features-grid mb-4">
         <div
           className="admin-feature-tile glass-card"
@@ -139,8 +139,8 @@ export default function AdminDashboardView({
         >
           <span className="aft-icon">📋</span>
           <div className="aft-text">
-            <h4>Student &amp; Vehicle Registration</h4>
-            <p>Register students, vehicles, and rules</p>
+            <h4>Registered Vehicles</h4>
+            <p>Directory of campus vehicles &amp; allocated zones</p>
           </div>
         </div>
 
@@ -152,6 +152,17 @@ export default function AdminDashboardView({
           <div className="aft-text">
             <h4>Vehicle Entry</h4>
             <p>Gate 1 ingress &amp; nearest bay allocation</p>
+          </div>
+        </div>
+
+        <div
+          className="admin-feature-tile glass-card"
+          onClick={() => onNavigateTab && onNavigateTab('admin-payments')}
+        >
+          <span className="aft-icon">💳</span>
+          <div className="aft-text">
+            <h4>Payments</h4>
+            <p>Parking payment history &amp; transaction records</p>
           </div>
         </div>
 
@@ -174,17 +185,6 @@ export default function AdminDashboardView({
           <div className="aft-text">
             <h4>Wrong Parking Management</h4>
             <p>Floor mismatch &amp; rule violations</p>
-          </div>
-        </div>
-
-        <div
-          className="admin-feature-tile glass-card"
-          onClick={() => onNavigateTab && onNavigateTab('vehicle-exit')}
-        >
-          <span className="aft-icon">🛑</span>
-          <div className="aft-text">
-            <h4>Vehicle Exit Checkout</h4>
-            <p>Gate 2 egress &amp; checkout scanner</p>
           </div>
         </div>
 

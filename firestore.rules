@@ -1,43 +1,351 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Persistent Notifications Collection Rules
-    match /notifications/{notificationId} {
-      // Users can read notifications addressed specifically to them or broadcast to ALL
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.userId == 'ALL'
-      );
-      
-      // Notification Creation:
-      // - Students/users can ONLY create notifications addressed to their own UID
-      // - Admins & Security Admins can dispatch notifications to students or broadcast to ALL
-      allow create: if request.auth != null && (
-        request.resource.data.userId == request.auth.uid ||
+
+    // =========================================================================
+    // AUTHORIZATION HELPERS
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isKnownAdmin() {
+      return isAuthenticated() && (
         request.auth.uid == 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1' ||
-        request.auth.token.email == 'shaikhalzuni123@gmail.com' ||
-        request.auth.token.role in ['Admin', 'Security Admin'] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Security Admin'])
-      );
-      
-      // Users can only update their own notifications (e.g. mark as read)
-      allow update: if request.auth != null && (
-        resource.data.userId == request.auth.uid
-      );
-      
-      // Users can only delete their own read notifications
-      allow delete: if request.auth != null && (
-        resource.data.userId == request.auth.uid &&
-        resource.data.read == true
+        request.auth.token.email == 'shaikhalzuni123@gmail.com'
       );
     }
 
-    // Development / College Campus Simulation:
-    // Allow seamless access across client demo users, RFID gates, admin scanners, and real-time bay reservations
-    match /{document=**} {
-      allow read, write: if true;
+    function isFirestoreAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Security Admin'];
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        isKnownAdmin() ||
+        (request.auth.token != null && 'role' in request.auth.token && request.auth.token.role in ['Admin', 'Security Admin']) ||
+        isFirestoreAdmin()
+      );
+    }
+
+    // =========================================================================
+    // USERS COLLECTION
+    // =========================================================================
+    match /users/{userId} {
+      // Students can read their own user document; Admins can read all user records
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        isAdmin()
+      );
+
+      // Students can only create their own user document with role 'Student'
+      // Only Admins can create administrative profiles
+      allow create: if isAuthenticated() && (
+        (request.auth.uid == userId && (request.resource.data.role == 'Student' || isAdmin())) ||
+        isAdmin()
+      );
+
+      // Students can update their own profile fields, but MUST NOT elevate their role
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == userId && (
+          request.resource.data.role == resource.data.role ||
+          isAdmin()
+        )) ||
+        isAdmin()
+      );
+
+      // Only Admins can delete user profiles
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // REGISTERED VEHICLES COLLECTION
+    // =========================================================================
+    match /registered_vehicles/{vehicleId} {
+      // Students can read only their own vehicle registrations; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Students can register vehicles under their own UID; Admins can manage all
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Students can update only their own vehicles without reassigning ownership
+      allow update: if isAuthenticated() && (
+        (resource.data.studentId == request.auth.uid && request.resource.data.studentId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      // Students can delete only their own vehicles; Admins can manage all
+      allow delete: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // =========================================================================
+    // PARKING SLOTS COLLECTION
+    // =========================================================================
+    match /parking_slots/{slotId} {
+      // All authenticated users can read parking slot occupancy status
+      allow read: if isAuthenticated();
+
+      // Creation allowed for Admins during initial seed, or during reservation of unseeded bays
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (request.resource.data.status == 'reserved' &&
+         request.resource.data.userId == request.auth.uid &&
+         request.resource.data.reservedBy == request.auth.uid)
+      );
+
+      // Slot state transitions:
+      // 1. Admins have full management authority (ingress, egress, administrative override)
+      // 2. Students can ONLY reserve an available slot for their own authenticated UID
+      // 3. Students can ONLY release a slot they currently own (reservedBy / userId / studentId matches UID)
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        // Student reserving an available slot
+        (resource.data.status == 'available' &&
+         request.resource.data.status == 'reserved' &&
+         request.resource.data.userId == request.auth.uid &&
+         request.resource.data.reservedBy == request.auth.uid) ||
+        // Student releasing their own slot back to available
+        (request.resource.data.status == 'available' &&
+         (resource.data.userId == request.auth.uid ||
+          resource.data.reservedBy == request.auth.uid ||
+          resource.data.studentId == request.auth.uid))
+      );
+
+      // Only Admins can delete parking slot documents
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // RESERVATIONS COLLECTION
+    // =========================================================================
+    match /reservations/{reservationId} {
+      // Students can read only their own reservations; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.reservedBy == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Students can create reservations for themselves only
+      allow create: if isAuthenticated() && (
+        (request.resource.data.userId == request.auth.uid &&
+         request.resource.data.reservedBy == request.auth.uid &&
+         (request.resource.data.studentId == request.auth.uid || !('studentId' in request.resource.data))) ||
+        isAdmin()
+      );
+
+      // Students can update/cancel only their own reservations without changing ownership
+      allow update: if isAuthenticated() && (
+        (
+          (resource.data.userId == request.auth.uid ||
+           resource.data.reservedBy == request.auth.uid ||
+           resource.data.studentId == request.auth.uid) &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.reservedBy == resource.data.reservedBy
+        ) ||
+        isAdmin()
+      );
+
+      // Only Admins can delete reservation records
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // PARKING SESSIONS COLLECTION
+    // =========================================================================
+    match /parking_sessions/{sessionId} {
+      // Students can read their own active/completed sessions; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Admins manage active sessions (gate ingress); Students can only create completed record if session was untracked
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (request.resource.data.studentId == request.auth.uid &&
+         request.resource.data.status == 'completed')
+      );
+
+      // Admins manage sessions (gate egress); Students can only complete their own active session
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        ((resource.data.studentId == request.auth.uid || resource.data.userId == request.auth.uid) &&
+         (request.resource.data.studentId == resource.data.studentId || !('studentId' in request.resource.data)) &&
+         request.resource.data.status == 'completed')
+      );
+
+      // Only Admins can delete parking session records
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // PARKING HISTORY COLLECTION
+    // =========================================================================
+    match /parking_history/{historyId} {
+      // Students can read only their own history logs; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // History records are immutable audit logs created upon session completion
+      allow create: if isAuthenticated() && (
+        (request.resource.data.studentId == request.auth.uid && request.resource.data.status == 'Completed') ||
+        isAdmin()
+      );
+
+      // History logs cannot be modified by ordinary users
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // WRONG PARKING REPORTS COLLECTION
+    // =========================================================================
+    match /wrong_parking_reports/{reportId} {
+      // Students can view notices related to their own vehicle/slot or their own reports; Admins can view all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
+        (resource.data.reporterUid != null && resource.data.reporterUid == request.auth.uid) ||
+        isAdmin()
+      );
+
+      // Admins issue violation notices; Students can report violations
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          request.resource.data.source == 'student_report' &&
+          request.resource.data.reporterUid == request.auth.uid &&
+          request.resource.data.studentId == request.auth.uid &&
+          request.resource.data.status == 'Pending' &&
+          request.resource.data.vehicleNumber is string &&
+          request.resource.data.vehicleNumber.size() >= 3 &&
+          request.resource.data.floor in ['Ground Floor', 'Basement', 'Driveway / Ramp', 'Other'] &&
+          request.resource.data.reason in [
+            'Floor Mismatch',
+            'Blocking Driveway or Ramp',
+            'Parked Outside Designated Bay',
+            'Parked in Reserved Bay',
+            'Double Parked / Obstruction',
+            'Unauthorized Vehicle',
+            'Other',
+            'floor_mismatch',
+            'blocking_driveway',
+            'outside_bay',
+            'reserved_bay',
+            'double_parked',
+            'unauthorized',
+            'other'
+          ] &&
+          request.resource.data.adminNote == null &&
+          request.resource.data.resolvedAt == null &&
+          request.resource.data.resolvedBy == null
+        )
+      );
+
+      // Only admins can update reports; student report ownership and source are immutable
+      allow update: if isAuthenticated() && isAdmin() && (
+        resource.data.source != 'student_report' || (
+          request.resource.data.source == resource.data.source &&
+          request.resource.data.reporterUid == resource.data.reporterUid &&
+          request.resource.data.studentId == resource.data.studentId
+        )
+      );
+
+      // Admins resolve notices; Students can clear notices linked to their own slot on session release
+      // Student-submitted reports (source == 'student_report') CANNOT be deleted by students
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        (resource.data.source != 'student_report' &&
+         (resource.data.userId == request.auth.uid || resource.data.studentId == request.auth.uid))
+      );
+    }
+
+    // =========================================================================
+    // NOTIFICATIONS COLLECTION
+    // =========================================================================
+    match /notifications/{notificationId} {
+      // Users can read notifications addressed specifically to them or broadcast to ALL
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userId == 'ALL' ||
+        isAdmin()
+      );
+
+      // Students can ONLY create notifications addressed to their own UID
+      // Admins & Security Admins can dispatch notifications to students or broadcast to ALL
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Users can only update their own notifications (e.g. mark as read)
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Users can only delete their own read notifications
+      allow delete: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && resource.data.read == true) ||
+        isAdmin()
+      );
+    }
+
+    // =========================================================================
+    // PAYMENTS COLLECTION (FINANCIAL AUDIT LEDGER)
+    // =========================================================================
+    match /payments/{paymentId} {
+      // Students can read ONLY their own payments; Admins can read all payments
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Payments can only be created upon legitimate, verified student slot reservation:
+      // 1. Authenticated user matching userId
+      // 2. Verified successful payment status
+      // 3. Exact valid parking fee (₹10 standard permit)
+      // 4. Bound to a valid, existing reservation owned by the authenticated student
+      // 5. SlotId on payment matches the slotId on the reservation
+      // 6. Deterministic paymentId matching PAY-{reservationId}
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.paymentStatus in ['SUCCESS', 'PAID'] &&
+          request.resource.data.amount is number &&
+          request.resource.data.amount == 10 &&
+          request.resource.data.reservationId is string &&
+          paymentId == 'PAY-' + request.resource.data.reservationId &&
+          exists(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)) &&
+          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
+          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.slotId == request.resource.data.slotId
+        )
+      );
+
+      // Financial audit records are strictly immutable — updates are strictly forbidden
+      allow update: if false;
+
+      // Payment records cannot be deleted — immutable audit log
+      allow delete: if false;
     }
   }
 }
