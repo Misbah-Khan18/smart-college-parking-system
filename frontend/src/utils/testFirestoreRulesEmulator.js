@@ -2,11 +2,11 @@
  * ============================================================================
  * COMPREHENSIVE FIRESTORE RULES EMULATOR TEST SUITE — PHASE 3 STEP 4E
  * ============================================================================
- * 
+ *
  * Executes genuine security tests against the actual root `firestore.rules` file
  * using the official Firebase C++ Rules Engine in the local Firestore Emulator.
  * Powered by `@firebase/rules-unit-testing` (assertSucceeds, assertFails).
- * 
+ *
  * Safety: Uses isolated test project `smart-college-parking-test`.
  * Zero interaction with production Firebase.
  */

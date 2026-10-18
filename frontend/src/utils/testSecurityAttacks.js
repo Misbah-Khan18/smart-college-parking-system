@@ -8,7 +8,7 @@
  * Security Rules logic, validating rule specification invariants, permissions
  * contracts, and attack vectors. They do not execute the server-side Firebase
  * Rules engine directly (which requires a configured Firebase Local Emulator).
- * 
+ *
  * Verifies that:
  * 1. Legitimate ₹10, ₹300, and ₹1200 payment records are allowed.
  * 2. Arbitrary payment amounts (₹1, ₹50, ₹250, ₹9999) are rejected.
