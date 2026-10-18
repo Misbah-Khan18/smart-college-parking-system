@@ -367,6 +367,7 @@ export async function verifyAndCompleteGateExit({
         studentId: '',
         userId: '',
         passId: '',
+        reservationId: '',
         passType: null,
         reservedUntil: null,
         entryTime: null,

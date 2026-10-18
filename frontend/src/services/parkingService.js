@@ -186,6 +186,7 @@ export async function seedParkingSlotsIfEmpty() {
         studentId: '',
         userId: '',
         passId: '',
+        reservationId: '',
         passType: null,
         reservedUntil: null,
         entryTime: null,
@@ -697,6 +698,7 @@ export async function reserveSlotWithTransaction({
     zone: finalZone,
     passType: passType || 'Campus Parking Pass',
     passId,
+    reservationId,
     reservedUntil: reservedUntil || 'Active Session',
     entryTime: nowTime,
     entryTimestamp: nowTimestamp,
@@ -940,6 +942,7 @@ export async function cancelUserReservation({ reservationId, slotId, userId }) {
     reservedUntil: null,
     passType: null,
     passId: '',
+    reservationId: '',
     entryTime: null,
     entryTimestamp: null,
     updatedAt: serverTimestamp()
@@ -1016,6 +1019,7 @@ export async function releaseSlot(slotId) {
     reservedUntil: null,
     passType: null,
     passId: '',
+    reservationId: '',
     entryTime: null,
     entryTimestamp: null,
     updatedAt: serverTimestamp()

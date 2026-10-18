@@ -31,6 +31,34 @@ service cloud.firestore {
       );
     }
 
+    function isValidSlotId(slotId) {
+      return slotId is string && slotId.matches('^[GB]-(0[1-9]|[1-7][0-9]|80)$');
+    }
+
+    function isGroundScooty(slotId, floor, vehicleType) {
+      return slotId.matches('^G-(0[1-9]|[1-7][0-9]|80)$') &&
+        floor == 'Ground Floor' &&
+        (vehicleType in ['scooty', 'Scooty']);
+    }
+
+    function isBasementBike(slotId, floor, vehicleType) {
+      return slotId.matches('^B-(0[1-9]|[1-7][0-9]|80)$') &&
+        floor == 'Basement' &&
+        (vehicleType in ['bike', 'motorcycle', 'Bike', 'Motorcycle']);
+    }
+
+    function isCompatibleSlotVehicle(slotId, floor, vehicleType) {
+      return isGroundScooty(slotId, floor, vehicleType) ||
+        isBasementBike(slotId, floor, vehicleType);
+    }
+
+    function hasNoGuardFields(data) {
+      return !('guardUid' in data) &&
+        !('gateEnteredAt' in data) &&
+        !('exitGuardUid' in data) &&
+        !('gateExitedAt' in data);
+    }
+
     // =========================================================================
     // USERS COLLECTION
     // =========================================================================
@@ -100,27 +128,51 @@ service cloud.firestore {
       // Creation allowed for Admins during initial seed, or during reservation of unseeded bays
       allow create: if isAuthenticated() && (
         isAdmin() ||
-        (request.resource.data.status == 'reserved' &&
-         request.resource.data.userId == request.auth.uid &&
-         request.resource.data.reservedBy == request.auth.uid)
+        (
+          isValidSlotId(slotId) &&
+          request.resource.data.status == 'reserved' &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.reservedBy == request.auth.uid &&
+          (!('studentId' in request.resource.data) || request.resource.data.studentId == request.auth.uid) &&
+          isCompatibleSlotVehicle(slotId, request.resource.data.floor, ('type' in request.resource.data ? request.resource.data.type : request.resource.data.vehicleType)) &&
+          hasNoGuardFields(request.resource.data) &&
+          request.resource.data.reservationId is string &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.slotId == slotId &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.status in ['active', 'pending']
+        )
       );
 
       // Slot state transitions:
       // 1. Admins have full management authority (ingress, egress, administrative override)
-      // 2. Students can ONLY reserve an available slot for their own authenticated UID
-      // 3. Students can ONLY release a slot they currently own (reservedBy / userId / studentId matches UID)
+      // 2. Students can ONLY reserve an available slot for their own authenticated UID with matching vehicle/floor and coupled reservation
+      // 3. Students can ONLY release a reserved slot they currently own back to available (cannot release occupied slots or modify admin fields)
       allow update: if isAuthenticated() && (
         isAdmin() ||
         // Student reserving an available slot
-        (resource.data.status == 'available' &&
-         request.resource.data.status == 'reserved' &&
-         request.resource.data.userId == request.auth.uid &&
-         request.resource.data.reservedBy == request.auth.uid) ||
-        // Student releasing their own slot back to available
-        (request.resource.data.status == 'available' &&
-         (resource.data.userId == request.auth.uid ||
-          resource.data.reservedBy == request.auth.uid ||
-          resource.data.studentId == request.auth.uid))
+        (
+          resource.data.status == 'available' &&
+          request.resource.data.status == 'reserved' &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.reservedBy == request.auth.uid &&
+          (!('studentId' in request.resource.data) || request.resource.data.studentId == request.auth.uid) &&
+          isValidSlotId(slotId) &&
+          isCompatibleSlotVehicle(slotId, request.resource.data.floor, ('type' in request.resource.data ? request.resource.data.type : request.resource.data.vehicleType)) &&
+          hasNoGuardFields(request.resource.data) &&
+          request.resource.data.reservationId is string &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.slotId == slotId &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.status in ['active', 'pending']
+        ) ||
+        // Student releasing their own reserved slot back to available
+        (
+          resource.data.status == 'reserved' &&
+          request.resource.data.status == 'available' &&
+          (resource.data.userId == request.auth.uid ||
+           resource.data.reservedBy == request.auth.uid ||
+           resource.data.studentId == request.auth.uid) &&
+          hasNoGuardFields(request.resource.data)
+        )
       );
 
       // Only Admins can delete parking slot documents
@@ -139,24 +191,61 @@ service cloud.firestore {
         isAdmin()
       );
 
-      // Students can create reservations for themselves only
+      // Students can create reservations for themselves only:
+      // - Must own the reservation (userId, reservedBy, studentId)
+      // - Can only create in 'active' or 'pending' status (never 'in_use', 'completed', or 'cancelled')
+      // - Entry QR must be ACTIVE or PENDING if present
+      // - Valid canonical slot ID and floor/vehicle type compatibility
+      // - Legitimate permit amount (₹0 exempt, ₹10 daily, ₹300 monthly, ₹1200 semester)
+      // - Atomic coupling with parking slot reservation via getAfter()
       allow create: if isAuthenticated() && (
-        (request.resource.data.userId == request.auth.uid &&
-         request.resource.data.reservedBy == request.auth.uid &&
-         (request.resource.data.studentId == request.auth.uid || !('studentId' in request.resource.data))) ||
-        isAdmin()
+        isAdmin() ||
+        (
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.reservedBy == request.auth.uid &&
+          (!('studentId' in request.resource.data) || request.resource.data.studentId == request.auth.uid) &&
+          request.resource.data.status in ['active', 'pending'] &&
+          (!('entryQrStatus' in request.resource.data) || request.resource.data.entryQrStatus in ['ACTIVE', 'PENDING']) &&
+          isValidSlotId(request.resource.data.slotId) &&
+          isCompatibleSlotVehicle(request.resource.data.slotId, request.resource.data.floor, ('vehicleType' in request.resource.data ? request.resource.data.vehicleType : request.resource.data.type)) &&
+          ('amountPaidINR' in request.resource.data &&
+            request.resource.data.amountPaidINR is number &&
+            request.resource.data.amountPaidINR in [0, 10, 300, 1200]) &&
+          hasNoGuardFields(request.resource.data) &&
+          getAfter(/databases/$(database)/documents/parking_slots/$(request.resource.data.slotId)).data.status == 'reserved' &&
+          getAfter(/databases/$(database)/documents/parking_slots/$(request.resource.data.slotId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/parking_slots/$(request.resource.data.slotId)).data.reservedBy == request.auth.uid
+        )
       );
 
-      // Students can update/cancel only their own reservations without changing ownership
+      // Students can update/cancel only their own reservations:
+      // - Ownership fields are immutable
+      // - Cannot transition to 'in_use' or 'completed' (admin/guard only at gate)
+      // - Cannot mark entry QR as USED
+      // - Can only cancel active/pending reservation, or keep status unchanged
+      // - Cannot inject guard audit fields (guardUid, gateEnteredAt, exitGuardUid, gateExitedAt)
       allow update: if isAuthenticated() && (
+        isAdmin() ||
         (
           (resource.data.userId == request.auth.uid ||
            resource.data.reservedBy == request.auth.uid ||
            resource.data.studentId == request.auth.uid) &&
           request.resource.data.userId == resource.data.userId &&
-          request.resource.data.reservedBy == resource.data.reservedBy
-        ) ||
-        isAdmin()
+          request.resource.data.reservedBy == resource.data.reservedBy &&
+          (!('studentId' in request.resource.data) || !('studentId' in resource.data) || request.resource.data.studentId == resource.data.studentId) &&
+          request.resource.data.slotId == resource.data.slotId &&
+          hasNoGuardFields(request.resource.data) &&
+          (
+            // Cancellation: active/pending -> cancelled
+            (resource.data.status in ['active', 'pending'] && request.resource.data.status == 'cancelled') ||
+            // Non-status update preserving current active/pending status
+            (request.resource.data.status == resource.data.status && resource.data.status in ['active', 'pending'])
+          ) &&
+          // Cannot forge entry QR usage
+          (!('entryQrStatus' in request.resource.data) ||
+            request.resource.data.entryQrStatus == resource.data.entryQrStatus ||
+            (request.resource.data.status == 'cancelled' && request.resource.data.entryQrStatus == 'CANCELLED'))
+        )
       );
 
       // Only Admins can delete reservation records
@@ -319,25 +408,28 @@ service cloud.firestore {
         isAdmin()
       );
 
-      // Payments can only be created upon legitimate, verified student slot reservation:
+      // Payments can only be created upon legitimate student slot reservation:
       // 1. Authenticated user matching userId
       // 2. Verified successful payment status
-      // 3. Exact valid parking fee (₹10 standard permit)
+      // 3. Exact valid parking fee (₹10 standard daily, ₹300 monthly pass, ₹1200 semester pass)
       // 4. Bound to a valid, existing reservation owned by the authenticated student
       // 5. SlotId on payment matches the slotId on the reservation
-      // 6. Deterministic paymentId matching PAY-{reservationId}
+      // 6. Payment amount matches the amountPaidINR on the reservation
+      // 7. Deterministic paymentId matching PAY-{reservationId}
       allow create: if isAuthenticated() && (
         isAdmin() ||
         (
           request.resource.data.userId == request.auth.uid &&
           request.resource.data.paymentStatus in ['SUCCESS', 'PAID'] &&
           request.resource.data.amount is number &&
-          request.resource.data.amount == 10 &&
+          request.resource.data.amount in [10, 300, 1200] &&
           request.resource.data.reservationId is string &&
           paymentId == 'PAY-' + request.resource.data.reservationId &&
           exists(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)) &&
           get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
-          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.slotId == request.resource.data.slotId
+          'amountPaidINR' in get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data &&
+          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.amountPaidINR is number &&
+          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.amountPaidINR == request.resource.data.amount
         )
       );
 
