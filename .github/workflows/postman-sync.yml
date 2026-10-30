@@ -1,0 +1,25 @@
+name: Postman sync
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: postman-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  postman-sync:
+    name: Postman sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Push workspace
+        uses: postmanlabs/postman-cli-action@v1
+        with:
+          api-key: ${{ secrets.POSTMAN_API_KEY }}
+          command: postman workspace push --yes
