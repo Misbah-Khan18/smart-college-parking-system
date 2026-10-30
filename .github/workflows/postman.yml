@@ -1,0 +1,46 @@
+name: Postman Workspace Lint
+
+on:
+  push:
+    branches:
+      - main
+      - feature/postman-integration
+    paths:
+      - '.postman/**'
+      - 'postman/**'
+      - '.github/workflows/postman.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.postman/**'
+      - 'postman/**'
+      - '.github/workflows/postman.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: 'postman-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  postman-lint:
+    name: Lint Postman Workspace
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Postman CLI
+        run: |
+          curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
+
+      - name: Authenticate Postman CLI
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+        run: |
+          postman login --with-api-key "$POSTMAN_API_KEY"
+
+      - name: Lint Workspace Resources
+        run: |
+          postman workspace lint
