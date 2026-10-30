@@ -15,6 +15,12 @@ import {
   getFloorForVehicleType,
   isSlotAllowedForVehicleType
 } from '../data/vehicleRules.js'
+import {
+  detectQrType,
+  parseEntryQr,
+  QR_TYPES
+} from '../utils/qrTokenUtils.js'
+import { createNotification } from './notificationService.js'
 
 const USERS_COLLECTION = 'users'
 const SLOTS_COLLECTION = 'parking_slots'
@@ -28,6 +34,8 @@ export const GATE_REASON_CODES = {
   ENTRY_APPROVED: 'ENTRY_APPROVED',
   UNAUTHORIZED_GUARD: 'UNAUTHORIZED_GUARD',
   INVALID_QR: 'INVALID_QR',
+  PAYMENT_QR_NOT_ALLOWED: 'PAYMENT_QR_NOT_ALLOWED',
+  ENTRY_QR_ALREADY_USED: 'ENTRY_QR_ALREADY_USED',
   RESERVATION_NOT_FOUND: 'RESERVATION_NOT_FOUND',
   RESERVATION_CANCELLED: 'RESERVATION_CANCELLED',
   RESERVATION_EXPIRED: 'RESERVATION_EXPIRED',
@@ -113,7 +121,11 @@ export async function verifyGuardAuthorization(guardUid) {
  * @returns {Promise<Object|null>} Reservation document data or null
  */
 export async function lookupReservationByToken(qrToken) {
-  let tokenSearch = (qrToken || '').trim()
+  if (!qrToken) return null
+
+  // Parse structured Entry QR if encoded as JSON
+  const parsed = parseEntryQr(qrToken)
+  let tokenSearch = (parsed.entryToken || qrToken || '').trim()
   if (!tokenSearch) return null
 
   // If token is a URL, extract parameter
@@ -121,6 +133,7 @@ export async function lookupReservationByToken(qrToken) {
     try {
       const urlObj = new URL(tokenSearch.startsWith('http') ? tokenSearch : `http://dummy.com/${tokenSearch}`)
       tokenSearch = urlObj.searchParams.get('token') ||
+        urlObj.searchParams.get('entryToken') ||
         urlObj.searchParams.get('passId') ||
         urlObj.searchParams.get('reservationId') ||
         tokenSearch
@@ -131,7 +144,15 @@ export async function lookupReservationByToken(qrToken) {
 
   const reservationsRef = collection(db, RESERVATIONS_COLLECTION)
 
-  // 1. Query by qrToken
+  // 1. Query by entryToken (New authoritative field)
+  const qByEntry = query(reservationsRef, where('entryToken', '==', tokenSearch))
+  const snapByEntry = await getDocs(qByEntry)
+  if (!snapByEntry.empty) {
+    const d = snapByEntry.docs[0]
+    return { id: d.id, ...d.data() }
+  }
+
+  // 2. Query by qrToken
   const qByQr = query(reservationsRef, where('qrToken', '==', tokenSearch))
   const snapByQr = await getDocs(qByQr)
   if (!snapByQr.empty) {
@@ -139,7 +160,7 @@ export async function lookupReservationByToken(qrToken) {
     return { id: d.id, ...d.data() }
   }
 
-  // 2. Query by passId
+  // 3. Query by passId
   const qByPass = query(reservationsRef, where('passId', '==', tokenSearch))
   const snapByPass = await getDocs(qByPass)
   if (!snapByPass.empty) {
@@ -147,7 +168,7 @@ export async function lookupReservationByToken(qrToken) {
     return { id: d.id, ...d.data() }
   }
 
-  // 3. Query by reservationId field
+  // 4. Query by reservationId field
   const qByResId = query(reservationsRef, where('reservationId', '==', tokenSearch))
   const snapByResId = await getDocs(qByResId)
   if (!snapByResId.empty) {
@@ -155,7 +176,7 @@ export async function lookupReservationByToken(qrToken) {
     return { id: d.id, ...d.data() }
   }
 
-  // 4. Direct Document ID lookup
+  // 5. Direct Document ID lookup
   try {
     const directDocRef = doc(db, RESERVATIONS_COLLECTION, tokenSearch)
     const directSnap = await getDoc(directDocRef)
@@ -166,7 +187,20 @@ export async function lookupReservationByToken(qrToken) {
     // Ignore invalid doc id syntax
   }
 
-  // 5. Fallback: Parse SOC-RES-{slotId}-{plate} syntax
+  // 6. If parsed object contained a reservationId, lookup directly
+  if (parsed.reservationId) {
+    try {
+      const parsedDocRef = doc(db, RESERVATIONS_COLLECTION, parsed.reservationId)
+      const parsedSnap = await getDoc(parsedDocRef)
+      if (parsedSnap.exists()) {
+        return { id: parsedSnap.id, ...parsedSnap.data() }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 7. Fallback: Parse SOC-RES-{slotId}-{plate} syntax
   if (tokenSearch.startsWith('SOC-RES-')) {
     const parts = tokenSearch.replace('SOC-RES-', '').split('-')
     if (parts.length >= 1) {
@@ -194,7 +228,7 @@ export async function lookupReservationByToken(qrToken) {
  *
  * Verifies the student parking reservation, checks vehicle/floor/anti-passback constraints,
  * and atomically executes a Firestore transaction to:
- * 1. Mark reservation as 'in_use'
+ * 1. Mark reservation as 'in_use' & entryQrStatus as 'USED'
  * 2. Mark parking_slots as 'occupied'
  * 3. Create active document in parking_sessions
  *
@@ -226,7 +260,7 @@ export async function verifyAndAdmitGatePass({
   const activeGuardUid = guardUid || auth.currentUser?.uid || ''
 
   // =========================================================
-  // STEP 2 — FIND THE RESERVATION
+  // STEP 2 — QR PURPOSE CLASSIFICATION (PAYMENT VS ENTRY)
   // =========================================================
   if (!qrToken || !qrToken.trim()) {
     return {
@@ -236,6 +270,18 @@ export async function verifyAndAdmitGatePass({
     }
   }
 
+  const qrType = detectQrType(qrToken)
+  if (qrType === QR_TYPES.PAYMENT) {
+    return {
+      approved: false,
+      reason: GATE_REASON_CODES.PAYMENT_QR_NOT_ALLOWED,
+      message: 'Invalid QR: Payment QR cannot be used for parking entry.'
+    }
+  }
+
+  // =========================================================
+  // STEP 3 — FIND THE RESERVATION
+  // =========================================================
   const reservation = await lookupReservationByToken(qrToken)
   if (!reservation) {
     return {
@@ -246,29 +292,21 @@ export async function verifyAndAdmitGatePass({
   }
 
   // =========================================================
-  // STEP 3 — VALIDATE RESERVATION STATE & EXPIRY
+  // STEP 4 — VALIDATE ONE-TIME ENTRY QR & RESERVATION STATE
   // =========================================================
+  if (reservation.entryQrStatus === 'USED' || reservation.status === 'in_use' || reservation.status === 'completed') {
+    return {
+      approved: false,
+      reason: GATE_REASON_CODES.ENTRY_QR_ALREADY_USED,
+      message: 'Entry QR has already been used.'
+    }
+  }
+
   if (reservation.status === 'cancelled') {
     return {
       approved: false,
       reason: GATE_REASON_CODES.RESERVATION_CANCELLED,
       message: `Reservation #${reservation.id} was cancelled by the student and is invalid.`
-    }
-  }
-
-  if (reservation.status === 'completed') {
-    return {
-      approved: false,
-      reason: GATE_REASON_CODES.ENTRY_ALREADY_PROCESSED,
-      message: `Reservation #${reservation.id} has already completed its campus parking session.`
-    }
-  }
-
-  if (reservation.status === 'in_use') {
-    return {
-      approved: false,
-      reason: GATE_REASON_CODES.ALREADY_INSIDE,
-      message: `Pass for Bay ${reservation.slotId} is already marked IN USE inside campus.`
     }
   }
 
@@ -418,8 +456,8 @@ export async function verifyAndAdmitGatePass({
       }
       const currentResData = transResSnap.data()
 
-      if (currentResData.status === 'in_use' || currentResData.status === 'completed') {
-        throw new Error(GATE_REASON_CODES.ENTRY_ALREADY_PROCESSED)
+      if (currentResData.entryQrStatus === 'USED' || currentResData.status === 'in_use' || currentResData.status === 'completed') {
+        throw new Error(GATE_REASON_CODES.ENTRY_QR_ALREADY_USED)
       }
       if (currentResData.status === 'cancelled') {
         throw new Error(GATE_REASON_CODES.RESERVATION_CANCELLED)
@@ -456,9 +494,11 @@ export async function verifyAndAdmitGatePass({
         updatedAt: serverTimestamp()
       })
 
-      // 5. Update reservation: 'active' -> 'in_use'
+      // 5. Update reservation: 'active' -> 'in_use' and entryQrStatus -> 'USED'
       transaction.update(resDocRef, {
         status: 'in_use',
+        entryQrStatus: 'USED',
+        entryQrUsedAt: serverTimestamp(),
         gateEnteredAt: serverTimestamp(),
         guardUid: activeGuardUid,
         updatedAt: serverTimestamp()
@@ -514,7 +554,11 @@ export async function verifyAndAdmitGatePass({
 
     if (Object.values(GATE_REASON_CODES).includes(errCode)) {
       let msg = 'Gate ingress transaction failed validation.'
-      if (errCode === GATE_REASON_CODES.ENTRY_ALREADY_PROCESSED) {
+      if (errCode === GATE_REASON_CODES.ENTRY_QR_ALREADY_USED) {
+        msg = 'Entry QR has already been used.'
+      } else if (errCode === GATE_REASON_CODES.PAYMENT_QR_NOT_ALLOWED) {
+        msg = 'Invalid QR: Payment QR cannot be used for parking entry.'
+      } else if (errCode === GATE_REASON_CODES.ENTRY_ALREADY_PROCESSED) {
         msg = 'Pass has already been admitted or bay is already occupied.'
       } else if (errCode === GATE_REASON_CODES.SLOT_NOT_RESERVED) {
         msg = `Bay ${slotId} is no longer in reserved status.`
@@ -545,6 +589,25 @@ export async function verifyAndAdmitGatePass({
   // =========================================================
   // STEP 8 — RETURN STRUCTURED SUCCESS RESULT
   // =========================================================
+  // Dispatch persistent student notification (non-blocking secondary action)
+  const studentUserId = reservation.userId || reservation.studentId || ''
+  if (studentUserId) {
+    try {
+      createNotification({
+        userId: studentUserId,
+        title: 'Parking Entry Approved',
+        message: `Vehicle ${reservationPlate} entered campus and occupied Bay ${slotId} (${transactionSummary?.floor || 'Campus Parking'}). Gate barrier opened.`,
+        type: 'success',
+        relatedSlotId: slotId,
+        relatedVehiclePlate: reservationPlate
+      }).catch((notifErr) => {
+        console.warn('[guardGateService] Parking entry notification warning:', notifErr?.message)
+      })
+    } catch (notifErr) {
+      console.warn('[guardGateService] Parking entry notification sync warning:', notifErr?.message)
+    }
+  }
+
   return {
     approved: true,
     reason: GATE_REASON_CODES.ENTRY_APPROVED,

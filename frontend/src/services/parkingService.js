@@ -21,11 +21,61 @@ import {
   getSlotPrefixForVehicleType,
   isSlotAllowedForVehicleType
 } from '../data/vehicleRules.js'
+import {
+  generateUniqueEntryToken,
+  createEntryQrPayload,
+  QR_TYPES
+} from '../utils/qrTokenUtils.js'
+import { recordSuccessfulPayment } from './paymentHistoryService.js'
+import { normalizePlate } from './vehicleService.js'
+import { evaluateIsAdmin } from '../utils/authRoles.js'
 
 const SLOTS_COLLECTION = 'parking_slots'
 const RESERVATIONS_COLLECTION = 'reservations'
-const WRONG_PARKING_COLLECTION = 'wrong_parking_reports'
+export const WRONG_PARKING_COLLECTION = 'wrong_parking_reports'
 const LOCAL_SLOTS_KEY = 'parking_slots_state'
+
+export const STUDENT_REPORT_STATUSES = Object.freeze([
+  'Pending',
+  'Under Review',
+  'Resolved',
+  'Dismissed'
+])
+
+export const STUDENT_REPORT_FLOORS = Object.freeze([
+  'Ground Floor',
+  'Basement',
+  'Driveway / Ramp',
+  'Other'
+])
+
+export const STUDENT_REPORT_REASONS = Object.freeze([
+  'Floor Mismatch',
+  'Blocking Driveway or Ramp',
+  'Parked Outside Designated Bay',
+  'Parked in Reserved Bay',
+  'Double Parked / Obstruction',
+  'Unauthorized Vehicle',
+  'Other'
+])
+
+export const ALLOWED_STUDENT_REPORT_REASONS = Object.freeze([
+  'Floor Mismatch',
+  'Blocking Driveway or Ramp',
+  'Parked Outside Designated Bay',
+  'Parked in Reserved Bay',
+  'Double Parked / Obstruction',
+  'Unauthorized Vehicle',
+  'Other',
+  // standard lowercase / snake_case equivalents
+  'floor_mismatch',
+  'blocking_driveway',
+  'outside_bay',
+  'reserved_bay',
+  'double_parked',
+  'unauthorized',
+  'other'
+])
 
 /**
  * Canonical slot ID normalizer so IDs like 'g-05', 'G-5', 'g5', 'G-05'
@@ -41,6 +91,18 @@ export function normalizeSlotId(rawId) {
     return `${prefix}-${String(num).padStart(2, '0')}`
   }
   return trimmed
+}
+
+/**
+ * Validate that a slot ID is one of the exactly 160 valid campus slots:
+ * G-01 through G-80 (Ground Floor) or B-01 through B-80 (Basement).
+ */
+export function isValidCanonicalSlotId(rawId) {
+  if (!rawId || typeof rawId !== 'string') return false
+  const match = rawId.trim().toUpperCase().match(/^([GB])[-_ ]?0*(\d+)$/)
+  if (!match) return false
+  const num = parseInt(match[2], 10)
+  return num >= 1 && num <= 80
 }
 
 /**
@@ -87,7 +149,7 @@ export async function seedParkingSlotsIfEmpty() {
     // Identify ONLY the missing slot IDs from the 160 expected bays
     const missingSlots = INITIAL_SLOTS.filter((templateSlot) => {
       const normalizedId = normalizeSlotId(templateSlot.id)
-      return !existingDocIds.has(normalizedId)
+      return isValidCanonicalSlotId(normalizedId) && !existingDocIds.has(normalizedId)
     })
 
     console.log('[SEED DEBUG] missing slot count:', missingSlots.length)
@@ -124,6 +186,7 @@ export async function seedParkingSlotsIfEmpty() {
         studentId: '',
         userId: '',
         passId: '',
+        reservationId: '',
         passType: null,
         reservedUntil: null,
         entryTime: null,
@@ -142,11 +205,48 @@ export async function seedParkingSlotsIfEmpty() {
   }
 }
 
+/**
+ * Safe administrative cleanup helper:
+ * Finds and removes only out-of-range parking slot documents (> G-80, > B-80, or malformed)
+ * from the parking_slots collection in Firestore.
+ * Does NOT touch any user reservations, history, or active sessions.
+ */
+export async function cleanupExtraFirestoreSlots() {
+  if (!db) return { deletedCount: 0 }
+  try {
+    const slotsRef = collection(db, SLOTS_COLLECTION)
+    const snapshot = await getDocs(slotsRef)
+    const invalidDocs = []
+    snapshot.forEach((docSnap) => {
+      const id = normalizeSlotId(docSnap.id)
+      if (!isValidCanonicalSlotId(id)) {
+        invalidDocs.push(docSnap.ref)
+      }
+    })
+
+    if (invalidDocs.length === 0) {
+      console.log('[Firestore Cleanup] No out-of-range slot documents found.')
+      return { deletedCount: 0 }
+    }
+
+    console.log(`[Firestore Cleanup] Found ${invalidDocs.length} out-of-range slot documents. Deleting...`)
+    const batch = writeBatch(db)
+    invalidDocs.forEach((docRef) => batch.delete(docRef))
+    await batch.commit()
+    console.log(`[Firestore Cleanup] Successfully removed ${invalidDocs.length} extra slot documents.`)
+    return { deletedCount: invalidDocs.length }
+  } catch (err) {
+    console.warn('[Firestore Cleanup] Warning cleaning up extra slots:', err?.message)
+    return { deletedCount: 0, error: err }
+  }
+}
+
 let hasReceivedFirestoreSlots = false
 
 /**
  * Real-time subscription to all parking slots via Firestore onSnapshot.
  * Firestore is the authoritative source of truth.
+ * Strictly guarantees exactly 160 bays (80 Ground + 80 Basement).
  *
  * @param {Function} onUpdate - callback receiving sorted array of 160 slots
  * @param {Function} onError - optional error callback
@@ -165,7 +265,10 @@ export function subscribeToSlots(onUpdate, onError) {
       if (cached) {
         const parsed = JSON.parse(cached)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          onUpdate(sortSlots(parsed))
+          const validCached = parsed.filter(s => isValidCanonicalSlotId(s?.id))
+          if (validCached.length === 160) {
+            onUpdate(sortSlots(validCached))
+          }
         }
       }
     } catch {
@@ -182,13 +285,17 @@ export function subscribeToSlots(onUpdate, onError) {
 
         if (snapshot.empty) {
           console.log('[Firestore] parking_slots collection is currently empty.')
+          onUpdate(sortSlots(INITIAL_SLOTS.map(s => ({ ...s, status: 'available' }))))
           return
         }
 
         const firestoreMap = new Map()
         snapshot.forEach((docSnap) => {
           const docId = normalizeSlotId(docSnap.id)
-          firestoreMap.set(docId, { id: docId, ...docSnap.data() })
+          // Strictly filter to canonical 160 slots (G-01..G-80, B-01..B-80)
+          if (isValidCanonicalSlotId(docId)) {
+            firestoreMap.set(docId, { id: docId, ...docSnap.data() })
+          }
         })
 
         // Authoritative merge with 160-bay template:
@@ -210,14 +317,7 @@ export function subscribeToSlots(onUpdate, onError) {
           }
         })
 
-        // Also include any extra slots from Firestore
-        firestoreMap.forEach((val, key) => {
-          if (!mergedSlots.some((s) => normalizeSlotId(s.id) === key)) {
-            mergedSlots.push(val)
-          }
-        })
-
-        const sorted = sortSlots(mergedSlots)
+        const sorted = sortSlots(mergedSlots.filter(s => isValidCanonicalSlotId(s.id)))
         try {
           localStorage.setItem(LOCAL_SLOTS_KEY, JSON.stringify(sorted))
         } catch {
@@ -598,11 +698,23 @@ export async function reserveSlotWithTransaction({
     zone: finalZone,
     passType: passType || 'Campus Parking Pass',
     passId,
+    reservationId,
     reservedUntil: reservedUntil || 'Active Session',
     entryTime: nowTime,
     entryTimestamp: nowTimestamp,
     updatedAt: serverTimestamp()
   }
+
+  // Generate unique, non-predictable Parking Entry QR token
+  const uniqueEntryToken = generateUniqueEntryToken('ENTRY')
+  const entryQrPayload = createEntryQrPayload({
+    entryToken: uniqueEntryToken,
+    reservationId,
+    slotId: cleanSlotId,
+    plate: cleanPlate,
+    vehicleType: finalVehicleType,
+    floor: finalFloor
+  })
 
   const reservationRecord = {
     id: reservationId,
@@ -627,6 +739,14 @@ export async function reserveSlotWithTransaction({
     passType: passType || 'Campus Parking Pass',
     passId,
     status: 'active',
+    // Entry QR specific fields
+    entryToken: uniqueEntryToken,
+    entryQrType: QR_TYPES.PARKING_ENTRY,
+    entryQrStatus: 'ACTIVE',
+    entryQrCreatedAt: serverTimestamp(),
+    entryQrUsedAt: null,
+    qrToken: uniqueEntryToken,
+    entryQrPayload,
     reservedAt: serverTimestamp(),
     createdAt: serverTimestamp(),
     entryTime: nowTime,
@@ -634,8 +754,7 @@ export async function reserveSlotWithTransaction({
     date: nowDate,
     validUntil: reservedUntil || 'Active Session',
     paymentStatus: 'PAID',
-    amountPaidINR: amountPaidINR || 0,
-    qrToken: `SOC-RES-${cleanSlotId}-${cleanPlate.replace(/[^A-Z0-9]/g, '') || Date.now()}`
+    amountPaidINR: amountPaidINR || 0
   }
 
   // 2. Concurrency-Safe Firestore Transaction with Graceful Offline/Permission Fallback
@@ -711,7 +830,36 @@ export async function reserveSlotWithTransaction({
     reservationStatus: 'Reserved',
     entryTime: nowTime,
     entryTimestamp: nowTimestamp,
-    qrToken: committedReservationData?.qrToken || `SOC-RES-${cleanSlotId}-${cleanPlate}`
+    entryToken: uniqueEntryToken,
+    entryQrType: QR_TYPES.PARKING_ENTRY,
+    entryQrStatus: 'ACTIVE',
+    entryQrPayload,
+    qrToken: uniqueEntryToken
+  }
+
+  // 4. Record persistent audit payment record (idempotent, only on success)
+  try {
+    recordSuccessfulPayment({
+      paymentId: `PAY-${reservationId}`,
+      userId,
+      studentName: userName,
+      studentEmail: userEmail,
+      rollNumber: rollNumber || '',
+      vehicleNumber: cleanPlate,
+      vehicleType: finalVehicleType === 'bike' ? 'Bike' : 'Scooty',
+      slotId: cleanSlotId,
+      floor: finalFloor,
+      reservationId,
+      amount: amountPaidINR || 10,
+      currency: 'INR',
+      paymentMethod: 'UPI / Google Pay (Simulated)',
+      paymentStatus: 'SUCCESS',
+      transactionId: `TXN-UPI-${cleanSlotId.replace(/[^a-zA-Z0-9]/g, '')}-${nowTimestamp}`
+    }).catch((payErr) => {
+      console.warn('[parkingService] Payment record notice:', payErr?.message)
+    })
+  } catch (payErr) {
+    console.warn('[parkingService] Payment record sync notice:', payErr?.message)
   }
 
   return {
@@ -794,6 +942,7 @@ export async function cancelUserReservation({ reservationId, slotId, userId }) {
     reservedUntil: null,
     passType: null,
     passId: '',
+    reservationId: '',
     entryTime: null,
     entryTimestamp: null,
     updatedAt: serverTimestamp()
@@ -870,6 +1019,7 @@ export async function releaseSlot(slotId) {
     reservedUntil: null,
     passType: null,
     passId: '',
+    reservationId: '',
     entryTime: null,
     entryTimestamp: null,
     updatedAt: serverTimestamp()
@@ -943,6 +1093,319 @@ export async function resolveWrongParkingNotice(noticeId) {
   } catch (err) {
     console.warn('Failed to delete resolved wrong parking notice:', err.message)
   }
+}
+
+/**
+ * Submit a wrong parking report by an authenticated student.
+ *
+ * Requirements:
+ * - Requires an authenticated Firebase user matching reporterUid.
+ * - Validates required fields, plate normalization, allowed floors & reasons.
+ * - Generates unique non-predictable report ID.
+ * - Sets source: 'student_report', status: 'Pending', studentId == reporterUid.
+ * - Does not send notifications (Phase 1).
+ *
+ * @param {Object} params
+ * @param {string} params.reporterUid
+ * @param {string} [params.reporterName]
+ * @param {string} [params.reporterEmail]
+ * @param {string} params.vehicleNumber
+ * @param {string} [params.slotId]
+ * @param {string} params.floor
+ * @param {string} params.reason
+ * @param {string} [params.description]
+ * @returns {Promise<string>} Created document ID
+ */
+export async function submitStudentWrongParkingReport({
+  reporterUid,
+  reporterName = '',
+  reporterEmail = '',
+  vehicleNumber,
+  slotId = null,
+  floor,
+  reason,
+  description = ''
+}) {
+  if (!db) {
+    throw new Error('Firestore is not available.')
+  }
+
+  // 1. Authentication verification: user must be logged in & reporterUid must match currentUser.uid
+  if (!auth?.currentUser) {
+    throw new Error('Authentication required: user must be logged in to submit a report.')
+  }
+  if (!reporterUid || reporterUid !== auth.currentUser.uid) {
+    throw new Error('Unauthorized: reporterUid does not match authenticated user.')
+  }
+
+  // 2. Validate required vehicle registration number & normalize
+  if (!vehicleNumber || typeof vehicleNumber !== 'string') {
+    throw new Error('Vehicle registration number is required.')
+  }
+  const normalizedVehicle = normalizePlate(vehicleNumber)
+  if (!normalizedVehicle || normalizedVehicle.length < 3) {
+    throw new Error('Invalid vehicle registration number.')
+  }
+
+  // 3. Validate floor
+  if (!floor || typeof floor !== 'string' || !STUDENT_REPORT_FLOORS.includes(floor)) {
+    throw new Error(`Invalid floor: "${floor}". Must be one of: ${STUDENT_REPORT_FLOORS.join(', ')}`)
+  }
+
+  // 4. Validate reason
+  if (!reason || typeof reason !== 'string' || !ALLOWED_STUDENT_REPORT_REASONS.includes(reason)) {
+    throw new Error(`Invalid report reason: "${reason}". Must be one of: ${STUDENT_REPORT_REASONS.join(', ')}`)
+  }
+
+  // 5. Clean optional slotId & description
+  let cleanSlotId = null
+  if (slotId && typeof slotId === 'string' && slotId.trim()) {
+    cleanSlotId = normalizeSlotId(slotId)
+  }
+  const cleanDescription = typeof description === 'string' ? description.trim() : ''
+
+  // 6. Generate unique Firestore document ID (non-predictable)
+  const uniqueToken = Math.random().toString(36).substring(2, 9).toUpperCase()
+  const reportId = `REP-${Date.now()}-${uniqueToken}`
+  const docRef = doc(db, WRONG_PARKING_COLLECTION, reportId)
+
+  // 7. Schema payload
+  const reportPayload = {
+    id: reportId,
+    source: 'student_report',
+    reporterUid: auth.currentUser.uid,
+    studentId: auth.currentUser.uid, // Required for existing firestore.rules compatibility
+    reporterName: (reporterName || auth.currentUser.displayName || 'Student').trim(),
+    reporterEmail: (reporterEmail || auth.currentUser.email || '').trim(),
+    vehicleNumber: normalizedVehicle,
+    plate: normalizedVehicle, // for compatibility where useful
+    slotId: cleanSlotId || null,
+    floor,
+    reason,
+    description: cleanDescription,
+    status: 'Pending',
+    adminNote: null,
+    resolvedAt: null,
+    resolvedBy: null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  }
+
+  await setDoc(docRef, reportPayload)
+  return reportId
+}
+
+/**
+ * Subscribe to real-time wrong parking reports submitted by a specific authenticated student.
+ *
+ * @param {string} reporterUid
+ * @param {Function} callback
+ * @param {Function} [onError]
+ * @returns {Function} Unsubscribe function
+ */
+export function subscribeToStudentWrongParkingReports(reporterUid, callback, onError) {
+  if (!db) {
+    if (typeof callback === 'function') callback([])
+    return () => {}
+  }
+
+  // Validate that requested UID matches the current Firebase user
+  if (!auth?.currentUser || auth.currentUser.uid !== reporterUid) {
+    const authErr = new Error('Unauthorized: requested reporterUid does not match authenticated user.')
+    if (typeof onError === 'function') onError(authErr)
+    throw authErr
+  }
+
+  try {
+    const reportsRef = collection(db, WRONG_PARKING_COLLECTION)
+    const q = query(
+      reportsRef,
+      where('source', '==', 'student_report'),
+      where('reporterUid', '==', reporterUid)
+    )
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const reports = []
+        snapshot.forEach((d) => reports.push({ id: d.id, ...d.data() }))
+
+        // Sort descending by createdAt
+        reports.sort((a, b) => {
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)
+          return timeB - timeA
+        })
+
+        if (typeof callback === 'function') callback(reports)
+      },
+      (err) => {
+        console.warn('Student wrong parking reports listener error:', err?.message)
+        if (typeof onError === 'function') onError(err)
+      }
+    )
+  } catch (err) {
+    console.warn('Could not establish student wrong parking reports subscription:', err?.message)
+    if (typeof onError === 'function') onError(err)
+    return () => {}
+  }
+}
+
+/**
+ * Real-time Firestore subscription to all student-submitted wrong parking reports.
+ * Strictly restricted to authorized administrators.
+ *
+ * @param {Function} callback
+ * @param {Function} [onError]
+ * @returns {Function} Unsubscribe function
+ */
+export function subscribeToAllStudentWrongParkingReports(callback, onError) {
+  if (!db) {
+    if (typeof callback === 'function') callback([])
+    return () => {}
+  }
+
+  // 1. Authoritative admin verification check
+  let isAdmin = evaluateIsAdmin(auth?.currentUser)
+  if (!isAdmin && typeof localStorage !== 'undefined' && auth?.currentUser?.uid) {
+    try {
+      const cached = localStorage.getItem(`user_profile_${auth.currentUser.uid}`)
+      if (cached) {
+        const p = JSON.parse(cached)
+        if (evaluateIsAdmin(p)) isAdmin = true
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  if (!auth?.currentUser || !isAdmin) {
+    const authErr = new Error('Unauthorized: Only administrators are permitted to retrieve all student reports.')
+    if (typeof onError === 'function') onError(authErr)
+    return () => {}
+  }
+
+  try {
+    const reportsRef = collection(db, WRONG_PARKING_COLLECTION)
+    const q = query(
+      reportsRef,
+      where('source', '==', 'student_report')
+    )
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const reports = []
+        snapshot.forEach((d) => reports.push({ id: d.id, ...d.data() }))
+
+        // Sort descending by createdAt
+        reports.sort((a, b) => {
+          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0)
+          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0)
+          return timeB - timeA
+        })
+
+        if (typeof callback === 'function') callback(reports)
+      },
+      (err) => {
+        console.warn('[subscribeToAllStudentWrongParkingReports] Listener warning:', err?.message)
+        if (typeof onError === 'function') onError(err)
+      }
+    )
+  } catch (err) {
+    console.warn('[subscribeToAllStudentWrongParkingReports] Subscription notice:', err?.message)
+    if (typeof onError === 'function') onError(err)
+    return () => {}
+  }
+}
+
+/**
+ * Update status and admin resolution notes for a student-submitted report.
+ * Strictly restricted to authorized administrators.
+ *
+ * @param {string} reportId
+ * @param {Object} params
+ * @param {string} params.status - 'Pending' | 'Under Review' | 'Resolved' | 'Dismissed'
+ * @param {string} [params.adminNote]
+ * @param {string} [params.resolvedBy]
+ * @returns {Promise<{ id: string, status: string }>}
+ */
+export async function updateStudentWrongParkingReportStatus(reportId, { status, adminNote = null, resolvedBy = null }) {
+  if (!db) {
+    throw new Error('Firestore is not available.')
+  }
+
+  // 1. Authentication check
+  if (!auth?.currentUser) {
+    throw new Error('Authentication required: user must be logged in.')
+  }
+
+  // 2. Authoritative Admin check following existing project patterns
+  let isAdmin = evaluateIsAdmin(auth.currentUser)
+  if (!isAdmin && auth.currentUser) {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const cached = localStorage.getItem(`user_profile_${auth.currentUser.uid}`)
+        if (cached) {
+          const p = JSON.parse(cached)
+          if (evaluateIsAdmin(p)) isAdmin = true
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+  if (!isAdmin && auth.currentUser) {
+    try {
+      const userSnap = await getDoc(doc(db, 'users', auth.currentUser.uid))
+      if (userSnap.exists() && evaluateIsAdmin(userSnap.data())) {
+        isAdmin = true
+      }
+    } catch {
+      // ignore read errors
+    }
+  }
+  if (!isAdmin) {
+    throw new Error('Unauthorized: Only administrators are permitted to update report status.')
+  }
+
+  // 3. Validate reportId
+  if (!reportId || typeof reportId !== 'string') {
+    throw new Error('Invalid reportId.')
+  }
+
+  // 4. Validate permitted statuses
+  if (!STUDENT_REPORT_STATUSES.includes(status)) {
+    throw new Error(`Invalid status: "${status}". Must be one of: ${STUDENT_REPORT_STATUSES.join(', ')}`)
+  }
+
+  // 5. Verify the target document exists and has source: 'student_report'
+  const docRef = doc(db, WRONG_PARKING_COLLECTION, reportId)
+  const snap = await getDoc(docRef)
+  if (!snap.exists()) {
+    throw new Error(`Report not found: ${reportId}`)
+  }
+  const data = snap.data() || {}
+  if (data.source !== 'student_report') {
+    throw new Error(`Document "${reportId}" is not a student report and cannot be updated via this workflow.`)
+  }
+
+  // 6. Handle timestamps & resolution tracking
+  const isTerminal = status === 'Resolved' || status === 'Dismissed'
+  const finalResolvedAt = isTerminal ? serverTimestamp() : null
+  const finalResolvedBy = isTerminal ? (resolvedBy || auth.currentUser.email || auth.currentUser.displayName || 'Campus Admin') : null
+  const finalAdminNote = adminNote !== undefined ? adminNote : (data.adminNote || null)
+
+  const updates = {
+    status,
+    adminNote: finalAdminNote,
+    resolvedBy: finalResolvedBy,
+    resolvedAt: finalResolvedAt,
+    updatedAt: serverTimestamp()
+  }
+
+  await updateDoc(docRef, updates)
+  return { id: reportId, status, ...updates }
 }
 
 /**

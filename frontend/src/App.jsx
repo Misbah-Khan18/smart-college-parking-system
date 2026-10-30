@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './firebase/firebase'
 import { getUserProfile, logout } from './firebase/auth'
+import {
+  ROLES,
+  resolveUserRole,
+  evaluateIsAdmin
+} from './utils/authRoles'
 
 import {
   INITIAL_SLOTS
@@ -22,10 +27,12 @@ import PaymentModal from './components/PaymentModal'
 
 // Admin Views
 import AdminDashboardView from './components/admin/AdminDashboardView'
+import AdminPaymentsView from './components/admin/AdminPaymentsView'
 import VehicleEntryView from './components/admin/VehicleEntryView'
 import VehicleExitView from './components/admin/VehicleExitView'
 import WrongParkingView from './components/admin/WrongParkingView'
 import GatePermitScannerView from './components/admin/GatePermitScannerView'
+import { recordSuccessfulPayment } from './services/paymentHistoryService'
 
 // Payment Return Pages
 import PaymentSuccessPage from './pages/PaymentSuccessPage'
@@ -37,6 +44,7 @@ import CampusParkingDashboard from './components/CampusParkingDashboard'
 import StudentMyVehicleView from './components/student/StudentMyVehicleView'
 import StudentMyStatusView from './components/student/StudentMyStatusView'
 import StudentMyHistoryView from './components/student/StudentMyHistoryView'
+import StudentReportsPageView from './components/student/StudentReportsPageView'
 
 // Firestore Services
 import {
@@ -48,7 +56,8 @@ import {
   subscribeToUserReservation,
   cancelUserReservation,
   seedParkingSlotsIfEmpty,
-  normalizeSlotId
+  normalizeSlotId,
+  isValidCanonicalSlotId
 } from './services/parkingService'
 
 import {
@@ -69,11 +78,13 @@ import {
 import {
   subscribeToParkingHistory,
   subscribeToActiveSessions,
-  createParkingSession
+  createParkingSession,
+  endParkingSession
 } from './services/parkingSessionService'
 
 import { verifyAndCompleteGateExit } from './services/guardExitService'
 import { getFloorForVehicleType } from './data/vehicleRules'
+import { createNotification } from './services/notificationService'
 
 import './App.css'
 
@@ -101,7 +112,12 @@ export default function App() {
       const savedDemo = localStorage.getItem('demo_user_session')
 
       if (savedDemo) {
-        return JSON.parse(savedDemo)
+        const parsed = JSON.parse(savedDemo)
+        return {
+          ...parsed,
+          role: ROLES.STUDENT,
+          isDemo: true
+        }
       }
     } catch {
       localStorage.removeItem('demo_user_session')
@@ -116,7 +132,12 @@ export default function App() {
       const savedDemo = localStorage.getItem('demo_user_session')
 
       if (savedDemo) {
-        return JSON.parse(savedDemo)
+        const parsed = JSON.parse(savedDemo)
+        return {
+          ...parsed,
+          role: ROLES.STUDENT,
+          isDemo: true
+        }
       }
     } catch {
       // Ignore invalid cached profile
@@ -153,14 +174,7 @@ export default function App() {
         try {
           // Firestore profile is authoritative.
           const profile = await getUserProfile(currentUser.uid, currentUser)
-
-          const isKnownAdmin =
-            currentUser.email === 'shaikhalzuni123@gmail.com' ||
-            currentUser.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
-
-          const resolvedRole = isKnownAdmin
-            ? 'Security Admin'
-            : (profile?.role || 'Student')
+          const resolvedRole = resolveUserRole(currentUser, profile)
 
           const finalProfile = {
             ...(profile || {}),
@@ -169,20 +183,20 @@ export default function App() {
             displayName:
               profile?.displayName ||
               currentUser.displayName ||
-              (resolvedRole === 'Security Admin' ? 'Campus Admin' : 'Campus Member'),
+              (resolvedRole === ROLES.SECURITY_ADMIN ? 'Campus Admin' : 'Campus Member'),
             photoURL:
               profile?.photoURL ||
               currentUser.photoURL ||
               '',
             role: resolvedRole,
-            campusId: profile?.campusId || (resolvedRole === 'Security Admin' ? 'ADM-01' : ''),
+            campusId: profile?.campusId || (resolvedRole === ROLES.SECURITY_ADMIN ? 'ADM-01' : ''),
             rollNumber: profile?.rollNumber || profile?.campusId || '',
-            vehicleType: profile?.vehicleType || (resolvedRole === 'Security Admin' ? 'bike' : 'scooty'),
-            preferredFloor: profile?.preferredFloor || (resolvedRole === 'Security Admin' ? 'Basement' : 'Ground Floor'),
+            vehicleType: profile?.vehicleType || (resolvedRole === ROLES.SECURITY_ADMIN ? 'bike' : 'scooty'),
+            preferredFloor: profile?.preferredFloor || (resolvedRole === ROLES.SECURITY_ADMIN ? 'Basement' : 'Ground Floor'),
             defaultPlate: profile?.defaultPlate || profile?.vehicleNumber || profile?.vehiclePlate || '',
             vehiclePlate: profile?.vehiclePlate || profile?.defaultPlate || '',
             vehicleNumber: profile?.vehicleNumber || profile?.defaultPlate || '',
-            stream: profile?.stream || (resolvedRole === 'Security Admin' ? 'Campus Administration' : 'Registered Student'),
+            stream: profile?.stream || (resolvedRole === ROLES.SECURITY_ADMIN ? 'Campus Administration' : 'Registered Student'),
             phoneNumber: profile?.phoneNumber || ''
           }
 
@@ -196,16 +210,12 @@ export default function App() {
         } catch (err) {
           console.warn('[Auth] Profile fetch warning:', err)
 
-          const isKnownAdmin =
-            currentUser.email === 'shaikhalzuni123@gmail.com' ||
-            currentUser.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
-
-          const fallbackRole = isKnownAdmin ? 'Security Admin' : 'Student'
+          const fallbackRole = resolveUserRole(currentUser, null)
 
           setUserProfile({
             uid: currentUser.uid,
             email: currentUser.email || '',
-            displayName: currentUser.displayName || (fallbackRole === 'Security Admin' ? 'Campus Admin' : 'Campus Member'),
+            displayName: currentUser.displayName || (fallbackRole === ROLES.SECURITY_ADMIN ? 'Campus Admin' : 'Campus Member'),
             photoURL: currentUser.photoURL || '',
             role: fallbackRole
           })
@@ -217,9 +227,14 @@ export default function App() {
         if (activeDemo) {
           try {
             const parsedDemo = JSON.parse(activeDemo)
+            const safeDemo = {
+              ...parsedDemo,
+              role: ROLES.STUDENT,
+              isDemo: true
+            }
 
-            setUser(parsedDemo)
-            setUserProfile(parsedDemo)
+            setUser(safeDemo)
+            setUserProfile(safeDemo)
           } catch {
             localStorage.removeItem('demo_user_session')
             setUser(null)
@@ -266,7 +281,10 @@ export default function App() {
         const parsed = JSON.parse(saved)
 
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed
+          const validCached = parsed.filter((s) => isValidCanonicalSlotId(s?.id))
+          if (validCached.length === 160) {
+            return validCached
+          }
         }
       }
     } catch {
@@ -345,9 +363,7 @@ export default function App() {
   // ROLE
   // ==========================================
 
-  const isAdminUser =
-    userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin'
+  const isAdminUser = evaluateIsAdmin(userProfile || user)
 
 
   // ==========================================
@@ -564,6 +580,7 @@ export default function App() {
       if (!evt) return
       if (evt.type === 'SLOT_RESERVED' && evt.slotId) {
         const cleanId = normalizeSlotId(evt.slotId)
+        if (!isValidCanonicalSlotId(cleanId)) return
         setSlots((prev) => {
           const exists = prev.some((s) => normalizeSlotId(s.id) === cleanId)
           if (exists) {
@@ -592,6 +609,7 @@ export default function App() {
         })
       } else if (evt.type === 'SLOT_RELEASED' && evt.slotId) {
         const cleanId = normalizeSlotId(evt.slotId)
+        if (!isValidCanonicalSlotId(cleanId)) return
         setSlots((prev) =>
           prev.map((s) =>
             normalizeSlotId(s.id) === cleanId
@@ -1058,6 +1076,22 @@ export default function App() {
           'success'
         )
 
+        // Persistent notification (non-blocking)
+        try {
+          createNotification({
+            userId: currentUid,
+            title: 'Slot Reserved',
+            message: `Bay ${result.slotId} (${result.passData?.floor || 'Campus Parking'}) has been reserved for vehicle ${result.passData?.vehiclePlate || plate || 'N/A'}.`,
+            type: 'success',
+            relatedSlotId: result.slotId || cleanSlotId,
+            relatedVehiclePlate: result.passData?.vehiclePlate || plate || null
+          }).catch((notifErr) => {
+            console.warn('[App] Slot reservation notification warning:', notifErr?.message)
+          })
+        } catch (notifErr) {
+          console.warn('[App] Slot reservation notification sync warning:', notifErr?.message)
+        }
+
         return result
       }
 
@@ -1171,6 +1205,95 @@ export default function App() {
       } catch (err) {
         console.warn('[App] Firestore background cancel notice:', err?.message)
       }
+    }
+  }
+
+
+  // ==========================================
+  // STUDENT END PARKING & RELEASE SLOT
+  // ==========================================
+
+  const handleStudentEndParking = async (sessionOrSlot) => {
+    const currentUid = user?.uid || auth.currentUser?.uid || ''
+    const myRoll = userProfile?.campusId || userProfile?.rollNumber || ''
+    const myPlate = userProfile?.defaultPlate || userProfile?.vehicleNumber || userProfile?.vehiclePlate || ''
+    const studentName = userProfile?.displayName || user?.displayName || 'Campus Member'
+
+    const targetSlotId = normalizeSlotId(sessionOrSlot?.slotId || sessionOrSlot?.id)
+    const targetPlate = sessionOrSlot?.vehicleNumber || sessionOrSlot?.plate || myPlate
+    const targetSessionId = sessionOrSlot?.sessionId || sessionOrSlot?.id
+
+    if (!targetSlotId && !targetPlate && !targetSessionId) {
+      showToast('End Parking Error', 'No active parking session identified.', 'error')
+      throw new Error('No active parking session identified.')
+    }
+
+    try {
+      const result = await endParkingSession({
+        slotId: targetSlotId,
+        vehicleNumber: targetPlate,
+        studentName: sessionOrSlot?.studentName || studentName,
+        rollNumber: sessionOrSlot?.rollNumber || myRoll,
+        stream: sessionOrSlot?.stream || userProfile?.stream || '',
+        vehicleType: sessionOrSlot?.vehicleType || sessionOrSlot?.type || userProfile?.vehicleType || '',
+        floor: sessionOrSlot?.floor || (targetSlotId.startsWith('G') ? 'Ground Floor' : 'Basement'),
+        entryTime: sessionOrSlot?.entryTime || null,
+        entryTimestamp: sessionOrSlot?.entryTimestamp || null,
+        requestingUserId: currentUid
+      })
+
+      if (result.success) {
+        // Optimistic local state clearing
+        if (activeReservation && (activeReservation.slotId === targetSlotId || activeReservation.id === sessionOrSlot?.reservationId)) {
+          setActiveReservation(null)
+        }
+        setActivePass(null)
+        setConfirmationData(null)
+
+        // Optimistically release slot in local state
+        if (targetSlotId) {
+          setSlots((prev) =>
+            prev.map((s) =>
+              normalizeSlotId(s.id) === targetSlotId
+                ? {
+                    ...s,
+                    status: 'available',
+                    reservedBy: '',
+                    reservedByName: '',
+                    reservedByEmail: '',
+                    studentId: '',
+                    userId: '',
+                    plate: '',
+                    owner: '',
+                    reservedUntil: null,
+                    passId: '',
+                    passType: null,
+                    entryTime: null,
+                    entryTimestamp: null
+                  }
+                : s
+            )
+          )
+        }
+
+        // Broadcast slot release for cross-tab sync
+        broadcastSlotReleased({
+          slotId: targetSlotId,
+          userId: currentUid
+        })
+
+        showToast(
+          'Parking ended successfully.',
+          `Bay ${targetSlotId} has been released and is now available.`,
+          'success'
+        )
+
+        return result
+      }
+    } catch (err) {
+      console.error('[App] handleStudentEndParking error:', err)
+      showToast('End Parking Failed', err.message || 'Could not complete parking exit.', 'error')
+      throw err
     }
   }
 
@@ -1604,6 +1727,30 @@ export default function App() {
           entryTimestamp:
             nowTimestamp
         })
+
+        // Record persistent payment history record (idempotent, only on success)
+        try {
+          recordSuccessfulPayment({
+            paymentId: `PAY-${slotId.replace(/[^a-zA-Z0-9]/g, '')}-${nowTimestamp}`,
+            userId: currentUid,
+            studentName: ownerName || 'Campus Member',
+            studentEmail: user?.email || userProfile?.email || '',
+            rollNumber: rollNumber || '',
+            vehicleNumber: vehicleNumber.toUpperCase(),
+            vehicleType: vehicleType || 'Scooty',
+            slotId,
+            floor: _confirmation.floor,
+            amount: 10,
+            currency: 'INR',
+            paymentMethod: 'UPI / Google Pay (Simulated)',
+            paymentStatus: 'SUCCESS',
+            transactionId: `TXN-UPI-${slotId.replace(/[^a-zA-Z0-9]/g, '')}-${nowTimestamp}`
+          }).catch((payErr) => {
+            console.warn('[App] Payment record notice:', payErr?.message)
+          })
+        } catch (payErr) {
+          console.warn('[App] Payment record sync notice:', payErr?.message)
+        }
       } catch (err) {
         console.warn(
           '[Payment] Slot sync:',
@@ -1846,11 +1993,7 @@ export default function App() {
   // MAIN APPLICATION
   // ==========================================
 
-  const isAdmin =
-    userProfile?.role ===
-    'Security Admin' ||
-    userProfile?.role ===
-    'Admin'
+  const isAdmin = evaluateIsAdmin(userProfile || user)
 
 
   const isHomeActive =
@@ -2061,6 +2204,17 @@ export default function App() {
                 )}
 
 
+              {/* PAYMENTS */}
+
+              {(activeTab === 'admin-payments' || activeTab === 'payments') && (
+                <AdminPaymentsView
+                  user={user}
+                  userProfile={userProfile}
+                  showToast={showToast}
+                />
+              )}
+
+
               {/* REPORTS / HISTORY */}
 
               {activeTab ===
@@ -2085,6 +2239,10 @@ export default function App() {
                     showToast={
                       showToast
                     }
+                    user={user}
+                    userProfile={
+                      userProfile
+                    }
                   />
                 )}
 
@@ -2104,6 +2262,28 @@ export default function App() {
                     user={user}
                     userProfile={
                       userProfile
+                    }
+                  />
+                )}
+
+              {/* VEHICLE EXIT */}
+
+              {activeTab ===
+                'vehicle-exit' && (
+                  <VehicleExitView
+                    slots={slots}
+                    activeSessions={
+                      activeSessions
+                    }
+                    onReleaseSlot={
+                      handleReleaseSlot
+                    }
+                    user={user}
+                    userProfile={
+                      userProfile
+                    }
+                    showToast={
+                      showToast
                     }
                   />
                 )}
@@ -2128,6 +2308,9 @@ export default function App() {
                     userProfile
                   }
                   slots={slots}
+                  activeSessions={
+                    activeSessions
+                  }
                   activePermit={
                     activePermit
                   }
@@ -2154,6 +2337,9 @@ export default function App() {
                   onCancelReservation={
                     handleCancelReservation
                   }
+                  onEndParkingSession={
+                    handleStudentEndParking
+                  }
                   onCancelPermit={(
                     permit
                   ) => {
@@ -2177,6 +2363,7 @@ export default function App() {
                       )
                     }
                   }}
+                  showToast={showToast}
                 />
               )}
 
@@ -2232,6 +2419,9 @@ export default function App() {
                       userProfile
                     }
                     slots={slots}
+                    activeSessions={
+                      activeSessions
+                    }
                     activePermit={
                       activePermit
                     }
@@ -2258,6 +2448,9 @@ export default function App() {
                     onCancelReservation={
                       handleCancelReservation
                     }
+                    onEndParkingSession={
+                      handleStudentEndParking
+                    }
                   />
                 )}
 
@@ -2277,6 +2470,18 @@ export default function App() {
                     activeReservation={activeReservation}
                   />
                 )}
+
+
+              {/* STUDENT WRONG PARKING REPORTS */}
+
+              {activeTab === 'student-reports' && (
+                <StudentReportsPageView
+                  user={user}
+                  userProfile={userProfile}
+                  slots={slots}
+                  showToast={showToast}
+                />
+              )}
 
             </>
           )}

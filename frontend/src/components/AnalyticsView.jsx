@@ -6,9 +6,9 @@ export default function AnalyticsView({ slots = [] }) {
   const [selectedFloorTab, setSelectedFloorTab] = useState('all') // 'all' | 'ground' | 'basement'
 
   const total = slots.length || 160
-  const occupied = slots.filter((s) => s.status === 'occupied').length
-  const reserved = slots.filter((s) => s.status === 'reserved').length
-  const available = slots.filter((s) => s.status === 'available').length
+  const occupied = slots.filter((s) => s.status === 'occupied' || s.status === 'OCCUPIED' || s.status === 'booked' || s.status === 'BOOKED').length
+  const reserved = slots.filter((s) => s.status === 'reserved' || s.status === 'RESERVED').length
+  const available = Math.max(0, total - occupied - reserved)
 
   const occupancyRate = Math.round(((occupied + reserved) / total) * 100) || 0
 

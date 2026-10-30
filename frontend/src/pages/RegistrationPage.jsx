@@ -5,7 +5,6 @@ import {
   updateVehicle,
   deleteVehicle
 } from '../services/vehicleService'
-import RegistrationForm from '../components/vehicle/RegistrationForm'
 import RegisteredVehiclesTable from '../components/vehicle/RegisteredVehiclesTable'
 import EditVehicleModal from '../components/vehicle/EditVehicleModal'
 import DeleteConfirmModal from '../components/vehicle/DeleteConfirmModal'
@@ -13,10 +12,7 @@ import DeleteConfirmModal from '../components/vehicle/DeleteConfirmModal'
 export default function RegistrationPage({
   slots = [],
   registeredVehicles = [],
-  showToast,
-  user,
-  userProfile,
-  onRegisterSuccess
+  showToast
 }) {
   // Registered vehicles state (synced with props or service listener)
   const [vehicles, setVehicles] = useState(() => registeredVehicles.length > 0 ? registeredVehicles : getRegisteredVehicles())
@@ -37,14 +33,6 @@ export default function RegistrationPage({
     )
     return () => unsubscribe()
   }, [])
-
-  // Handle successful new vehicle registration
-  const handleRegisterSuccess = (newRecord, updatedProfile) => {
-    setVehicles(getRegisteredVehicles())
-    if (onRegisterSuccess) {
-      onRegisterSuccess(newRecord, updatedProfile)
-    }
-  }
 
   // Handle Edit Save from EditVehicleModal
   const handleSaveEdit = async (id, updatedData) => {
@@ -95,13 +83,13 @@ export default function RegistrationPage({
         <div className="rph-content">
           <div className="rph-badge">
             <span className="badge-icon">📋</span>
-            <span>Admin Registration Console</span>
+            <span>Campus Vehicle Registry</span>
           </div>
           <h1 className="rph-title">
-            Student &amp; Vehicle <span className="gradient-text">Registration</span>
+            Registered <span className="gradient-text">Vehicles</span>
           </h1>
           <p className="rph-subtitle">
-            Register campus students and their authorized vehicles. System automatically maps vehicle types to their designated parking floors under college regulations.
+            Directory of campus-authorized student vehicles &amp; allocated parking zones
           </p>
         </div>
 
@@ -126,28 +114,16 @@ export default function RegistrationPage({
         </div>
       </div>
 
-      {/* Main Registration Layout: Left Admin Form + Right Directory Table */}
-      <div className="registration-content-grid">
-        {/* Registration Form Component */}
-        <RegistrationForm
-          user={user}
-          userProfile={userProfile}
-          registeredVehicles={vehicles}
-          onRegisterSuccess={handleRegisterSuccess}
-          showToast={showToast}
+      {/* Main Registered Vehicles Directory Section (Full Width) */}
+      <div className="registered-vehicles-full-section">
+        <RegisteredVehiclesTable
+          vehicles={vehicles}
+          onEditVehicle={(vehicle) => setEditingVehicle(vehicle)}
+          onDeleteVehicle={(vehicle) => setDeletingVehicle(vehicle)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          showSearch={true}
         />
-
-        {/* Registered Vehicles Directory Table */}
-        <div className="directory-section-panel">
-          <RegisteredVehiclesTable
-            vehicles={vehicles}
-            onEditVehicle={(vehicle) => setEditingVehicle(vehicle)}
-            onDeleteVehicle={(vehicle) => setDeletingVehicle(vehicle)}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            showSearch={true}
-          />
-        </div>
       </div>
 
       {/* Edit Vehicle Modal */}
@@ -170,4 +146,3 @@ export default function RegistrationPage({
     </div>
   )
 }
-

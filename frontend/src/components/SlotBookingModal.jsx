@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { XIcon, ShieldIcon } from './Icons'
-import { normalizeSlotId } from '../services/parkingService'
+import { normalizeSlotId, isSlotAllowedForVehicleType } from '../services/parkingService'
 import MetroGatePaymentGateway from './MetroGatePaymentGateway'
 import GatePassActivationScreen from './GatePassActivationScreen'
 
@@ -161,6 +161,12 @@ function SlotBookingContent({
     const targetSlotId = normalizeSlotId(chosenSlotId || selectedSlot?.id)
     if (!targetSlotId) {
       setErrorMsg('Please select an available parking bay.')
+      return
+    }
+
+    if (!isSlotAllowedForVehicleType(targetSlotId, vehicleType)) {
+      const allowedFloor = vehicleType === 'bike' ? 'Basement (B-01 to B-80)' : 'Ground Floor (G-01 to G-80)'
+      setErrorMsg(`Invalid floor allocation: ${vehicleType === 'bike' ? 'Bikes' : 'Scooties'} must be parked in ${allowedFloor}.`)
       return
     }
 

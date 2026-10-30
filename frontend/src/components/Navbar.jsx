@@ -1,6 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
-import { LogOutIcon } from './Icons'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { LogOutIcon, BellIcon } from './Icons'
 import { logout } from '../firebase/auth'
+import NotificationCenter from './NotificationCenter'
+import { subscribeToUserNotifications } from '../services/notificationService'
+
+import { evaluateIsAdmin } from '../utils/authRoles'
 
 const STUDENT_TABS = [
   { id: 'student-dashboard',         icon: '🏠', label: 'Dashboard' },
@@ -8,25 +12,55 @@ const STUDENT_TABS = [
   { id: 'student-my-vehicle',        icon: '🛵', label: 'My Vehicle' },
   { id: 'student-my-status',         icon: '📍', label: 'Status' },
   { id: 'student-my-history',        icon: '📜', label: 'History' },
+  { id: 'student-reports',           icon: '📋', label: 'Reports' },
 ]
 
 const ADMIN_TABS = [
   { id: 'admin-dashboard',  icon: '📊', label: 'Dashboard' },
+  { id: 'admin-payments',   icon: '💳', label: 'Payments' },
   { id: 'reports-history',  icon: '📜', label: 'Reports' },
 ]
 
 export default function Navbar({ user, userProfile, onLogout, activeTab, setActiveTab }) {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
   const menuRef = useRef(null)
+  const notifRef = useRef(null)
 
-  const isAdmin =
-    userProfile?.role === 'Security Admin' ||
-    userProfile?.role === 'Admin' ||
-    userProfile?.email === 'shaikhalzuni123@gmail.com' ||
-    user?.email === 'shaikhalzuni123@gmail.com' ||
-    user?.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1' ||
-    userProfile?.uid === 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1'
+  const currentUid = user?.uid || userProfile?.uid || ''
+
+  // Real-time notifications subscription
+  useEffect(() => {
+    if (!currentUid) {
+      setNotifications([])
+      return
+    }
+
+    const unsubscribe = subscribeToUserNotifications(
+      currentUid,
+      (list) => {
+        setNotifications(list || [])
+      },
+      (err) => {
+        console.warn('[Navbar] Notification listener notice:', err?.message)
+      }
+    )
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe()
+      }
+    }
+  }, [currentUid])
+
+  // Compute unread count
+  const unreadCount = useMemo(() => {
+    return notifications.filter((n) => !n.read).length
+  }, [notifications])
+
+  const isAdmin = evaluateIsAdmin(userProfile) || evaluateIsAdmin(user)
 
   const tabs = isAdmin ? ADMIN_TABS : STUDENT_TABS
   const displayName = userProfile?.displayName || user?.displayName || (isAdmin ? 'Campus Admin' : 'Campus Member')
@@ -34,9 +68,19 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
   const initials = displayName.slice(0, 2).toUpperCase()
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') setMenuOpen(false) }
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false)
+        setNotifOpen(false)
+      }
+    }
     const onOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false)
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     document.addEventListener('mousedown', onOutside)
@@ -61,6 +105,7 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
   const handleTab = (id) => {
     setActiveTab(id)
     setMenuOpen(false)
+    setNotifOpen(false)
   }
 
   return (
@@ -105,6 +150,36 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
         </nav>
 
         <div className="nav-right">
+          {/* Persistent Notification Bell Trigger */}
+          <div className="nav-notif-wrapper" ref={notifRef}>
+            <button
+              type="button"
+              id="nav-notification-bell-btn"
+              className={`nav-notif-btn ${notifOpen ? 'nav-notif-btn--active' : ''}`}
+              onClick={() => setNotifOpen((p) => !p)}
+              aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
+              title={unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'Notifications'}
+              aria-expanded={notifOpen}
+            >
+              <BellIcon className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="nav-notif-badge">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {notifOpen && (
+              <div className="nav-notif-dropdown">
+                <NotificationCenter
+                  userId={currentUid}
+                  notifications={notifications}
+                  onClose={() => setNotifOpen(false)}
+                />
+              </div>
+            )}
+          </div>
+
           <div className="nav-user-chip" title={`${displayName} · ${displayRole}`}>
             <div className="nav-avatar">{initials}</div>
             <div className="nav-user-info">
@@ -150,6 +225,22 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
         </div>
         <div className="drawer-divider" />
         <nav className="drawer-nav" aria-label="Mobile navigation">
+          {/* Mobile Notification item */}
+          <button
+            type="button"
+            className={`drawer-nav-item ${notifOpen ? 'drawer-nav-item--active' : ''}`}
+            onClick={() => {
+              setNotifOpen((p) => !p)
+              setMenuOpen(false)
+            }}
+          >
+            <span className="drawer-nav-icon">🔔</span>
+            <span className="drawer-nav-label">Notifications</span>
+            {unreadCount > 0 && (
+              <span className="drawer-notif-badge">{unreadCount}</span>
+            )}
+          </button>
+
           {tabs.map((tab) => {
             const isActive =
               activeTab === tab.id ||
@@ -184,3 +275,4 @@ export default function Navbar({ user, userProfile, onLogout, activeTab, setActi
     </header>
   )
 }
+

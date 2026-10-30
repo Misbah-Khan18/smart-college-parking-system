@@ -4,6 +4,7 @@ import {
   AlertCircleIcon
 } from '../Icons'
 import { getFloorForVehicleType } from '../../services/vehicleService'
+import ParkingLotMap from '../ParkingLotMap'
 
 export default function VehicleEntryView({
   slots = [],
@@ -19,6 +20,7 @@ export default function VehicleEntryView({
   const [entryType, setEntryType] = useState('scooty')
   const [gateStatus, setGateStatus] = useState('closed') // 'closed' | 'opening' | 'open' | 'closing'
   const [lastActionMsg, setLastActionMsg] = useState(null)
+  const [currentVehicleEntry, setCurrentVehicleEntry] = useState(null)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -27,7 +29,7 @@ export default function VehicleEntryView({
     setSelectedStudentId(studentId)
     const st = registeredVehicles.find((v) => v.id === studentId)
     if (st) {
-      setEntryPlate(st.vehicleNumber)
+      setEntryPlate(st.vehicleNumber || '')
       setEntryDriver(st.studentName || '')
       setEntryRoll(st.rollNumber || '')
       setEntryStream(st.stream || '')
@@ -81,6 +83,30 @@ export default function VehicleEntryView({
         setGateStatus('opening')
         setTimeout(() => setGateStatus('open'), 500)
 
+        const nowTimeFormatted = new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        })
+
+        const activeEntryRecord = {
+          ...(result.passData || {}),
+          plate: cleanPlate,
+          owner: entryDriver.trim() || result.passData?.owner || 'Student Member',
+          rollNumber: entryRoll.trim() || result.passData?.rollNumber || '—',
+          stream: entryStream.trim() || result.passData?.stream || '',
+          vehicleType: entryType,
+          floor: result.floor || preferredFloor,
+          slotId: result.slotId,
+          entryTime: result.passData?.entryTime || nowTimeFormatted,
+          status: 'Vehicle Entered',
+          session: 'Active',
+          zone: result.passData?.zone || result.passData?.section || `${result.floor || preferredFloor} Parking Area`
+        }
+
+        // Store as current vehicle entry for focused UI and map spotlight
+        setCurrentVehicleEntry(activeEntryRecord)
+
         setLastActionMsg({
           type: 'success',
           title: 'Vehicle Admitted & Slot Allocated',
@@ -88,6 +114,7 @@ export default function VehicleEntryView({
           passData: result.passData
         })
 
+        // Reset form input fields
         setEntryPlate('')
         setEntryDriver('')
         setEntryRoll('')
@@ -117,8 +144,8 @@ export default function VehicleEntryView({
   ).length
 
   return (
-    <div className="admin-page-container">
-      {/* Header */}
+    <div className="admin-page-container vehicle-entry-page-container">
+      {/* 1. Page Header */}
       <div className="page-section-header glass-card">
         <div className="psh-badge">
           <span>🚗 GATE 1 INGRESS CONTROL</span>
@@ -131,59 +158,82 @@ export default function VehicleEntryView({
         </p>
       </div>
 
+      {/* 2 & 10. Top Terminal Section: Left Form & Right Barrier */}
       <div className="terminal-grid-two">
-        {/* Left: Gate Entry Form */}
+        {/* Left: Vehicle Ingress Scanner Form */}
         <div className="terminal-form-card glass-card">
           <div className="card-header-clean">
-            <h3>Vehicle Ingress Scanner</h3>
-            <span className="text-muted text-xs">Simulate camera plate detection or manual entry</span>
+            <div>
+              <h3 className="card-heading">Vehicle Ingress Scanner</h3>
+              <p className="text-muted text-xs">Simulate camera plate detection or manual entry</p>
+            </div>
+            <span className="ingress-live-tag">● ACTIVE INGRESS</span>
           </div>
 
           {/* Quick Select Registered Student */}
           <div className="form-group mb-3">
-            <label className="form-label">Quick Select Registered Student</label>
+            <label className="form-label" htmlFor="quick-student-select">
+              Quick Select Registered Student / Vehicle
+            </label>
             <select
+              id="quick-student-select"
               value={selectedStudentId}
               onChange={(e) => handleStudentSelect(e.target.value)}
-              className="form-control"
+              className="form-control select-modern"
             >
               <option value="">-- Choose Registered Student / Vehicle --</option>
               {registeredVehicles.map((st) => (
                 <option key={st.id} value={st.id}>
-                  {st.studentName} ({st.rollNumber}) &bull; {st.vehicleNumber} [{st.vehicleType.toUpperCase()}]
+                  {st.studentName} ({st.rollNumber}) &bull; {st.vehicleNumber} [{st.vehicleType ? st.vehicleType.toUpperCase() : 'SCOOTY'}]
                 </option>
               ))}
             </select>
           </div>
 
           <form onSubmit={handleSimulateEntry} className="ingress-form">
+            {/* Vehicle License Plate */}
             <div className="form-group">
-              <label className="form-label">Vehicle License Plate *</label>
-              <input
-                type="text"
-                placeholder="e.g. MH-12-AB-1234"
-                value={entryPlate}
-                onChange={(e) => handlePlateChange(e.target.value)}
-                className="form-control font-mono font-bold uppercase-input"
-                required
-              />
+              <label className="form-label" htmlFor="entry-plate-input">
+                Vehicle License Plate <span className="text-danger">*</span>
+              </label>
+              <div className="plate-input-wrapper">
+                <span className="plate-country-badge">IND</span>
+                <input
+                  id="entry-plate-input"
+                  type="text"
+                  placeholder="e.g. MH-12-AB-1234"
+                  value={entryPlate}
+                  onChange={(e) => handlePlateChange(e.target.value)}
+                  className="form-control font-mono font-bold uppercase-input plate-input-element"
+                  required
+                  autoComplete="off"
+                />
+              </div>
             </div>
 
-            <div className="form-row two-cols">
+            {/* Driver Name & Roll Number - stacked vertically on mobile */}
+            <div className="form-row two-cols driver-roll-row">
               <div className="form-group">
-                <label className="form-label">Driver / Student Name</label>
+                <label className="form-label" htmlFor="entry-driver-input">
+                  Driver / Student Name
+                </label>
                 <input
+                  id="entry-driver-input"
                   type="text"
                   placeholder="e.g. Alzuni Shaikh"
                   value={entryDriver}
                   onChange={(e) => setEntryDriver(e.target.value)}
                   className="form-control"
+                  autoComplete="name"
                 />
               </div>
 
               <div className="form-group">
-                <label className="form-label">Roll Number</label>
+                <label className="form-label" htmlFor="entry-roll-input">
+                  Roll Number
+                </label>
                 <input
+                  id="entry-roll-input"
                   type="text"
                   placeholder="e.g. S2410701"
                   value={entryRoll}
@@ -193,6 +243,7 @@ export default function VehicleEntryView({
               </div>
             </div>
 
+            {/* Vehicle Type selection */}
             <div className="form-group">
               <label className="form-label">Vehicle Type &amp; Designated Floor</label>
               <div className="vehicle-type-cards-grid">
@@ -206,8 +257,11 @@ export default function VehicleEntryView({
                     className="sr-only"
                   />
                   <span className="vt-card-icon">🛵</span>
-                  <span className="vt-card-name">Scooty</span>
-                  <span className="vt-card-floor">Ground Floor</span>
+                  <div className="vt-card-info">
+                    <span className="vt-card-name">Scooty</span>
+                    <span className="vt-card-floor">Ground Floor</span>
+                  </div>
+                  <span className="vt-card-level-chip">Level G</span>
                 </label>
 
                 <label className={`vehicle-type-card ${entryType === 'bike' ? 'active' : ''}`}>
@@ -220,26 +274,41 @@ export default function VehicleEntryView({
                     className="sr-only"
                   />
                   <span className="vt-card-icon">🏍️</span>
-                  <span className="vt-card-name">Bike</span>
-                  <span className="vt-card-floor">Basement</span>
+                  <div className="vt-card-info">
+                    <span className="vt-card-name">Bike</span>
+                    <span className="vt-card-floor">Basement</span>
+                  </div>
+                  <span className="vt-card-level-chip">Level B</span>
                 </label>
               </div>
             </div>
 
-            {/* Live Bay Capacity Telemetry */}
-            <div className="flex items-center justify-between p-2 rounded text-xs mt-2" style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(51, 65, 85, 0.6)' }}>
-              <span style={{ color: '#94a3b8' }}>Designated Level: <strong style={{ color: '#f1f5f9' }}>{targetFloor}</strong></span>
-              <span className="font-mono font-bold" style={{ color: availableBaysCount > 0 ? '#34d399' : '#f87171' }}>
-                {availableBaysCount > 0 ? `🟢 ${availableBaysCount} Bays Available` : '🔴 Level Full'}
-              </span>
+            {/* Designated Floor / Available Bay Capacity */}
+            <div className="bay-capacity-banner">
+              <div className="bcb-item">
+                <span className="bcb-label">Designated Level:</span>
+                <strong className="bcb-floor-text">{targetFloor}</strong>
+              </div>
+              <div className="bcb-status">
+                <span className={`bcb-badge font-mono ${availableBaysCount > 0 ? 'available' : 'full'}`}>
+                  {availableBaysCount > 0 ? `🟢 ${availableBaysCount} Bays Available` : '🔴 Level Full'}
+                </span>
+              </div>
             </div>
 
+            {/* Submit / Ingress Action Button */}
             <button
               type="submit"
-              className="btn btn-primary btn-md w-full mt-3"
-              disabled={gateStatus !== 'closed'}
+              className="btn btn-primary btn-md w-full mt-3 ingress-submit-btn"
+              disabled={gateStatus !== 'closed' || isSubmitting}
             >
-              <span>{gateStatus !== 'closed' ? 'Processing Barrier...' : 'Admit Vehicle & Assign Bay'}</span>
+              <span>
+                {isSubmitting
+                  ? 'Allocating Bay & Authorizing...'
+                  : gateStatus !== 'closed'
+                  ? 'Processing Barrier...'
+                  : 'Admit Vehicle & Assign Bay'}
+              </span>
             </button>
           </form>
         </div>
@@ -247,7 +316,10 @@ export default function VehicleEntryView({
         {/* Right: Gate Barrier Visualizer & Result */}
         <div className="gate-barrier-card glass-card">
           <div className="card-header-clean">
-            <h3>Gate Telemetry Barrier</h3>
+            <div>
+              <h3 className="card-heading">Gate Telemetry Barrier</h3>
+              <p className="text-muted text-xs">Real-time gate ingress barrier telemetry</p>
+            </div>
             <span className={`status-pill ${gateStatus === 'open' ? 'available' : gateStatus === 'closed' ? 'reserved' : 'occupied'}`}>
               Barrier: {gateStatus.toUpperCase()}
             </span>
@@ -284,6 +356,131 @@ export default function VehicleEntryView({
             </div>
           )}
         </div>
+      </div>
+
+      {/* 11. CURRENT VEHICLE ENTRY / VEHICLE ENTRY DETAILS SECTION */}
+      <div className="vehicle-entry-details-section">
+        {currentVehicleEntry ? (
+          <div className="vehicle-entry-details-card glass-card">
+            <div className="ved-card-header">
+              <div className="ved-header-info">
+                <span className="ved-pill-tag">● CURRENT VEHICLE ENTRY</span>
+                <h3 className="ved-title">Vehicle Entry Details</h3>
+                <p className="text-muted text-xs">Telemetry and bay allocation for the most recently entered vehicle</p>
+              </div>
+              <div className="ved-header-statuses">
+                <span className="status-pill available">Status: {currentVehicleEntry.status || 'Vehicle Entered'}</span>
+                <span className="status-pill active-pill">Session: {currentVehicleEntry.session || 'Active'}</span>
+              </div>
+            </div>
+
+            <div className="ved-grid">
+              <div className="ved-card-cell">
+                <span className="ved-cell-label">Vehicle Number</span>
+                <strong className="ved-cell-value font-mono plate-value-accent">
+                  {currentVehicleEntry.plate || currentVehicleEntry.vehicleNumber}
+                </strong>
+              </div>
+
+              <div className="ved-card-cell">
+                <span className="ved-cell-label">Student / Driver Name</span>
+                <span className="ved-cell-value">
+                  {currentVehicleEntry.owner || currentVehicleEntry.studentName || 'Student Member'}
+                </span>
+              </div>
+
+              <div className="ved-card-cell">
+                <span className="ved-cell-label">Roll Number</span>
+                <span className="ved-cell-value font-mono">
+                  {currentVehicleEntry.rollNumber || '—'}
+                </span>
+              </div>
+
+              <div className="ved-card-cell">
+                <span className="ved-cell-label">Vehicle Type</span>
+                <span className="ved-cell-value flex items-center gap-1">
+                  <span>{currentVehicleEntry.vehicleType === 'bike' ? '🏍️ Bike' : '🛵 Scooty'}</span>
+                </span>
+              </div>
+
+              <div className="ved-card-cell">
+                <span className="ved-cell-label">Assigned Floor</span>
+                <span className="ved-cell-value font-bold text-cyan">
+                  {currentVehicleEntry.floor}
+                </span>
+              </div>
+
+              <div className="ved-card-cell ved-slot-highlight-cell">
+                <span className="ved-cell-label">Assigned Parking Slot</span>
+                <strong className="ved-slot-badge font-mono">
+                  📍 {currentVehicleEntry.slotId}
+                </strong>
+              </div>
+
+              <div className="ved-card-cell">
+                <span className="ved-cell-label">Entry Time</span>
+                <span className="ved-cell-value font-mono">
+                  {currentVehicleEntry.entryTime || 'Just now'}
+                </span>
+              </div>
+
+              <div className="ved-card-cell">
+                <span className="ved-cell-label">Parking Zone</span>
+                <span className="ved-cell-value">
+                  {currentVehicleEntry.zone || currentVehicleEntry.section || `${currentVehicleEntry.floor} General`}
+                </span>
+              </div>
+            </div>
+
+            {onShowPass && (
+              <div className="ved-card-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => onShowPass(currentVehicleEntry)}
+                >
+                  🎫 View Issued Permit Pass
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="vehicle-entry-empty-state glass-card">
+            <div className="empty-state-graphic">🅿️</div>
+            <h4 className="empty-state-title">No vehicle currently entered</h4>
+            <p className="empty-state-subtitle">
+              When a vehicle is admitted through the ingress barrier, its allocated parking slot, student driver details, and real-time session status will appear here.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 12. Contextual Parking Map */}
+      <div className="vehicle-entry-map-section">
+        <div className="map-context-header glass-card">
+          <div className="mch-info">
+            <h3 className="mch-title">Interactive Parking Map &amp; Bay Allocations</h3>
+            <p className="text-muted text-xs">
+              {currentVehicleEntry
+                ? `Spotlighting allocated Bay ${currentVehicleEntry.slotId} on ${currentVehicleEntry.floor}. Total 160 slots (80 Ground Scooty / 80 Basement Bike).`
+                : 'Campus parking bay layout across Ground Floor (Scooty) and Basement (Bike). Total 160 slots.'}
+            </p>
+          </div>
+
+          {currentVehicleEntry && (
+            <div className="mch-spotlight-badge font-mono">
+              <span>🎯 Allocated:</span>
+              <strong>{currentVehicleEntry.slotId}</strong>
+              <small>({currentVehicleEntry.floor})</small>
+            </div>
+          )}
+        </div>
+
+        <ParkingLotMap
+          slots={slots}
+          selectedSlotId={currentVehicleEntry?.slotId}
+          isAdmin={true}
+        />
       </div>
     </div>
   )

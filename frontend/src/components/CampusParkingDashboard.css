@@ -36,10 +36,10 @@
   background-color: var(--bg-deep);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  padding: 16px 24px 32px 24px;
+  padding: 12px 18px 20px 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   position: relative;
   overflow-x: hidden;
 }
@@ -78,12 +78,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 10px;
   background: rgba(12, 20, 37, 0.85);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-cad-dim);
-  border-radius: 12px;
-  padding: 10px 16px;
+  border-radius: 10px;
+  padding: 6px 14px;
   flex-wrap: wrap;
 }
 
@@ -288,12 +288,12 @@
 .cad-main-card {
   background: var(--bg-card);
   border: 1px solid var(--border-cad);
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 12px;
+  padding: 12px 16px;
   box-shadow: 0 16px 36px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 /* Header Strip */
@@ -302,22 +302,22 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  padding-bottom: 4px;
+  gap: 8px;
+  padding-bottom: 2px;
 }
 
 .cad-header-title-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cad-live-status-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background-color: var(--color-green);
-  box-shadow: 0 0 10px var(--color-green);
+  box-shadow: 0 0 8px var(--color-green);
   animation: cadPulse 2s infinite ease-in-out;
 }
 
@@ -327,7 +327,7 @@
 }
 
 .cad-header-title {
-  font-size: 1.02rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #f8fafc;
   letter-spacing: 0.2px;
@@ -336,32 +336,32 @@
 
 .cad-header-subtitle {
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   color: #4b6282;
   margin-left: 6px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
 /* Legend */
 .cad-legend {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .cad-legend-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.82rem;
+  gap: 5px;
+  font-size: 0.78rem;
   color: #cbd5e1;
   font-weight: 500;
 }
 
 .cad-legend-square {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 2px;
 }
 
@@ -388,23 +388,23 @@
 .cad-map-canvas {
   background: var(--bg-card-inner);
   border: 1px solid var(--border-cad);
-  border-radius: 12px;
-  padding: 18px 20px 22px 20px;
+  border-radius: 10px;
+  padding: 10px 12px;
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   background-image: 
     linear-gradient(to right, rgba(56, 189, 248, 0.025) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(56, 189, 248, 0.025) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-size: 20px 20px;
 }
 
 /* ==========================================================================
-   GROUND FLOOR: SLEEK TECHNICAL INGRESS BANNER (Replaces harsh hazard banner)
+   GROUND FLOOR: SLEEK TECHNICAL INGRESS BANNER
    ========================================================================== */
 .cad-ingress-banner {
   display: flex;
@@ -412,50 +412,50 @@
   justify-content: space-between;
   background: linear-gradient(90deg, #091326 0%, #0e1c3a 50%, #091326 100%);
   border: 1px solid rgba(56, 189, 248, 0.22);
-  border-radius: 8px;
-  padding: 10px 18px;
+  border-radius: 6px;
+  padding: 6px 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
 }
 
 .cad-ingress-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .cad-ingress-pulse {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: #38bdf8;
-  box-shadow: 0 0 10px #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
   animation: radarRing 2s infinite ease-in-out;
 }
 
 .cad-ingress-title {
   color: #e2e8f0;
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
 .cad-ingress-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .cad-ingress-pill {
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 5px;
-  letter-spacing: 0.4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
   background: rgba(15, 23, 42, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
@@ -1079,13 +1079,14 @@
 
 .cad-standard-bay {
   background: #0b1426;
-  border: 1px solid rgba(56, 189, 248, 0.12);
-  border-radius: 8px;
-  padding: 8px 8px 6px 8px;
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  border-radius: 6px;
+  padding: 4px 6px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 56px;
+  min-height: 42px;
+  height: 44px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
@@ -1101,40 +1102,43 @@
 }
 
 .cad-standard-bay.bay-status-available {
-  border-color: rgba(16, 185, 129, 0.22);
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.03);
 }
 .cad-standard-bay.bay-status-available:hover {
   border-color: #10b981;
-  background: rgba(16, 185, 129, 0.08);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25);
 }
 
 .cad-standard-bay.bay-status-reserved {
-  border-color: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.03);
 }
 .cad-standard-bay.bay-status-reserved:hover {
   border-color: #f59e0b;
-  background: rgba(245, 158, 11, 0.08);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.25);
 }
 
 .cad-standard-bay.bay-status-booked {
-  border-color: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.03);
 }
 .cad-standard-bay.bay-status-booked:hover {
   border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.08);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.25);
 }
 
 .cad-standard-bay.bay-selected {
   border: 1.5px solid #38bdf8 !important;
-  background: rgba(56, 189, 248, 0.14) !important;
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.4) !important;
-  transform: translateY(-2px);
+  background: rgba(56, 189, 248, 0.15) !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.4) !important;
+  transform: translateY(-1px);
 }
 
 .cad-standard-bay.bay-dimmed {
@@ -1144,66 +1148,71 @@
 
 .cad-standard-bay.bay-match-highlight {
   border-color: #38bdf8;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
   animation: cadPulseMatch 1.5s infinite alternate;
 }
 
 @keyframes cadPulseMatch {
-  from { box-shadow: 0 0 6px rgba(56, 189, 248, 0.3); }
-  to { box-shadow: 0 0 16px rgba(56, 189, 248, 0.8); }
+  from { box-shadow: 0 0 4px rgba(56, 189, 248, 0.3); }
+  to { box-shadow: 0 0 12px rgba(56, 189, 248, 0.8); }
 }
 
 .cad-bay-id-text {
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #cbd5e1;
+  color: #f1f5f9;
+  line-height: 1;
 }
 
 .cad-bay-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 3px 0;
+  margin: 1px 0;
 }
 
 .cad-bay-dot {
-  width: 6.5px;
-  height: 6.5px;
+  width: 5.5px;
+  height: 5.5px;
   border-radius: 50%;
 }
 
 .cad-bay-dot.green {
   background: var(--color-green);
-  box-shadow: 0 0 6px var(--color-green-glow);
+  box-shadow: 0 0 5px var(--color-green-glow);
 }
 
 .cad-bay-dot.red {
   background: var(--color-red);
-  box-shadow: 0 0 6px var(--color-red-glow);
+  box-shadow: 0 0 5px var(--color-red-glow);
 }
 
 .cad-bay-dot.amber {
   background: var(--color-amber);
-  box-shadow: 0 0 6px var(--color-amber-glow);
+  box-shadow: 0 0 5px var(--color-amber-glow);
 }
 
 .cad-bay-dot.blue {
   background: var(--color-cyan);
-  box-shadow: 0 0 6px var(--color-cyan-glow);
+  box-shadow: 0 0 5px var(--color-cyan-glow);
 }
 
 .cad-bay-star-icon {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: #f59e0b;
   filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.6));
 }
 
 .cad-bay-label-text {
   font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cad-bay-label-text.text-free,
@@ -2531,44 +2540,41 @@
 }
 
 /* ==========================================================================
-   GROUND FLOOR MAP LAYOUT — 3-ROW GRID
-   Row 1: P1 Scooty | Entry/Exit Gate | P2 Scooty
-   Row 2: F1 Parking | Circulation Lane | F1 Parking
-   Row 3: P3 Parking | Lift Core | P3 Parking
+   GROUND FLOOR & BASEMENT MAP LAYOUT — 2-ROW BALANCED 4-ZONE GRID
+   Row 1: Left Top Zone | Central Pathway (Gate) | Right Top Zone
+   Row 2: Left Bottom Zone | Central Pathway (Lane) | Right Bottom Zone
    ========================================================================== */
 
 .gf-row {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   align-items: stretch;
+  width: 100%;
 }
 
 .gf-row-top,
 .gf-row-middle {
-  grid-template-columns: 1fr auto 1fr;
-}
-
-.gf-row-bottom {
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr 90px 1fr;
 }
 
 /* Parking Zone Container */
 .gf-zone {
-  background: rgba(10, 18, 33, 0.8);
+  background: rgba(10, 18, 33, 0.9);
   border: 1px solid var(--border-cad);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  box-sizing: border-box;
 }
 
 .gf-zone-scooty {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.25);
 }
 
 .gf-zone-f1 {
-  border-color: rgba(56, 189, 248, 0.3);
+  border-color: rgba(56, 189, 248, 0.25);
 }
 
 .gf-zone-p3 {
@@ -2579,26 +2585,28 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .gf-zone-icon {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   flex-shrink: 0;
 }
 
 .gf-zone-title {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: 0.4px;
+  letter-spacing: 0.2px;
 }
 
 .gf-zone-sub {
   font-family: var(--font-mono);
-  font-size: 0.62rem;
-  color: var(--text-muted);
-  letter-spacing: 0.3px;
+  font-size: 0.68rem;
+  color: #38bdf8;
+  letter-spacing: 0.2px;
   margin-top: 1px;
 }
 
@@ -2609,78 +2617,83 @@
 }
 
 .gf-grid-5col {
-  grid-template-columns: repeat(5, minmax(38px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 /* Entry / Exit Gate Block */
 .gf-gate-block {
   width: 90px;
   flex-shrink: 0;
-  background: rgba(56, 189, 248, 0.07);
+  background: rgba(56, 189, 248, 0.08);
   border: 1px solid rgba(56, 189, 248, 0.35);
   border-radius: 10px;
-  padding: 12px 8px;
+  padding: 8px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
+  box-sizing: border-box;
 }
 
 .gf-gate-block:hover {
-  background: rgba(56, 189, 248, 0.13);
+  background: rgba(56, 189, 248, 0.16);
   border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+  transform: translateY(-1px);
 }
 
 .gf-gate-icon-wrap {
-  font-size: 1.6rem;
+  font-size: 1.25rem;
 }
 
 .gf-gate-label {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: #38bdf8;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
 .gf-gate-status-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   font-family: var(--font-mono);
-  font-size: 0.58rem;
-  color: var(--text-muted);
+  font-size: 0.55rem;
+  color: #94a3b8;
 }
 
-/* Internal Circulation Lane */
+/* Internal Circulation Lane / Central Pathway */
 .gf-circ-lane {
-  width: 36px;
+  width: 90px;
   flex-shrink: 0;
-  background: rgba(8, 14, 28, 0.7);
-  border: 1px dashed rgba(100, 116, 139, 0.3);
-  border-radius: 8px;
+  background: rgba(8, 14, 28, 0.85);
+  border: 1px dashed rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: space-evenly;
-  padding: 8px 2px;
+  padding: 8px 4px;
+  box-sizing: border-box;
 }
 
 .gf-circ-arrow {
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  font-size: 0.95rem;
+  color: #38bdf8;
   line-height: 1;
 }
 
 .gf-circ-text {
   font-family: var(--font-mono);
-  font-size: 0.55rem;
-  color: var(--text-dim);
-  letter-spacing: 1px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 1.2px;
   writing-mode: vertical-rl;
   text-orientation: mixed;
 }
@@ -2689,42 +2702,43 @@
 .gf-lift-block {
   width: 90px;
   flex-shrink: 0;
-  background: rgba(16, 185, 129, 0.07);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.35);
   border-radius: 10px;
-  padding: 12px 8px;
+  padding: 8px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .gf-lift-icon-wrap {
-  font-size: 1.6rem;
+  font-size: 1.25rem;
 }
 
 .gf-lift-label {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   color: #10b981;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
 .gf-lift-sub {
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.55rem;
   color: var(--text-muted);
 }
 
-/* Responsive: stack rows on small screens */
-@media (max-width: 900px) {
+/* Responsive: stack rows on smaller screens */
+@media (max-width: 992px) {
   .gf-row-top,
-  .gf-row-middle,
-  .gf-row-bottom {
+  .gf-row-middle {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .gf-gate-block,
@@ -2732,11 +2746,221 @@
   .gf-circ-lane {
     width: 100%;
     flex-direction: row;
-    height: 60px;
-    padding: 8px 16px;
+    height: 44px;
+    padding: 6px 14px;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .gf-circ-text {
+    writing-mode: horizontal-tb;
+    letter-spacing: 1px;
   }
 
   .gf-grid-5col {
-    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .cad-standard-bay {
+    padding: 4px 6px;
+    min-height: 42px;
+    height: 44px;
   }
 }
+
+@media (max-width: 600px) {
+  .gf-grid-5col {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .cad-standard-bay {
+    padding: 5px 4px;
+    min-height: 44px;
+    border-radius: 6px;
+  }
+
+  .cad-bay-id-text {
+    font-size: 0.68rem;
+  }
+
+  .cad-bay-label-text {
+    font-size: 0.55rem;
+  }
+}
+
+/* ==========================================================================
+   COMPACT BOOKING ACTION BAR (APPEARS ON AVAILABLE SLOT SELECTION)
+   ========================================================================== */
+.cad-booking-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, rgba(10, 20, 38, 0.96) 0%, rgba(14, 28, 54, 0.96) 50%, rgba(10, 20, 38, 0.96) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 10px;
+  padding: 8px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(56, 189, 248, 0.15);
+  animation: cadActionBarSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+@keyframes cadActionBarSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cad-action-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cad-action-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.cad-action-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: cadPulse 2s infinite ease-in-out;
+}
+
+.cad-action-slot-id {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+}
+
+.cad-action-selected-text {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.cad-action-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+
+.cad-action-floor {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.cad-action-wing {
+  color: #64748b;
+}
+
+.cad-action-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cad-btn-proceed-booking {
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border: 1px solid rgba(56, 189, 248, 0.5);
+  border-radius: 8px;
+  padding: 7px 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  user-select: none;
+}
+
+.cad-btn-proceed-booking:hover {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
+  transform: translateY(-1px);
+}
+
+.cad-btn-proceed-booking:active {
+  transform: translateY(0);
+}
+
+.cad-btn-arrow {
+  font-size: 0.95rem;
+  transition: transform 0.2s ease;
+}
+
+.cad-btn-proceed-booking:hover .cad-btn-arrow {
+  transform: translateX(3px);
+}
+
+.cad-btn-action-clear {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  font-size: 1.1rem;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.cad-btn-action-clear:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+@media (max-width: 600px) {
+  .cad-booking-action-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .cad-action-bar-left {
+    justify-content: space-between;
+  }
+
+  .cad-btn-proceed-booking {
+    width: 100%;
+    justify-content: center;
+    padding: 8px 14px;
+  }
+}
+
+

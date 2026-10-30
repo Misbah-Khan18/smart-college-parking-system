@@ -1,25 +1,21 @@
-// Generate initial 160 slots
+// Generate initial 160 slots (80 Ground scooties + 80 Basement bikes)
 function generateDefaultSlots() {
   const slots = [];
 
-  // Ground floor: G-01 to G-140 (Scooties & Bikes)
-  for (let i = 1; i <= 140; i++) {
+  // Ground floor: G-01 to G-80 (Scooties)
+  for (let i = 1; i <= 80; i++) {
     const id = `G-${String(i).padStart(2, '0')}`;
-    let section = 'Front Section';
-    if (i <= 16) section = 'Main Gate West Wing — Bike Grid';
-    else if (i <= 32) section = 'Main Gate East Wing — Bike Grid';
-    else if (i <= 44) section = 'Ingress West Flank — Bike Bay';
-    else if (i <= 57) section = 'Ingress East Flank — Bike Bay';
-    else if (i <= 80) section = 'Accounts & Exam IT Dept Wings';
-    else if (i <= 110) section = 'South Concourse Under Ingress — Bike Row 1';
-    else section = 'South Concourse Under Ingress — Bike Row 2';
+    let section = 'Accounts Department - Front Side';
+    if (i > 20 && i <= 40) section = 'Accounts Department - Opposite Side';
+    else if (i > 40 && i <= 60) section = 'Exam IT Department - Front Side';
+    else if (i > 60 && i <= 80) section = 'Exam IT Department - Opposite Side';
 
     slots.push({
       id,
       floor: 'Ground Floor',
       section,
-      zone: 'Ground Floor - Two-Wheeler Parking',
-      type: i > 57 && i <= 80 ? 'scooty' : 'bike',
+      zone: 'Ground Floor - Scooty Parking',
+      type: 'scooty',
       isEv: i % 10 === 0,
       status: 'AVAILABLE',
       plate: '',
@@ -36,11 +32,10 @@ function generateDefaultSlots() {
   // Basement: B-01 to B-80 (Bikes)
   for (let i = 1; i <= 80; i++) {
     const id = `B-${String(i).padStart(2, '0')}`;
-    let section = 'Basement Central';
-    if (i <= 20) section = 'Basement Level 1 - Ramp Ingress';
-    else if (i <= 40) section = 'Basement Central Column Bay';
-    else if (i <= 60) section = 'Basement Auditorium Underpass';
-    else section = 'Basement South Exit Corridor';
+    let section = 'Basement Row 1';
+    if (i > 20 && i <= 40) section = 'Basement Row 2';
+    else if (i > 40 && i <= 60) section = 'Basement Row 3';
+    else if (i > 60 && i <= 80) section = 'Basement Row 4';
 
     slots.push({
       id,

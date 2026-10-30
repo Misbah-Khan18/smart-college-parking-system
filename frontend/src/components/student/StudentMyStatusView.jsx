@@ -1,7 +1,9 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ShieldIcon,
-  PlusCircleIcon
+  PlusCircleIcon,
+  LogOutIcon,
+  XIcon
 } from '../Icons'
 import { formatLiveDurationCompact } from '../../utils/timerUtils'
 import { getFloorForVehicleType } from '../../services/vehicleService'
@@ -10,13 +12,18 @@ export default function StudentMyStatusView({
   user,
   userProfile,
   slots = [],
+  activeSessions = [],
   activePermit,
   activeReservation,
   onOpenBooking,
   onViewPass,
   onNavigateTab,
-  onCancelReservation
+  onCancelReservation,
+  onEndParkingSession
 }) {
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [isEndingParking, setIsEndingParking] = useState(false)
+
   const displayName = userProfile?.displayName || user?.displayName || 'Student Member'
   const vehiclePlate = userProfile?.defaultPlate || userProfile?.vehicleNumber || 'MH-12-AB-1234'
   const vehicleType = userProfile?.vehicleType || 'scooty'
@@ -24,19 +31,65 @@ export default function StudentMyStatusView({
 
   // Find if currently occupied or reserved strictly by authenticated Firebase UID
   const currentSlot = useMemo(() => {
+    const currentUid = user?.uid || userProfile?.uid || ''
+    const myRoll = (userProfile?.campusId || userProfile?.rollNumber || '').toUpperCase().trim()
+    const myPlate = (userProfile?.defaultPlate || userProfile?.vehicleNumber || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
+
+    // Check activeSessions first for occupied state
+    const activeSess = (activeSessions || []).find((s) => {
+      if (s.status && s.status !== 'active') return false
+      const sUid = s.studentId || s.userId || ''
+      if (currentUid && sUid && sUid === currentUid) return true
+      const sRoll = (s.rollNumber || '').toUpperCase().trim()
+      if (myRoll && sRoll && sRoll === myRoll) return true
+      const sPlate = (s.vehicleNumber || s.plate || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
+      if (myPlate && sPlate && sPlate === myPlate) return true
+      return false
+    })
+
+    if (activeSess) {
+      const found = slots.find((s) => s.id === activeSess.slotId)
+      return {
+        ...found,
+        ...activeSess,
+        id: activeSess.slotId,
+        slotId: activeSess.slotId,
+        plate: activeSess.vehicleNumber || found?.plate || vehiclePlate,
+        status: 'occupied',
+        entryTime: activeSess.entryTime || found?.entryTime || 'Active Session',
+        entryTimestamp: activeSess.entryTimestamp || found?.entryTimestamp || 0
+      }
+    }
+
     if (activeReservation && activeReservation.slotId) {
       const found = slots.find((s) => s.id === activeReservation.slotId)
       if (found) return found
       return { ...activeReservation, status: 'reserved' }
     }
+
     return slots.find(
-      (s) => (s.status === 'occupied' || s.status === 'OCCUPIED' || s.status === 'reserved' || s.status === 'RESERVED') && user?.uid && (
-        s.reservedBy === user.uid || s.userId === user.uid || s.studentId === user.uid
+      (s) => (s.status === 'occupied' || s.status === 'OCCUPIED' || s.status === 'reserved' || s.status === 'RESERVED') && currentUid && (
+        s.reservedBy === currentUid || s.userId === currentUid || s.studentId === currentUid
       )
     )
-  }, [slots, activeReservation, user])
+  }, [slots, activeSessions, activeReservation, user, userProfile, vehiclePlate])
 
   const isReserved = currentSlot && (currentSlot.status === 'reserved' || currentSlot.status === 'RESERVED')
+
+  const handleConfirmExit = async () => {
+    if (!currentSlot || isEndingParking) return
+    setIsEndingParking(true)
+    try {
+      if (onEndParkingSession) {
+        await onEndParkingSession(currentSlot)
+      }
+      setShowConfirmModal(false)
+    } catch (err) {
+      console.error('[StudentMyStatusView] End parking error:', err)
+    } finally {
+      setIsEndingParking(false)
+    }
+  }
 
   return (
     <div className="student-page-container">
@@ -186,17 +239,36 @@ export default function StudentMyStatusView({
             </div>
           </div>
 
-          <div className="msa-footer-bar">
-            <span className="text-xs text-muted">
-              🛡️ {isReserved ? 'Bay is secured exclusively for your vehicle. Scan permit at gate on arrival.' : 'Dynamic bay assigned per session. Bay will be released automatically upon Gate exit.'}
+          <div className="msa-footer-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <span className="text-xs text-muted" style={{ flex: 1, minWidth: '220px' }}>
+              🛡️ {isReserved ? 'Bay is secured exclusively for your vehicle. Scan permit at gate on arrival.' : 'You have an active parking session. When leaving college, release your slot below.'}
             </span>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => onNavigateTab && onNavigateTab('student-available-parking')}
-            >
-              View Campus Layout Map &rarr;
-            </button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {!isReserved && (
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(185, 28, 28, 0.28))',
+                    border: '1px solid rgba(239, 68, 68, 0.45)',
+                    color: '#fecaca',
+                    fontWeight: 600
+                  }}
+                  onClick={() => setShowConfirmModal(true)}
+                  disabled={isEndingParking}
+                >
+                  <LogOutIcon className="w-4 h-4 mr-1 inline" />
+                  End Parking &amp; Release Slot
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => onNavigateTab && onNavigateTab('student-available-parking')}
+              >
+                View Campus Map &rarr;
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -230,6 +302,107 @@ export default function StudentMyStatusView({
               <PlusCircleIcon className="w-4 h-4" />
               <span>Select &amp; Reserve Parking Bay</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Dialog for Ending Parking */}
+      {showConfirmModal && (
+        <div
+          className="modal-backdrop confirmation-backdrop"
+          onClick={() => !isEndingParking && setShowConfirmModal(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="confirmation-modal-card glass-card"
+            style={{ maxWidth: '440px', textAlign: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="confirm-close-btn"
+              onClick={() => !isEndingParking && setShowConfirmModal(false)}
+              disabled={isEndingParking}
+              aria-label="Cancel"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
+
+            <div className="confirm-icon-wrapper" style={{ background: 'rgba(239, 68, 68, 0.12)', borderColor: 'rgba(239, 68, 68, 0.35)', margin: '0 auto 16px' }}>
+              <LogOutIcon className="w-7 h-7 text-rose" />
+            </div>
+
+            <h3 className="confirm-title" style={{ color: '#f8fafc', letterSpacing: '0.5px', marginBottom: '8px' }}>
+              End Parking?
+            </h3>
+
+            <p style={{ margin: '0 0 18px', fontSize: '13.5px', color: '#cbd5e1', lineHeight: '1.5' }}>
+              Your parking session will be completed and this parking slot will become available for other students.
+            </p>
+
+            {currentSlot && (
+              <div
+                style={{
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  marginBottom: '20px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '10px',
+                  fontSize: '12.5px',
+                  textAlign: 'left'
+                }}
+              >
+                <div>
+                  <span style={{ color: '#94a3b8', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Parking Slot</span>
+                  <strong style={{ color: '#38bdf8', fontFamily: 'monospace', fontSize: '14px' }}>{currentSlot.id}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#94a3b8', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Vehicle</span>
+                  <strong style={{ color: '#f1f5f9', fontFamily: 'monospace', fontSize: '13px' }}>{currentSlot.plate || vehiclePlate}</strong>
+                </div>
+                <div>
+                  <span style={{ color: '#94a3b8', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Floor</span>
+                  <span style={{ color: '#cbd5e1' }}>{currentSlot.floor}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#94a3b8', display: 'block', fontSize: '11px', textTransform: 'uppercase' }}>Entry Time</span>
+                  <span style={{ color: '#cbd5e1', fontFamily: 'monospace' }}>{currentSlot.entryTime}</span>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', width: '100%' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ flex: 1, padding: '9px 16px' }}
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isEndingParking}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm"
+                style={{
+                  flex: 1,
+                  padding: '9px 16px',
+                  background: 'linear-gradient(135deg, #e11d48, #be123c)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(244, 63, 94, 0.4)',
+                  boxShadow: '0 4px 14px rgba(225, 29, 72, 0.35)',
+                  fontWeight: 600
+                }}
+                onClick={handleConfirmExit}
+                disabled={isEndingParking}
+              >
+                {isEndingParking ? 'Releasing Bay...' : 'Confirm Exit'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -24,21 +24,27 @@ export default function DashboardView({
     return () => clearInterval(timer)
   }, [isAdmin])
 
-  // Calculations
-  const totalSlots = slots.length || 160
-  const occupiedSlots = slots.filter((s) => s.status === 'occupied').length
-  const reservedSlots = slots.filter((s) => s.status === 'reserved').length
-  const availableSlots = slots.filter((s) => s.status === 'available').length
+  // Dynamic Calculations from actual slot data
+  const groundSlots = slots.filter((s) => s.floor === 'Ground Floor' || s.id?.startsWith('G-'))
+  const basementSlots = slots.filter((s) => s.floor === 'Basement' || s.id?.startsWith('B-'))
 
-  const groundSlots = slots.filter((s) => s.floor === 'Ground Floor')
-  const groundAvailable = groundSlots.filter((s) => s.status === 'available').length
-  const groundOccupied = groundSlots.filter((s) => s.status !== 'available').length
-  const groundPercent = Math.round((groundOccupied / (groundSlots.length || 1)) * 100)
+  const groundTotal = groundSlots.length || 80
+  const basementTotal = basementSlots.length || 80
+  const totalSlots = slots.length || (groundTotal + basementTotal) || 160
 
-  const basementSlots = slots.filter((s) => s.floor === 'Basement')
-  const basementAvailable = basementSlots.filter((s) => s.status === 'available').length
-  const basementOccupied = basementSlots.filter((s) => s.status !== 'available').length
-  const basementPercent = Math.round((basementOccupied / (basementSlots.length || 1)) * 100)
+  const groundOccupied = groundSlots.filter((s) => s.status === 'occupied' || s.status === 'OCCUPIED' || s.status === 'booked' || s.status === 'BOOKED').length
+  const groundReserved = groundSlots.filter((s) => s.status === 'reserved' || s.status === 'RESERVED').length
+  const groundAvailable = Math.max(0, groundTotal - groundOccupied - groundReserved)
+  const groundPercent = Math.round((groundOccupied / groundTotal) * 100) || 0
+
+  const basementOccupied = basementSlots.filter((s) => s.status === 'occupied' || s.status === 'OCCUPIED' || s.status === 'booked' || s.status === 'BOOKED').length
+  const basementReserved = basementSlots.filter((s) => s.status === 'reserved' || s.status === 'RESERVED').length
+  const basementAvailable = Math.max(0, basementTotal - basementOccupied - basementReserved)
+  const basementPercent = Math.round((basementOccupied / basementTotal) * 100) || 0
+
+  const occupiedSlots = groundOccupied + basementOccupied
+  const reservedSlots = groundReserved + basementReserved
+  const availableSlots = groundAvailable + basementAvailable
 
   // Filter currently active vehicles (Admin only)
   const activeVehicles = useMemo(() => {

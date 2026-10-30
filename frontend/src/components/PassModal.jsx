@@ -138,11 +138,16 @@ export default function PassModal({ pass, onClose }) {
 
             {/* QR Section */}
             <div className="qr-section">
+              <div className="qr-badge-header" style={{ textAlign: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1.5px', color: '#38bdf8', textTransform: 'uppercase', background: 'rgba(56, 189, 248, 0.12)', padding: '3px 10px', borderRadius: '999px', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                  PARKING ENTRY QR
+                </span>
+              </div>
               <div className="qr-image-wrap" style={{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {qrSrc && !qrError ? (
                   <img
                     src={qrSrc}
-                    alt="Campus Permit Verification QR Code"
+                    alt="Campus Parking Entry QR Code"
                     width={200}
                     height={200}
                     onError={() => setQrError(true)}
@@ -151,18 +156,21 @@ export default function PassModal({ pass, onClose }) {
                 ) : qrGenerating && !qrError ? (
                   <div style={{ width: 200, height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.6)', borderRadius: '8px' }}>
                     <div className="live-dot-pulse mb-2" style={{ background: '#38bdf8', width: 12, height: 12 }}></div>
-                    <span className="text-2xs font-mono text-muted">Generating Secure QR...</span>
+                    <span className="text-2xs font-mono text-muted">Generating Secure Entry QR...</span>
                   </div>
                 ) : (
                   <div style={{ width: 200, height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(15, 23, 42, 0.8)', borderRadius: '8px', border: '1px dashed #64748b' }}>
                     <ShieldIcon className="w-8 h-8 text-cyan mb-1" />
-                    <span className="text-2xs font-mono text-slate-300">PASS CODE</span>
+                    <span className="text-2xs font-mono text-slate-300">ENTRY PASS CODE</span>
                     <code className="text-xs font-mono text-cyan mt-1">{qrToken}</code>
                   </div>
                 )}
               </div>
-              <p className="qr-hint">
-                Scan at SOCMAC Smart Park Boom Barrier for contactless gate ingress
+              <p className="qr-hint" style={{ fontWeight: 600, color: '#e2e8f0', marginTop: '8px' }}>
+                Show this QR to Security at the parking gate
+              </p>
+              <p className="text-2xs text-muted" style={{ textAlign: 'center', marginTop: '2px', fontSize: '11px' }}>
+                Single-use entry token. Automatically activates bay occupancy at barrier ingress.
               </p>
               {qrToken && (
                 <div className="qr-token-row">
@@ -172,7 +180,7 @@ export default function PassModal({ pass, onClose }) {
                     onClick={handleCopyToken}
                     className="btn btn-sm btn-secondary"
                     style={{ padding: '4px 10px', fontSize: '11px', flexShrink: 0 }}
-                    title="Copy Token"
+                    title="Copy Entry Token"
                   >
                     {copied ? <CheckIcon className="w-3 h-3 text-emerald" /> : '📋 Copy'}
                   </button>

@@ -108,6 +108,9 @@ export const normalizeSlotBay = (rawBay) => {
 // 1. GROUND FLOOR MASTER DATA (80 TOTAL BAYS: G-01 TO G-80)
 // Designated for Scooties
 // ---------------------------------------------------------------------
+// 1. GROUND FLOOR MASTER DATA (80 TOTAL BAYS: G-01 TO G-80)
+// Designated for Scooties
+// ---------------------------------------------------------------------
 export const createInitialBayData = () => {
   const now = Date.now()
   const getOccupiedExpiry = (mins) => new Date(now + mins * 60 * 1000)
@@ -115,7 +118,7 @@ export const createInitialBayData = () => {
 
   const bays = []
 
-  // Pre-populate realistic seed data for sample spots
+  // Pre-populate realistic seed data for sample spots (G-01 to G-80 only)
   const sampleData = {
     'G-02': { status: 'occupied', assignedTo: 'Kavya Nair (CS-Year 3)', plate: 'MH-12-KN-8910', mins: 68 },
     'G-05': { status: 'occupied', assignedTo: 'Rohan Deshmukh (Mech-Final)', plate: 'MH-14-RD-4040', mins: 110 },
@@ -137,15 +140,10 @@ export const createInitialBayData = () => {
     'G-48': { status: 'reserved', assignedTo: 'Campus Facilities Director', plate: 'MH-12-ST-0048', mins: 180 },
     'G-52': { status: 'occupied', assignedTo: 'Soham Kulkarni (ECE)', plate: 'MH-12-SK-9900', mins: 70 },
     'G-65': { status: 'occupied', assignedTo: 'Priya Verma (BCA)', plate: 'MH-14-PV-1122', mins: 90 },
-    'G-72': { status: 'occupied', assignedTo: 'Amit Rathi (CS-Y1)', plate: 'MH-12-AR-7890', mins: 45 },
-    'G-85': { status: 'occupied', assignedTo: 'Nikhil Patil (Mech-Y2)', plate: 'MH-12-NP-5511', mins: 65 },
-    'G-92': { status: 'occupied', assignedTo: 'Sneha Jadhav (IT-Y3)', plate: 'MH-14-SJ-8820', mins: 110 },
-    'G-104': { status: 'reserved', assignedTo: 'Campus Security Quick-Response', plate: 'MH-12-SEC-02', mins: 180 },
-    'G-118': { status: 'occupied', assignedTo: 'Aaryan Deshpande (CS)', plate: 'MH-12-AD-4019', mins: 50 },
-    'G-132': { status: 'occupied', assignedTo: 'Pooja Hegde (MBA-Y1)', plate: 'MH-14-PH-7712', mins: 90 }
+    'G-72': { status: 'occupied', assignedTo: 'Amit Rathi (CS-Y1)', plate: 'MH-12-AR-7890', mins: 45 }
   }
 
-  for (let i = 1; i <= 140; i++) {
+  for (let i = 1; i <= 80; i++) {
     const id = `G-${String(i).padStart(2, '0')}`
     const seed = sampleData[id]
     const status = seed ? seed.status : 'available'
@@ -153,23 +151,16 @@ export const createInitialBayData = () => {
     const isOccupied = status === 'occupied' || status === 'booked'
     const statusChangesAt = isOccupied ? getOccupiedExpiry(seed.mins) : isReserved ? getReservedExpiry(seed.mins) : null
 
-    let section = 'Main Gate West Wing — Bike Grid'
+    let section = 'Accounts Department - Front Side'
     let dimensions = '1.5m × 2.6m'
-    if (i > 16 && i <= 32) {
-      section = 'Main Gate East Wing — Bike Grid'
-    } else if (i > 32 && i <= 44) {
-      section = 'Ingress West Flank — Bike Bay'
-    } else if (i > 44 && i <= 57) {
-      section = 'Ingress East Flank — Bike Bay'
-    } else if (i > 57 && i <= 80) {
-      section = i <= 68 ? 'Accounts Dept Wing — Perimeter Bay' : 'Exam IT Dept Wing — Perimeter Bay'
+    if (i > 20 && i <= 40) {
+      section = 'Accounts Department - Opposite Side'
+    } else if (i > 40 && i <= 60) {
+      section = 'Exam IT Department - Front Side'
       dimensions = '2.5m × 5.0m'
-    } else if (i > 80 && i <= 112) {
-      section = 'Central Ingress Concourse — Student Bay'
-      dimensions = '1.8m × 3.0m'
-    } else if (i > 112) {
-      section = 'South Perimeter Extension — Student Bay'
-      dimensions = '1.5m × 2.6m'
+    } else if (i > 60 && i <= 80) {
+      section = 'Exam IT Department - Opposite Side'
+      dimensions = '2.5m × 5.0m'
     }
 
     bays.push({
@@ -227,13 +218,10 @@ export const createBasementBayData = () => {
     'B-45': { status: 'occupied', assignedTo: 'Gaurav Patil (Mech-Y2)', plate: 'MH-12-GP-4545', mins: 80 },
     'B-50': { status: 'occupied', assignedTo: 'Akshay More (Civil)', plate: 'MH-14-AM-5050', mins: 60 },
     'B-62': { status: 'occupied', assignedTo: 'Kartik Iyer (MBA)', plate: 'MH-12-KI-6262', mins: 115 },
-    'B-75': { status: 'occupied', assignedTo: 'Nikhil Rathi (IT)', plate: 'MH-14-NR-7575', mins: 50 },
-    'B-88': { status: 'occupied', assignedTo: 'Aditya Kulkarni (Mech-Y3)', plate: 'MH-12-AK-8800', mins: 65 },
-    'B-102': { status: 'occupied', assignedTo: 'Saurabh Joshi (Civil)', plate: 'MH-14-SJ-1020', mins: 110 },
-    'B-120': { status: 'reserved', assignedTo: 'Campus Security Reserve', plate: 'MH-12-SEC-03', mins: 180 }
+    'B-75': { status: 'occupied', assignedTo: 'Nikhil Rathi (IT)', plate: 'MH-14-NR-7575', mins: 50 }
   }
 
-  for (let i = 1; i <= 140; i++) {
+  for (let i = 1; i <= 80; i++) {
     const id = `B-${String(i).padStart(2, '0')}`
     const seed = sampleData[id]
     const status = seed ? seed.status : 'available'
@@ -241,12 +229,10 @@ export const createBasementBayData = () => {
     const isOccupied = status === 'occupied' || status === 'booked'
     const statusChangesAt = isOccupied ? getOccupiedExpiry(seed.mins) : isReserved ? getReservedExpiry(seed.mins) : null
 
-    let section = 'P1 Bike Area (25ft)'
-    if (i > 20 && i <= 40) section = 'P2 Bike Area (25ft)'
-    else if (i > 40 && i <= 65) section = 'F1 Bike Parking Left (28ft)'
-    else if (i > 65 && i <= 90) section = 'F1 Bike Parking Right (28ft)'
-    else if (i > 90 && i <= 115) section = 'P3 Bike Parking Left (25ft)'
-    else if (i > 115) section = 'P3 Bike Parking Right (25ft)'
+    let section = 'Basement Row 1'
+    if (i > 20 && i <= 40) section = 'Basement Row 2'
+    else if (i > 40 && i <= 60) section = 'Basement Row 3'
+    else if (i > 60 && i <= 80) section = 'Basement Row 4'
 
     bays.push({
       id,
@@ -255,7 +241,7 @@ export const createBasementBayData = () => {
       type: 'bike',
       section,
       wing: 'Basement — Bikes',
-      row: i <= 40 ? 'R1' : i <= 90 ? 'R2' : 'R3',
+      row: i <= 40 ? 'R1' : 'R2',
       status,
       label: status.toUpperCase(),
       dotColor: status === 'available' ? 'green' : status === 'reserved' ? 'amber' : 'red',
@@ -274,3 +260,4 @@ export const createBasementBayData = () => {
 
 // Backwards compatibility alias
 export const createLowerGroundBayData = createBasementBayData
+

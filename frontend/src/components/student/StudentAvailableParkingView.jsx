@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../../firebase/auth'; // Adjust path if needed
 import { collection, onSnapshot } from 'firebase/firestore';
+import { isValidCanonicalSlotId, sortSlots } from '../../services/parkingService';
 import {
   CheckIcon,
   PlusCircleIcon,
@@ -19,14 +20,20 @@ export default function StudentAvailableParkingView({
 
   // Real-time Firestore subscription
   useEffect(() => {
+    if (!db) {
+      setLoading(false);
+      return;
+    }
     const unsubscribe = onSnapshot(
-      collection(db, 'parkingSlots'),
+      collection(db, 'parking_slots'),
       (snapshot) => {
         const updatedSlots = [];
         snapshot.forEach((doc) => {
-          updatedSlots.push({ id: doc.id, ...doc.data() });
+          if (isValidCanonicalSlotId(doc.id)) {
+            updatedSlots.push({ id: doc.id, ...doc.data() });
+          }
         });
-        setSlots(updatedSlots);
+        setSlots(sortSlots(updatedSlots));
         setLoading(false);
       },
       (err) => {
@@ -40,11 +47,11 @@ export default function StudentAvailableParkingView({
   }, []);
 
   const availableSlots = useMemo(() => {
-    return slots.filter((s) => s.status.toLowerCase() === 'available');
+    return slots.filter((s) => (s.status || '').toLowerCase() === 'available');
   }, [slots]);
 
-  const groundAvailable = availableSlots.filter((s) => s.floor === 'Ground Floor').length
-  const basementAvailable = availableSlots.filter((s) => s.floor === 'Basement').length
+  const groundAvailable = availableSlots.filter((s) => s.floor === 'Ground Floor' || s.id?.startsWith('G-')).length
+  const basementAvailable = availableSlots.filter((s) => s.floor === 'Basement' || s.id?.startsWith('B-')).length
 
   // Filter slots based on dropdown and floor selection
   const filteredSlots = useMemo(() => {

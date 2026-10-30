@@ -2,8 +2,6 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   createInitialBayData,
   createBasementBayData,
-  getFormattedTime,
-  generatePassId,
   getDisplaySlotId
 } from '../data/campusMasterPlanData'
 import './CampusParkingDashboard.css'
@@ -14,7 +12,8 @@ export default function CampusParkingDashboard({
   userProfile,
   onOpenBooking,
   activeReservation = null,
-  onCancelReservation = null
+  onCancelReservation = null,
+  onSelectSlot = null
 }) {
   // 1. Active Floor State (persists within same session) - 'ground' | 'basement'
   const [activeFloor, setActiveFloor] = useState(() => {
@@ -24,9 +23,9 @@ export default function CampusParkingDashboard({
     return 'ground'
   })
 
-  // 2. Master Bay State per floor (140 Ground + 140 Basement = 280 bays)
-  const [groundBays, setGroundBays] = useState(() => createInitialBayData())
-  const [basementBays, setBasementBays] = useState(() => createBasementBayData())
+  // 2. Master Bay State per floor (80 Ground + 80 Basement = 160 bays)
+  const [groundBays] = useState(() => createInitialBayData())
+  const [basementBays] = useState(() => createBasementBayData())
 
   // Fast map of live Firestore slots if available
   const liveSlotMap = useMemo(() => {
@@ -75,7 +74,7 @@ export default function CampusParkingDashboard({
   const [searchQuery, setSearchQuery] = useState('')
   const [isBlueprintMode, setIsBlueprintMode] = useState(false)
 
-  // 4. Selected Bay (Persistent Bottom Detail Bar)
+  // 4. Selected Bay (highlight on click)
   const [activeBay, setActiveBay] = useState(null)
 
   // Synchronized selected bay object
@@ -84,7 +83,7 @@ export default function CampusParkingDashboard({
     return currentBays.find(b => b.id === activeBay.id) || activeBay
   }, [currentBays, activeBay])
 
-  // Gate Info Modal State (for Ground Floor RFID Gate)
+  // Gate Info Modal State (for RFID Gate Telemetry)
   const [gateModalOpen, setGateModalOpen] = useState(false)
 
   // 5. Toast Notifications
@@ -98,13 +97,6 @@ export default function CampusParkingDashboard({
       setToast(null)
     }, 4000)
   }
-
-  // Real-time Current Clock for dynamic calculations
-  const [, setCurrentTime] = useState(new Date())
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
 
   // Calculate live counts for filters strictly from the active floor
   const totalCount = currentBays.length
@@ -145,15 +137,6 @@ export default function CampusParkingDashboard({
     )
   }
 
-  // Update bay state helper
-  const updateBay = (bayId, updater) => {
-    if (activeFloor === 'ground') {
-      setGroundBays(prev => prev.map(b => b.id === bayId ? updater(b) : b))
-    } else {
-      setBasementBays(prev => prev.map(b => b.id === bayId ? updater(b) : b))
-    }
-  }
-
   // Handle Floor Switch
   const handleFloorChange = (newFloor) => {
     if (newFloor === activeFloor) return
@@ -168,21 +151,33 @@ export default function CampusParkingDashboard({
     )
   }
 
-  // Handle Bay Click (Selects bay and updates bottom detail bar)
+  // Handle Bay Click (Only available slots are selectable for booking)
   const handleBayClick = (bay) => {
-    setActiveBay(bay)
-    // Ensure bottom booking detail bar is scrolled into view if partially below fold
-    setTimeout(() => {
-      const bar = document.getElementById('bay-detail-bar')
-      if (bar) {
-        bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (!bay) return
+
+    if (bay.status !== 'available') {
+      showToast(
+        `Bay ${bay.id} is ${bay.status === 'reserved' ? 'Reserved' : 'Booked'}`,
+        'Only Available slots can be selected for booking.',
+        'ℹ️'
+      )
+      return
+    }
+
+    // Toggle selection if clicking the same available slot
+    if (activeBay?.id === bay.id) {
+      setActiveBay(null)
+    } else {
+      setActiveBay(bay)
+      if (onSelectSlot) {
+        onSelectSlot(bay)
       }
-    }, 80)
+    }
   }
 
-  // Reserve Slot Action from Bottom Detail Bar
-  const handleReserveFromBottomBar = (bay) => {
-    if (!bay) return
+  // Handle Proceed to Book from compact action bar
+  const handleProceedToBook = () => {
+    if (!selectedBay || selectedBay.status !== 'available') return
 
     // Prevent double booking if student already has an active reservation
     if (activeReservation) {
@@ -198,89 +193,26 @@ export default function CampusParkingDashboard({
       return
     }
 
-    // If parent booking handler exists, launch booking + payment flow
     if (onOpenBooking) {
-      const live = liveSlotMap.get(bay.id)
-      onOpenBooking(
-        live || {
-          id: bay.id,
-          floor: activeFloor === 'ground' ? 'Ground Floor' : 'Basement',
-          section: bay.wing || (activeFloor === 'ground' ? 'Ground Floor — Scooters' : 'Basement — Bikes'),
-          type: activeFloor === 'ground' ? 'scooty' : 'bike'
-        },
-        'slot'
-      )
-      return
+      const live = liveSlotMap.get(selectedBay.id)
+      const slotObj = live || {
+        id: selectedBay.id,
+        floor: activeFloor === 'ground' ? 'Ground Floor' : 'Basement',
+        section: selectedBay.wing || (activeFloor === 'ground' ? 'Ground Floor — Scooters' : 'Basement — Bikes'),
+        type: activeFloor === 'ground' ? 'scooty' : 'bike',
+        status: 'available'
+      }
+      onOpenBooking(slotObj, 'slot')
     }
-
-    const now = new Date()
-    const expiryTimestamp = new Date(now.getTime() + 2 * 60 * 60 * 1000) // 2 hours
-    const passCode = generatePassId()
-    const studentOccupant = `Student Commuter (${passCode.slice(0, 8)})`
-
-    const updatedProps = {
-      status: 'reserved',
-      label: 'RESERVED',
-      dotColor: 'amber',
-      statusChangesAt: expiryTimestamp,
-      occupant: studentOccupant,
-      assignedTo: studentOccupant,
-      plate: 'MH-12-PASS-TEMP'
-    }
-
-    updateBay(bay.id, (b) => ({ ...b, ...updatedProps }))
-    setActiveBay(prev => ({ ...prev, ...updatedProps }))
-
-    showToast(
-      'Slot Reserved',
-      `Bay ${bay.id} successfully reserved until ${getFormattedTime(expiryTimestamp)}`,
-      '✅'
-    )
   }
 
-  // Cancel / Release Slot Action from Bottom Detail Bar
-  const handleCancelReservationFromBottomBar = (bay) => {
-    if (!bay) return
-
-    if (onCancelReservation) {
-      onCancelReservation(bay)
-      return
-    }
-
-    const updatedProps = {
-      status: 'available',
-      label: 'FREE',
-      dotColor: 'green',
-      statusChangesAt: null,
-      occupant: 'None (Slot Clear)',
-      assignedTo: null,
-      plate: null
-    }
-
-    updateBay(bay.id, (b) => ({ ...b, ...updatedProps }))
-    setActiveBay(prev => ({ ...prev, ...updatedProps }))
-
-    showToast(
-      'Reservation Cancelled',
-      `Bay ${bay.id} has been freed and marked Available`,
-      '🟢'
-    )
-  }
-
-  // Share Bay Action
-  const handleShareBay = (bay) => {
-    if (!bay) return
-    const shareText = `Campus Parking Slot: ${bay.id} · ${bay.wing || 'Wing'} · ${bay.status.toUpperCase()}`
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(window.location.href).catch(() => {})
-    }
-    showToast('Bay Link Copied', `${shareText} link ready to share!`, '📋')
-  }
-
-  // Keyboard escape listener to close any modals
+  // Keyboard escape listener to close any modals or clear selection
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setGateModalOpen(false)
+      if (e.key === 'Escape') {
+        setGateModalOpen(false)
+        setActiveBay(null)
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -289,44 +221,28 @@ export default function CampusParkingDashboard({
   // =========================================================================
   // RENDER HELPER FOR BAY CARDS
   // Clean 3-status system: Available (green), Reserved (amber), Booked (red)
-  // Supports standard boxy cards [] and high-density compact bike bays
   // =========================================================================
-  const renderBayCard = (bayId, isCompact = false) => {
+  const renderBayCard = (bayId) => {
     const bay = bayMap.get(bayId)
     if (!bay) return null
 
     const isMatchFilter = checkFilterMatch(bay)
     const isMatchSearch = checkSearchMatch(bay)
-    const isSelected = selectedBay?.id === bay.id
+    const isSelected = selectedBay?.id === bay.id && selectedBay?.status === 'available'
     const isHighlighted = searchQuery.trim() && isMatchSearch
 
     const isBooked = bay.status === 'booked' || bay.status === 'occupied'
     const isReserved = bay.status === 'reserved'
-    const statusText = isBooked ? 'BOOKED' : isReserved ? 'RESERVED' : 'AVAILABLE'
+    const statusText = isBooked ? 'Booked' : isReserved ? 'Reserved' : 'Available'
     const dotColor = isBooked ? 'red' : isReserved ? 'amber' : 'green'
 
     const classNames = [
-      isCompact ? 'cad-compact-bike-bay' : 'cad-standard-bay',
+      'cad-standard-bay',
       `bay-status-${statusText.toLowerCase()}`,
       isSelected ? 'bay-selected' : '',
       (!isMatchFilter || (searchQuery.trim() && !isMatchSearch)) ? 'bay-dimmed' : '',
       isHighlighted ? 'bay-match-highlight' : ''
     ].filter(Boolean).join(' ')
-
-    if (isCompact) {
-      return (
-        <div
-          key={bay.id}
-          id={`bay-${bay.id}`}
-          className={classNames}
-          onClick={() => handleBayClick(bay)}
-          title={`Bay ${bay.id} — ${statusText} • Click to select / book`}
-        >
-          <span className="cad-compact-bay-id">{bay.id.replace('G-', '')}</span>
-          <span className={`cad-compact-bay-dot ${dotColor}`} />
-        </div>
-      )
-    }
 
     return (
       <div
@@ -334,7 +250,7 @@ export default function CampusParkingDashboard({
         id={`bay-${bay.id}`}
         className={classNames}
         onClick={() => handleBayClick(bay)}
-        title={`Bay ${bay.id} — ${statusText}`}
+        title={`Bay ${bay.id} — ${statusText}${bay.status === 'available' ? ' • Click to select' : ''}`}
       >
         <div className="cad-bay-header">
           <span className="cad-bay-id-text">{bay.id}</span>
@@ -485,7 +401,7 @@ export default function CampusParkingDashboard({
       </div>
 
       {/* ====================================================================
-          2. MAIN MAP CARD (HEADER STRIP + FLOOR CANVAS + PERSISTENT BOTTOM BAR)
+          2. MAIN MAP CARD (HEADER STRIP + CLEAN 4-ZONE FLOOR CANVAS)
           ==================================================================== */}
       <div className="cad-main-card">
         
@@ -499,7 +415,7 @@ export default function CampusParkingDashboard({
               {activeFloor === 'basement' ? 'Basement Parking Layout' : 'Ground Floor Parking Layout'}
             </h1>
             <span className="cad-header-subtitle">
-              {activeFloor === 'basement' ? 'SOCMAC Smart Park • Basement — Bikes (140 Bays)' : 'SOCMAC Smart Park • Ground Floor — Two-Wheelers & Bikes (140 Bays)'}
+              {activeFloor === 'basement' ? 'SOCMAC Smart Park • Basement — Bikes (80 Bays)' : 'SOCMAC Smart Park • Ground Floor — Scooties (80 Bays)'}
             </span>
           </div>
 
@@ -521,16 +437,15 @@ export default function CampusParkingDashboard({
         </div>
 
         {/* ------------------------------------------------------------------
-            FLOOR MAP CANVAS (BOOKMYSHOW INTERACTIVE VIEWPORT)
-        ------------------------------------------------------------------ */}
-        <ParkingMapViewport activeFloor={activeFloor} selectedBay={selectedBay}>
+            FLOOR MAP CANVAS (DIRECT RESPONSIVE BLUEPRINT LAYOUT)
+            ------------------------------------------------------------------ */}
+        <ParkingMapViewport>
           {activeFloor === 'basement' ? (
             
             /* ================================================================
-               BASEMENT — MAP LAYOUT (B-01 TO B-140)
-               ─── Row 1: P1 Bike (25ft, left) | Entry/Exit Gate | P2 Bike (25ft, right)
-               ─── Row 2: F1 Parking (28ft, left) | Circulation Lane | F1 Parking (28ft, right)
-               ─── Row 3: P3 Parking (25ft, left) | Lift Core | P3 Parking (25ft, right)
+               BASEMENT — MAP LAYOUT (B-01 TO B-80)
+               ─── Row 1: Bike Front (Left: B-01..B-20) | Entry/Exit Gate | Bike Opp (Right: B-21..B-40)
+               ─── Row 2: Bike Left (Left: B-41..B-60)  | Central Pathway  | Bike Right (Right: B-61..B-80)
                ================================================================ */
             <div className="cad-map-canvas cad-ground-canvas">
 
@@ -550,13 +465,13 @@ export default function CampusParkingDashboard({
               {/* ── ROW 1: P1 Bike | Entry/Exit Gate | P2 Bike ── */}
               <div className="gf-row gf-row-top">
 
-                {/* P1 — 25ft Bike Area (Left) */}
+                {/* Left Top: Bike Area Front (B-01 to B-20) */}
                 <div className="gf-zone gf-zone-f1">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
-                      <div className="gf-zone-title">P1 · Bike Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · B-01 – B-20</div>
+                      <div className="gf-zone-title">Bike Area Front (P1)</div>
+                      <div className="gf-zone-sub">B-01 — B-20 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
@@ -564,7 +479,7 @@ export default function CampusParkingDashboard({
                   </div>
                 </div>
 
-                {/* Entry / Exit Gate */}
+                {/* Central Pathway: Entry / Exit Gate */}
                 <div
                   className="gf-gate-block"
                   onClick={() => setGateModalOpen(true)}
@@ -580,13 +495,13 @@ export default function CampusParkingDashboard({
                   </div>
                 </div>
 
-                {/* P2 — 25ft Bike Area (Right) */}
+                {/* Right Top: Bike Area Opposite (B-21 to B-40) */}
                 <div className="gf-zone gf-zone-f1">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
-                      <div className="gf-zone-title">P2 · Bike Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · B-21 – B-40</div>
+                      <div className="gf-zone-title">Bike Area Opposite (P2)</div>
+                      <div className="gf-zone-sub">B-21 — B-40 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
@@ -596,81 +511,41 @@ export default function CampusParkingDashboard({
 
               </div>
 
-              {/* ── ROW 2: F1 Parking (left) | Circulation Lane | F1 Parking (right) ── */}
+              {/* ── ROW 2: Bike Left | Central Pathway | Bike Right ── */}
               <div className="gf-row gf-row-middle">
 
-                {/* F1 — 28ft Parking (Left) */}
+                {/* Left Bottom: Bike Area Left (B-41 to B-60) */}
                 <div className="gf-zone gf-zone-f1">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
-                      <div className="gf-zone-title">F1 · Parking Area</div>
-                      <div className="gf-zone-sub">28 ft · B-41 – B-65</div>
+                      <div className="gf-zone-title">Bike Area Left (F1)</div>
+                      <div className="gf-zone-sub">B-41 — B-60 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 41).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 41).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
-                {/* Internal Circulation Lane */}
+                {/* Central Pathway */}
                 <div className="gf-circ-lane">
                   <span className="gf-circ-arrow">↓</span>
-                  <span className="gf-circ-text">LANE</span>
+                  <span className="gf-circ-text">CENTRAL PATHWAY</span>
                   <span className="gf-circ-arrow">↑</span>
                 </div>
 
-                {/* F1 — 28ft Parking (Right) */}
+                {/* Right Bottom: Bike Area Right (B-61 to B-80) */}
                 <div className="gf-zone gf-zone-f1">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🏍️</span>
                     <div>
-                      <div className="gf-zone-title">F1 · Parking Area</div>
-                      <div className="gf-zone-sub">28 ft · B-66 – B-90</div>
+                      <div className="gf-zone-title">Bike Area Right (F1)</div>
+                      <div className="gf-zone-sub">B-61 — B-80 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 66).padStart(2, '0')}`).map(id => renderBayCard(id))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* ── ROW 3: P3 Parking (left) | Lift Core | P3 Parking (right) ── */}
-              <div className="gf-row gf-row-bottom">
-
-                {/* P3 — 25ft Parking (Left) */}
-                <div className="gf-zone bsmt-zone-p3">
-                  <div className="gf-zone-header">
-                    <span className="gf-zone-icon">🏍️</span>
-                    <div>
-                      <div className="gf-zone-title">P3 · Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · B-91 – B-115</div>
-                    </div>
-                  </div>
-                  <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 91).padStart(2, '0')}`).map(id => renderBayCard(id))}
-                  </div>
-                </div>
-
-                {/* Lift Core */}
-                <div className="gf-lift-block">
-                  <div className="gf-lift-icon-wrap">🛗</div>
-                  <div className="gf-lift-label">Lift</div>
-                  <div className="gf-lift-sub">Ground Floor Access</div>
-                </div>
-
-                {/* P3 — 25ft Parking (Right) */}
-                <div className="gf-zone bsmt-zone-p3">
-                  <div className="gf-zone-header">
-                    <span className="gf-zone-icon">🏍️</span>
-                    <div>
-                      <div className="gf-zone-title">P3 · Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · B-116 – B-140</div>
-                    </div>
-                  </div>
-                  <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `B-${String(i + 116).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                    {Array.from({ length: 20 }, (_, i) => `B-${String(i + 61).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
@@ -681,10 +556,9 @@ export default function CampusParkingDashboard({
           ) : (
 
             /* ================================================================
-               GROUND FLOOR — MAP LAYOUT (G-01 TO G-140)
-               ─── Row 1: P1 Scooty (25ft, left) | Entry/Exit Gate | P2 Scooty (25ft, right)
-               ─── Row 2: F1 Parking (28ft, left) | Circulation Lane | F1 Parking (28ft, right)
-               ─── Row 3: P3 Parking (25ft, left) | Lift Core | P3 Parking (25ft, right)
+               GROUND FLOOR — MAP LAYOUT (G-01 TO G-80)
+               ─── Row 1: Accounts Front (Left: G-01..G-20) | Entry/Exit Gate | Accounts Opp (Right: G-21..G-40)
+               ─── Row 2: Exam IT Front (Left: G-41..G-60)  | Central Pathway  | Exam IT Opp (Right: G-61..G-80)
                ================================================================ */
             <div className="cad-map-canvas cad-ground-canvas">
 
@@ -701,16 +575,16 @@ export default function CampusParkingDashboard({
                 </div>
               </div>
 
-              {/* ── ROW 1: P1 Scooty | Entry/Exit | P2 Scooty ── */}
+              {/* ── ROW 1: Accounts Front | Entry/Exit | Accounts Opp ── */}
               <div className="gf-row gf-row-top">
 
-                {/* P1 — 25ft Scooty Area (Left) */}
+                {/* Left Top: Accounts Dept Front (G-01 to G-20) */}
                 <div className="gf-zone gf-zone-scooty">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🛵</span>
                     <div>
-                      <div className="gf-zone-title">P1 · Scooty Area</div>
-                      <div className="gf-zone-sub">25 ft · G-01 – G-20</div>
+                      <div className="gf-zone-title">Accounts Dept Front</div>
+                      <div className="gf-zone-sub">G-01 — G-20 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
@@ -718,7 +592,7 @@ export default function CampusParkingDashboard({
                   </div>
                 </div>
 
-                {/* Entry / Exit Gate */}
+                {/* Central Pathway: Entry / Exit Gate */}
                 <div
                   className="gf-gate-block"
                   onClick={() => setGateModalOpen(true)}
@@ -734,13 +608,13 @@ export default function CampusParkingDashboard({
                   </div>
                 </div>
 
-                {/* P2 — 25ft Scooty Area (Right) */}
+                {/* Right Top: Accounts Dept Opposite (G-21 to G-40) */}
                 <div className="gf-zone gf-zone-scooty">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🛵</span>
                     <div>
-                      <div className="gf-zone-title">P2 · Scooty Area</div>
-                      <div className="gf-zone-sub">25 ft · G-21 – G-40</div>
+                      <div className="gf-zone-title">Accounts Dept Opposite</div>
+                      <div className="gf-zone-sub">G-21 — G-40 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
@@ -750,81 +624,41 @@ export default function CampusParkingDashboard({
 
               </div>
 
-              {/* ── ROW 2: F1 Parking (left) | Circulation Lane | F1 Parking (right) ── */}
+              {/* ── ROW 2: Exam IT Front | Central Pathway | Exam IT Opp ── */}
               <div className="gf-row gf-row-middle">
 
-                {/* F1 — 28ft Parking (Left) */}
-                <div className="gf-zone gf-zone-f1">
+                {/* Left Bottom: Exam IT Front (G-41 to G-60) */}
+                <div className="gf-zone gf-zone-scooty">
                   <div className="gf-zone-header">
-                    <span className="gf-zone-icon">🏍️</span>
+                    <span className="gf-zone-icon">🛵</span>
                     <div>
-                      <div className="gf-zone-title">F1 · Parking Area</div>
-                      <div className="gf-zone-sub">28 ft · G-41 – G-65</div>
+                      <div className="gf-zone-title">Exam IT Front</div>
+                      <div className="gf-zone-sub">G-41 — G-60 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 41).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                    {Array.from({ length: 20 }, (_, i) => `G-${String(i + 41).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
-                {/* Internal Circulation Lane */}
+                {/* Central Pathway */}
                 <div className="gf-circ-lane">
                   <span className="gf-circ-arrow">↓</span>
-                  <span className="gf-circ-text">LANE</span>
+                  <span className="gf-circ-text">CENTRAL PATHWAY</span>
                   <span className="gf-circ-arrow">↑</span>
                 </div>
 
-                {/* F1 — 28ft Parking (Right) */}
-                <div className="gf-zone gf-zone-f1">
-                  <div className="gf-zone-header">
-                    <span className="gf-zone-icon">🏍️</span>
-                    <div>
-                      <div className="gf-zone-title">F1 · Parking Area</div>
-                      <div className="gf-zone-sub">28 ft · G-66 – G-90</div>
-                    </div>
-                  </div>
-                  <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 66).padStart(2, '0')}`).map(id => renderBayCard(id))}
-                  </div>
-                </div>
-
-              </div>
-
-              {/* ── ROW 3: P3 Parking (left) | Lift Core | P3 Parking (right) ── */}
-              <div className="gf-row gf-row-bottom">
-
-                {/* P3 — 25ft Parking (Left) */}
-                <div className="gf-zone gf-zone-p3">
+                {/* Right Bottom: Exam IT Opposite (G-61 to G-80) */}
+                <div className="gf-zone gf-zone-scooty">
                   <div className="gf-zone-header">
                     <span className="gf-zone-icon">🛵</span>
                     <div>
-                      <div className="gf-zone-title">P3 · Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · G-91 – G-115</div>
+                      <div className="gf-zone-title">Exam IT Opposite</div>
+                      <div className="gf-zone-sub">G-61 — G-80 • 20 Bays</div>
                     </div>
                   </div>
                   <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 91).padStart(2, '0')}`).map(id => renderBayCard(id))}
-                  </div>
-                </div>
-
-                {/* Lift Core */}
-                <div className="gf-lift-block">
-                  <div className="gf-lift-icon-wrap">🛗</div>
-                  <div className="gf-lift-label">Lift</div>
-                  <div className="gf-lift-sub">Basement Access</div>
-                </div>
-
-                {/* P3 — 25ft Parking (Right) */}
-                <div className="gf-zone gf-zone-p3">
-                  <div className="gf-zone-header">
-                    <span className="gf-zone-icon">🛵</span>
-                    <div>
-                      <div className="gf-zone-title">P3 · Parking Area</div>
-                      <div className="gf-zone-sub">25 ft · G-116 – G-140</div>
-                    </div>
-                  </div>
-                  <div className="gf-bay-grid gf-grid-5col">
-                    {Array.from({ length: 25 }, (_, i) => `G-${String(i + 116).padStart(2, '0')}`).map(id => renderBayCard(id))}
+                    {Array.from({ length: 20 }, (_, i) => `G-${String(i + 61).padStart(2, '0')}`).map(id => renderBayCard(id))}
                   </div>
                 </div>
 
@@ -835,106 +669,45 @@ export default function CampusParkingDashboard({
         </ParkingMapViewport>
 
         {/* ====================================================================
-            3. PERSISTENT BOTTOM DETAIL BAR (VISIBLE ON BOTH FLOORS ONCE SELECTED)
+            COMPACT BOOKING ACTION BAR (APPEARS ON AVAILABLE SLOT SELECTION)
             ==================================================================== */}
-        {selectedBay ? (
-          <div className="cad-bottom-detail-bar" id="bay-detail-bar">
-            
-            {/* Left: BAY ID Badge Box */}
-            <div className="cad-bottom-bay-box">
-              <span className="cad-bottom-bay-tag">BAY</span>
-              <span className="cad-bottom-bay-id">{selectedBay.id}</span>
-            </div>
-
-            {/* Center-Left: Title + Status Badge + Location Subtitle */}
-            <div className="cad-bottom-info-block">
-              <div className="cad-bottom-title-row">
-                <h3 className="cad-bottom-title">Parking Bay {selectedBay.id}</h3>
-                <span className={`cad-bottom-status-badge badge-${selectedBay.status === 'available' ? 'available' : (selectedBay.status === 'booked' || selectedBay.status === 'occupied') ? 'booked' : 'reserved'}`}>
-                  {selectedBay.status === 'available' ? 'AVAILABLE' : (selectedBay.status === 'booked' || selectedBay.status === 'occupied') ? 'BOOKED' : 'RESERVED'}
+        {selectedBay && selectedBay.status === 'available' && (
+          <div className="cad-booking-action-bar" id="cad-booking-action-bar">
+            <div className="cad-action-bar-left">
+              <div className="cad-action-badge">
+                <span className="cad-action-dot" />
+                <span className="cad-action-slot-id">{selectedBay.id}</span>
+                <span className="cad-action-selected-text">Selected</span>
+              </div>
+              <div className="cad-action-meta">
+                <span className="cad-action-floor">
+                  {activeFloor === 'basement' ? 'Basement • Bike' : 'Ground Floor • Scooty'}
                 </span>
-              </div>
-              <div className="cad-bottom-subtitle">
-                {selectedBay.wing || (activeFloor === 'ground' ? 'Ground Floor — Scooters' : 'Basement — Bikes')} {selectedBay.row ? `• ${selectedBay.row}` : ''} • Standard Parking Bay ({selectedBay.dimensions || '2.5m × 5.0m'})
-              </div>
-            </div>
-
-            {/* Center 3 Meta Columns */}
-            <div className="cad-bottom-meta-columns">
-              <div className="cad-bottom-meta-col">
-                <span className="cad-bottom-meta-label">DISTANCE TO LIFT</span>
-                <span className="cad-bottom-meta-value">{selectedBay.distanceToLift || '12m (Core Lift)'}</span>
-              </div>
-
-              <div className="cad-bottom-meta-col">
-                <span className="cad-bottom-meta-label">TARIFF / RATE</span>
-                <span className="cad-bottom-meta-value val-tariff-green">{selectedBay.tariff || 'Free w/ Student Tag'}</span>
-              </div>
-
-              <div className="cad-bottom-meta-col">
-                <span className="cad-bottom-meta-label">CURRENT STATUS</span>
-                <span className="cad-bottom-meta-value">
-                  {selectedBay.status === 'available' ? 'Available (Slot Clear)' : (selectedBay.status === 'booked' || selectedBay.status === 'occupied') ? 'Booked' : 'Reserved'}
-                </span>
+                {selectedBay.wing && (
+                  <span className="cad-action-wing">• {selectedBay.wing}</span>
+                )}
               </div>
             </div>
 
-            {/* Right: Actions */}
-            <div className="cad-bottom-actions">
-              {activeReservation && selectedBay.id?.toUpperCase() === (activeReservation.slotId || activeReservation.id?.split('-')[1] || '').toUpperCase() ? (
-                <button
-                  type="button"
-                  id="btn-cancel-my-reservation"
-                  className="cad-bottom-btn-reserved"
-                  style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)', color: '#fca5a5' }}
-                  onClick={() => handleCancelReservationFromBottomBar(selectedBay)}
-                >
-                  🗑️ Release My Bay ({selectedBay.id})
-                </button>
-              ) : selectedBay.status === 'available' ? (
-                <button
-                  type="button"
-                  id="btn-reserve-slot"
-                  className="cad-bottom-btn-reserve"
-                  onClick={() => handleReserveFromBottomBar(selectedBay)}
-                >
-                  ✓ Reserve Slot {selectedBay.id}
-                </button>
-              ) : (selectedBay.status === 'booked' || selectedBay.status === 'occupied') ? (
-                <button
-                  type="button"
-                  id="btn-occupied-status"
-                  className="cad-bottom-btn-occupied"
-                  disabled
-                >
-                  Booked till {selectedBay.statusChangesAt ? getFormattedTime(selectedBay.statusChangesAt) : '04:30 PM'}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  id="btn-cancel-reservation"
-                  className="cad-bottom-btn-reserved"
-                  onClick={() => handleCancelReservationFromBottomBar(selectedBay)}
-                >
-                  Ends at {selectedBay.statusChangesAt ? getFormattedTime(selectedBay.statusChangesAt) : '05:00 PM'} — Cancel
-                </button>
-              )}
-
+            <div className="cad-action-bar-right">
               <button
                 type="button"
-                id="btn-share-bay"
-                className="cad-bottom-btn-share"
-                onClick={() => handleShareBay(selectedBay)}
+                className="cad-btn-proceed-booking"
+                id="btn-proceed-booking"
+                onClick={handleProceedToBook}
               >
-                <span className="cad-share-symbol">⇦</span> Share
+                <span>Proceed to Book Slot</span>
+                <span className="cad-btn-arrow">→</span>
               </button>
-            </div>
-
-          </div>
-        ) : (
-          <div className="cad-bottom-detail-bar empty-placeholder">
-            <div className="cad-bottom-empty-text">
-              ✦ Click any bay on the master plan grid to inspect live telemetry, lift proximity, and slot allocation controls.
+              <button
+                type="button"
+                className="cad-btn-action-clear"
+                onClick={() => setActiveBay(null)}
+                title="Deselect slot"
+                aria-label="Deselect slot"
+              >
+                &times;
+              </button>
             </div>
           </div>
         )}
@@ -942,7 +715,7 @@ export default function CampusParkingDashboard({
       </div>
 
       {/* ====================================================================
-          MODAL: MAIN GATE AUTOMATED RFID TELEMETRY (Ground floor only)
+          MODAL: MAIN GATE AUTOMATED RFID TELEMETRY (RFID Gate Details)
           ==================================================================== */}
       {gateModalOpen && (
         <div className="cad-modal-backdrop" onClick={() => setGateModalOpen(false)}>

@@ -336,33 +336,49 @@ export default function GatePermitScannerView({
           )}
 
           {/* Quick Test Chips (Available in both modes) */}
-          {testItems.length > 0 && (
-            <div className="recent-permits-box mt-3">
-              <span className="recent-label">
-                {reservedSlots.length > 0 ? 'Active Reserved Slots in Firestore:' : 'Sample Vehicle Passes:'}
-              </span>
-              <div className="recent-permits-scroll">
-                {testItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="recent-permit-chip"
-                    onClick={() => {
-                      setTokenInput(item.token)
-                      setScannedPlate(item.plate)
-                      executeVerification(item.token, item.plate)
-                    }}
-                    disabled={isVerifying}
-                    title={`Click to test pass for ${item.owner || item.label}`}
-                  >
-                    <span className="chip-pass">{item.id}</span>
-                    <span className="chip-plate">{item.plate}</span>
-                    <span className="chip-tier">{item.type}</span>
-                  </button>
-                ))}
-              </div>
+          <div className="recent-permits-box mt-3">
+            <span className="recent-label">
+              {reservedSlots.length > 0 ? 'Active Reserved Slots in Firestore:' : 'Quick Test Simulators:'}
+            </span>
+            <div className="recent-permits-scroll">
+              {testItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="recent-permit-chip"
+                  onClick={() => {
+                    setTokenInput(item.token)
+                    setScannedPlate(item.plate)
+                    executeVerification(item.token, item.plate)
+                  }}
+                  disabled={isVerifying}
+                  title={`Click to test pass for ${item.owner || item.label}`}
+                >
+                  <span className="chip-pass">{item.id}</span>
+                  <span className="chip-plate">{item.plate}</span>
+                  <span className="chip-tier">{item.type}</span>
+                </button>
+              ))}
+
+              {/* Explicit Test Chip for Payment QR Refusal */}
+              <button
+                type="button"
+                className="recent-permit-chip"
+                style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.1)' }}
+                onClick={() => {
+                  const samplePaymentQr = 'upi://pay?pa=parking.soc@upi&pn=SOCMAC%20Smart%20Park&am=10.00&cu=INR&tn=SOCMAC-G-01-MH12AB1234'
+                  setTokenInput(samplePaymentQr)
+                  executeVerification(samplePaymentQr, '')
+                }}
+                disabled={isVerifying}
+                title="Test Gate refusal on Payment QR"
+              >
+                <span className="chip-pass" style={{ color: '#f87171' }}>💳 Test Payment QR Refusal</span>
+                <span className="chip-plate">upi://pay...</span>
+                <span className="chip-tier" style={{ color: '#f87171' }}>Reject (₹10)</span>
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Right: Real-time Telemetry & Boom Barrier Simulation */}

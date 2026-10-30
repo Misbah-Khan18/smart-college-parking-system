@@ -18,7 +18,10 @@ export default function MetroGatePaymentGateway({
   const [upiQrSrc, setUpiQrSrc] = useState('')
   const [isProcessing, setIsProcessing] = useState(false)
   const [isPaid, setIsPaid] = useState(false)
-  const [statusMessage, setStatusMessage] = useState('Scan QR to pay ₹10')
+  const [statusMessage, setStatusMessage] = useState('Awaiting Confirmation')
+  const [appLaunchNotice, setAppLaunchNotice] = useState(null)
+  const [copiedVpa, setCopiedVpa] = useState(false)
+
   const [cameraActive, setCameraActive] = useState(false)
   const [cameraError, setCameraError] = useState(null)
   const [facingMode, setFacingMode] = useState('environment') // 'environment' | 'user'
@@ -33,14 +36,15 @@ export default function MetroGatePaymentGateway({
   const studentName = bookingData?.owner || bookingData?.userName || 'Student'
   const vehicleType = bookingData?.vehicleType || 'scooty'
 
-  // Standard NPCI UPI Payment URI
-  const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_VPA)}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${encodeURIComponent(fee.toFixed(2))}&cu=INR&tn=${encodeURIComponent(`SOCMAC-${slotId}-${plate}`)}`
+  // Standard NPCI UPI URI with correctly encoded parameters
+  const txnNote = `SOCMAC-${slotId}-${plate}`
+  const upiLink = `upi://pay?pa=${encodeURIComponent(UPI_VPA)}&pn=${encodeURIComponent(MERCHANT_NAME)}&am=${encodeURIComponent(fee.toFixed(2))}&cu=INR&tn=${encodeURIComponent(txnNote)}`
 
   // ── Generate QR Code ──
   useEffect(() => {
     let active = true
     QRCode.toDataURL(upiLink, {
-      width: 220,
+      width: 200,
       margin: 2,
       color: {
         dark: '#030712',
@@ -59,6 +63,39 @@ export default function MetroGatePaymentGateway({
       active = false
     }
   }, [upiLink])
+
+  // ── Clipboard VPA Copy Handler ──
+  const handleCopyVpa = async () => {
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(UPI_VPA)
+        setCopiedVpa(true)
+        setTimeout(() => setCopiedVpa(false), 2200)
+      } else {
+        const textArea = document.createElement('textarea')
+        textArea.value = UPI_VPA
+        textArea.style.position = 'fixed'
+        textArea.style.opacity = '0'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        const successful = document.execCommand('copy')
+        document.body.removeChild(textArea)
+        if (successful) {
+          setCopiedVpa(true)
+          setTimeout(() => setCopiedVpa(false), 2200)
+        }
+      }
+    } catch (err) {
+      console.warn('[MetroGatePaymentGateway] Copy VPA failed:', err)
+    }
+  }
+
+  // ── UPI Launch Handler ──
+  const handleUpiLaunch = () => {
+    setStatusMessage('Awaiting Confirmation')
+    setAppLaunchNotice('Opening UPI app... Once payment is completed in your app, confirm below to generate your entry pass.')
+  }
 
   // ── Camera Cleanup ──
   const stopCamera = useCallback(async () => {
@@ -81,12 +118,12 @@ export default function MetroGatePaymentGateway({
     }
   }, [])
 
-  // ── Success Flow ──
+  // ── Success Flow (Only invoked via explicit demo confirmation) ──
   const completePayment = useCallback(() => {
     playSuccessChime()
     setIsProcessing(false)
     setIsPaid(true)
-    setStatusMessage(`Payment of ₹${fee} verified!`)
+    setStatusMessage(`Payment of ₹${fee} verified (Demo)!`)
 
     setTimeout(() => {
       if (onPaymentSuccess) {
@@ -100,13 +137,14 @@ export default function MetroGatePaymentGateway({
     }, 1000)
   }, [bookingData, fee, onPaymentSuccess])
 
+  // ── QR Detected from Camera (Redirects to explicit confirmation) ──
   const handleQrDetected = useCallback(() => {
     playScannerBeep()
     stopCamera()
-    setIsProcessing(true)
-    setStatusMessage('Verifying payment...')
-    setTimeout(completePayment, 1200)
-  }, [completePayment, stopCamera])
+    setActiveTab('upi')
+    setStatusMessage('Awaiting Confirmation')
+    setAppLaunchNotice('Payment QR detected. Please confirm completion below to generate your entry pass.')
+  }, [stopCamera])
 
   // ── Camera Start ──
   const startCamera = useCallback(async (mode = facingMode) => {
@@ -182,6 +220,7 @@ export default function MetroGatePaymentGateway({
   }
 
   const handleManualConfirm = () => {
+    if (isProcessing || isPaid) return
     playScannerBeep()
     setIsProcessing(true)
     setStatusMessage('Verifying payment...')
@@ -202,7 +241,7 @@ export default function MetroGatePaymentGateway({
         {/* Header */}
         <div className="metro-station-banner">
           <div className="metro-station-name">
-            <span className="metro-logo">🚇</span>
+            <span className="metro-logo" aria-hidden="true">🚇</span>
             <div>
               <h3>Entry Gate Payment</h3>
               <p>Campus Parking &bull; Lane 2</p>
@@ -225,14 +264,14 @@ export default function MetroGatePaymentGateway({
           {/* Bay and vehicle summary */}
           <div className="metro-screen-top">
             <div className="metro-bay-tag">
-              <span className="bay-pin">📍</span>
+              <span className="bay-pin" aria-hidden="true">📍</span>
               <span className="bay-id font-mono font-bold">Bay {slotId}</span>
               <span className="bay-type">({vehicleType === 'bike' ? 'Basement' : 'Ground Floor'})</span>
             </div>
             <div className="metro-fee-pill">
               <span className="fee-currency">₹</span>
               <span className="fee-number font-mono">{fee}</span>
-              <span className="fee-tag">ENTRY FEE</span>
+              <span className="fee-tag">{fee === 300 ? 'MONTHLY PASS' : 'ENTRY FEE'}</span>
             </div>
           </div>
 
@@ -287,10 +326,19 @@ export default function MetroGatePaymentGateway({
                   </button>
                 </div>
 
-                {/* Tab 1: UPI QR */}
+                {/* Tab 1: UPI QR & App (Original Layout Restored) */}
                 {activeTab === 'upi' && (
                   <div className="upi-tab-view">
-                    <p className="upi-instruction">
+                    <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '1.5px', color: '#f59e0b', textTransform: 'uppercase', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '999px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                        PAYMENT QR
+                      </span>
+                    </div>
+
+                    <p className="upi-instruction" style={{ fontWeight: 600, color: '#f8fafc', marginBottom: '2px' }}>
+                      Use this QR for payment only
+                    </p>
+                    <p className="text-2xs text-muted" style={{ textAlign: 'center', marginBottom: '8px', fontSize: '11px' }}>
                       Scan with Google Pay, PhonePe, or any UPI app to pay <strong>₹{fee}</strong>
                     </p>
 
@@ -298,7 +346,7 @@ export default function MetroGatePaymentGateway({
                       {upiQrSrc ? (
                         <img
                           src={upiQrSrc}
-                          alt="UPI Payment QR"
+                          alt={`UPI Payment QR for ₹${fee} to ${UPI_VPA}`}
                           width={200}
                           height={200}
                           className="metro-upi-qr-image"
@@ -310,6 +358,7 @@ export default function MetroGatePaymentGateway({
                       )}
                     </div>
 
+                    {/* Compact Provider Pills + Copy UPI ID */}
                     <div className="upi-providers-list">
                       <span className="provider-pill">GPay</span>
                       <span className="provider-pill">PhonePe</span>
@@ -317,10 +366,43 @@ export default function MetroGatePaymentGateway({
                       <span className="provider-pill">BHIM</span>
                     </div>
 
+                    <div className="vpa-copy-compact-row">
+                      <button
+                        type="button"
+                        className="btn-copy-vpa-compact font-mono"
+                        onClick={handleCopyVpa}
+                        aria-label={`Copy UPI ID ${UPI_VPA}`}
+                      >
+                        {copiedVpa ? (
+                          <span className="text-emerald font-bold">✓ UPI ID Copied!</span>
+                        ) : (
+                          <span>📋 Copy UPI ID: <strong>{UPI_VPA}</strong></span>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* App Notice Banner if UPI link was clicked */}
+                    {appLaunchNotice && (
+                      <div className="app-launch-notice" role="status">
+                        <span className="notice-icon" aria-hidden="true">ℹ️</span>
+                        <span>{appLaunchNotice}</span>
+                      </div>
+                    )}
+
+                    {/* Warning: Payment QR cannot be used for entry */}
+                    <div className="payment-warning-banner">
+                      <span className="text-xs">
+                        ⚠️ <strong>Payment QR cannot be used for parking entry.</strong> Your gate entry pass will be generated after payment.
+                      </span>
+                    </div>
+
+                    {/* Action Buttons: Blue Launch Button + Green Confirmation Button */}
                     <div className="upi-action-buttons">
                       <a
                         href={upiLink}
                         className="btn-launch-upi"
+                        onClick={handleUpiLaunch}
+                        aria-label={`Open in UPI App to pay ₹${fee}`}
                       >
                         <span>📲 Open in UPI App (GPay / PhonePe)</span>
                       </a>
@@ -329,11 +411,31 @@ export default function MetroGatePaymentGateway({
                         type="button"
                         id="btn-confirm-metro-upi"
                         className="btn-instant-confirm"
+                        disabled={isProcessing}
                         onClick={handleManualConfirm}
                       >
-                        <span>✅ I Have Completed Payment (₹{fee})</span>
+                        {isProcessing ? (
+                          <span>Verifying Payment...</span>
+                        ) : (
+                          <span>✅ I Have Completed Payment (Demo Confirmation)</span>
+                        )}
                       </button>
                     </div>
+
+                    {/* Mandatory Demo Disclosure Text */}
+                    <p className="demo-disclosure-text">
+                      Demonstration mode: this confirmation simulates payment completion for college project evaluation. Opening a payment app or scanning the QR code does not verify that money was transferred.
+                    </p>
+
+                    {!isProcessing && !isPaid && (
+                      <button
+                        type="button"
+                        className="btn-cancel-payment"
+                        onClick={onCancel}
+                      >
+                        Cancel / Back
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -377,7 +479,7 @@ export default function MetroGatePaymentGateway({
                           className="btn-test-scan text-xs"
                           onClick={handleQrDetected}
                         >
-                          ⚡ Test QR Scan Verification
+                          ⚡ Test QR Detection
                         </button>
                       </div>
                     </div>

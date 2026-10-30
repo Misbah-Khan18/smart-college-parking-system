@@ -191,7 +191,15 @@ export default function PaymentModal({ bookingData, onPaymentSuccess, onClose })
 
             {/* QR Code */}
             <div className="payment-qr-section">
-              <p className="qr-scan-label">📷 Scan with any UPI app</p>
+              <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '1.5px', color: '#f59e0b', textTransform: 'uppercase', background: 'rgba(245, 158, 11, 0.15)', padding: '2px 8px', borderRadius: '999px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                  PAYMENT QR (UPI)
+                </span>
+              </div>
+              <p className="qr-scan-label" style={{ fontWeight: 600 }}>📷 Use this QR for payment only</p>
+              <p className="text-2xs text-muted" style={{ textAlign: 'center', fontSize: '11px', marginTop: '2px', marginBottom: '8px' }}>
+                Scan with Google Pay, PhonePe, Paytm, or any UPI app
+              </p>
               <div className="payment-qr-box">
                 <UPIQRCode upiLink={upiLink} size={200} />
               </div>
@@ -201,6 +209,12 @@ export default function PaymentModal({ bookingData, onPaymentSuccess, onClose })
                 <span>🔵 Paytm</span>
                 <span>🟠 BHIM</span>
               </div>
+            </div>
+
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '6px', padding: '6px 10px', margin: '10px 0', textAlign: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#fca5a5' }}>
+                ⚠️ <strong>Payment QR cannot be used for parking entry.</strong>
+              </span>
             </div>
 
             {/* Or tap to open app */}

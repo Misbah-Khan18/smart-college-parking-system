@@ -1,10 +1,443 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Development / College Campus Simulation:
-    // Allow seamless access across client demo users, RFID gates, admin scanners, and real-time bay reservations
-    match /{document=**} {
-      allow read, write: if true;
+
+    // =========================================================================
+    // AUTHORIZATION HELPERS
+    // =========================================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isKnownAdmin() {
+      return isAuthenticated() && (
+        request.auth.uid == 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1' ||
+        request.auth.token.email == 'shaikhalzuni123@gmail.com'
+      );
+    }
+
+    function isFirestoreAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Security Admin'];
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        isKnownAdmin() ||
+        (request.auth.token != null && 'role' in request.auth.token && request.auth.token.role in ['Admin', 'Security Admin']) ||
+        isFirestoreAdmin()
+      );
+    }
+
+    function isValidSlotId(slotId) {
+      return slotId is string && slotId.matches('^[GB]-(0[1-9]|[1-7][0-9]|80)$');
+    }
+
+    function isGroundScooty(slotId, floor, vehicleType) {
+      return slotId.matches('^G-(0[1-9]|[1-7][0-9]|80)$') &&
+        floor == 'Ground Floor' &&
+        (vehicleType in ['scooty', 'Scooty']);
+    }
+
+    function isBasementBike(slotId, floor, vehicleType) {
+      return slotId.matches('^B-(0[1-9]|[1-7][0-9]|80)$') &&
+        floor == 'Basement' &&
+        (vehicleType in ['bike', 'motorcycle', 'Bike', 'Motorcycle']);
+    }
+
+    function isCompatibleSlotVehicle(slotId, floor, vehicleType) {
+      return isGroundScooty(slotId, floor, vehicleType) ||
+        isBasementBike(slotId, floor, vehicleType);
+    }
+
+    function hasNoGuardFields(data) {
+      return !('guardUid' in data) &&
+        !('gateEnteredAt' in data) &&
+        !('exitGuardUid' in data) &&
+        !('gateExitedAt' in data);
+    }
+
+    // =========================================================================
+    // USERS COLLECTION
+    // =========================================================================
+    match /users/{userId} {
+      // Students can read their own user document; Admins can read all user records
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        isAdmin()
+      );
+
+      // Students can only create their own user document with role 'Student'
+      // Only Admins can create administrative profiles
+      allow create: if isAuthenticated() && (
+        (request.auth.uid == userId && (request.resource.data.role == 'Student' || isAdmin())) ||
+        isAdmin()
+      );
+
+      // Students can update their own profile fields, but MUST NOT elevate their role
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == userId && (
+          request.resource.data.role == resource.data.role ||
+          isAdmin()
+        )) ||
+        isAdmin()
+      );
+
+      // Only Admins can delete user profiles
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // REGISTERED VEHICLES COLLECTION
+    // =========================================================================
+    match /registered_vehicles/{vehicleId} {
+      // Students can read only their own vehicle registrations; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Students can register vehicles under their own UID; Admins can manage all
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Students can update only their own vehicles without reassigning ownership
+      allow update: if isAuthenticated() && (
+        (resource.data.studentId == request.auth.uid && request.resource.data.studentId == request.auth.uid) ||
+        isAdmin()
+      );
+
+      // Students can delete only their own vehicles; Admins can manage all
+      allow delete: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // =========================================================================
+    // PARKING SLOTS COLLECTION
+    // =========================================================================
+    match /parking_slots/{slotId} {
+      // All authenticated users can read parking slot occupancy status
+      allow read: if isAuthenticated();
+
+      // Creation allowed for Admins during initial seed, or during reservation of unseeded bays
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          isValidSlotId(slotId) &&
+          request.resource.data.status == 'reserved' &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.reservedBy == request.auth.uid &&
+          (!('studentId' in request.resource.data) || request.resource.data.studentId == request.auth.uid) &&
+          isCompatibleSlotVehicle(slotId, request.resource.data.floor, ('type' in request.resource.data ? request.resource.data.type : request.resource.data.vehicleType)) &&
+          hasNoGuardFields(request.resource.data) &&
+          request.resource.data.reservationId is string &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.slotId == slotId &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.status in ['active', 'pending']
+        )
+      );
+
+      // Slot state transitions:
+      // 1. Admins have full management authority (ingress, egress, administrative override)
+      // 2. Students can ONLY reserve an available slot for their own authenticated UID with matching vehicle/floor and coupled reservation
+      // 3. Students can ONLY release a reserved slot they currently own back to available (cannot release occupied slots or modify admin fields)
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        // Student reserving an available slot
+        (
+          resource.data.status == 'available' &&
+          request.resource.data.status == 'reserved' &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.reservedBy == request.auth.uid &&
+          (!('studentId' in request.resource.data) || request.resource.data.studentId == request.auth.uid) &&
+          isValidSlotId(slotId) &&
+          isCompatibleSlotVehicle(slotId, request.resource.data.floor, ('type' in request.resource.data ? request.resource.data.type : request.resource.data.vehicleType)) &&
+          hasNoGuardFields(request.resource.data) &&
+          request.resource.data.reservationId is string &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.slotId == slotId &&
+          getAfter(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.status in ['active', 'pending']
+        ) ||
+        // Student releasing their own reserved slot back to available
+        (
+          resource.data.status == 'reserved' &&
+          request.resource.data.status == 'available' &&
+          (resource.data.userId == request.auth.uid ||
+           resource.data.reservedBy == request.auth.uid ||
+           resource.data.studentId == request.auth.uid) &&
+          hasNoGuardFields(request.resource.data)
+        )
+      );
+
+      // Only Admins can delete parking slot documents
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // RESERVATIONS COLLECTION
+    // =========================================================================
+    match /reservations/{reservationId} {
+      // Students can read only their own reservations; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.reservedBy == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Students can create reservations for themselves only:
+      // - Must own the reservation (userId, reservedBy, studentId)
+      // - Can only create in 'active' or 'pending' status (never 'in_use', 'completed', or 'cancelled')
+      // - Entry QR must be ACTIVE or PENDING if present
+      // - Valid canonical slot ID and floor/vehicle type compatibility
+      // - Legitimate permit amount (₹0 exempt, ₹10 daily, ₹300 monthly, ₹1200 semester)
+      // - Atomic coupling with parking slot reservation via getAfter()
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.reservedBy == request.auth.uid &&
+          (!('studentId' in request.resource.data) || request.resource.data.studentId == request.auth.uid) &&
+          request.resource.data.status in ['active', 'pending'] &&
+          (!('entryQrStatus' in request.resource.data) || request.resource.data.entryQrStatus in ['ACTIVE', 'PENDING']) &&
+          isValidSlotId(request.resource.data.slotId) &&
+          isCompatibleSlotVehicle(request.resource.data.slotId, request.resource.data.floor, ('vehicleType' in request.resource.data ? request.resource.data.vehicleType : request.resource.data.type)) &&
+          ('amountPaidINR' in request.resource.data &&
+            request.resource.data.amountPaidINR is number &&
+            request.resource.data.amountPaidINR in [0, 10, 300, 1200]) &&
+          hasNoGuardFields(request.resource.data) &&
+          getAfter(/databases/$(database)/documents/parking_slots/$(request.resource.data.slotId)).data.status == 'reserved' &&
+          getAfter(/databases/$(database)/documents/parking_slots/$(request.resource.data.slotId)).data.userId == request.auth.uid &&
+          getAfter(/databases/$(database)/documents/parking_slots/$(request.resource.data.slotId)).data.reservedBy == request.auth.uid
+        )
+      );
+
+      // Students can update/cancel only their own reservations:
+      // - Ownership fields are immutable
+      // - Cannot transition to 'in_use' or 'completed' (admin/guard only at gate)
+      // - Cannot mark entry QR as USED
+      // - Can only cancel active/pending reservation, or keep status unchanged
+      // - Cannot inject guard audit fields (guardUid, gateEnteredAt, exitGuardUid, gateExitedAt)
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          (resource.data.userId == request.auth.uid ||
+           resource.data.reservedBy == request.auth.uid ||
+           resource.data.studentId == request.auth.uid) &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.reservedBy == resource.data.reservedBy &&
+          (!('studentId' in request.resource.data) || !('studentId' in resource.data) || request.resource.data.studentId == resource.data.studentId) &&
+          request.resource.data.slotId == resource.data.slotId &&
+          hasNoGuardFields(request.resource.data) &&
+          (
+            // Cancellation: active/pending -> cancelled
+            (resource.data.status in ['active', 'pending'] && request.resource.data.status == 'cancelled') ||
+            // Non-status update preserving current active/pending status
+            (request.resource.data.status == resource.data.status && resource.data.status in ['active', 'pending'])
+          ) &&
+          // Cannot forge entry QR usage
+          (!('entryQrStatus' in request.resource.data) ||
+            request.resource.data.entryQrStatus == resource.data.entryQrStatus ||
+            (request.resource.data.status == 'cancelled' && request.resource.data.entryQrStatus == 'CANCELLED'))
+        )
+      );
+
+      // Only Admins can delete reservation records
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // PARKING SESSIONS COLLECTION
+    // =========================================================================
+    match /parking_sessions/{sessionId} {
+      // Students can read their own active/completed sessions; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Admins manage active sessions (gate ingress); Students can only create completed record if session was untracked
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (request.resource.data.studentId == request.auth.uid &&
+         request.resource.data.status == 'completed')
+      );
+
+      // Admins manage sessions (gate egress); Students can only complete their own active session
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        ((resource.data.studentId == request.auth.uid || resource.data.userId == request.auth.uid) &&
+         (request.resource.data.studentId == resource.data.studentId || !('studentId' in request.resource.data)) &&
+         request.resource.data.status == 'completed')
+      );
+
+      // Only Admins can delete parking session records
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // PARKING HISTORY COLLECTION
+    // =========================================================================
+    match /parking_history/{historyId} {
+      // Students can read only their own history logs; Admins can read all
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // History records are immutable audit logs created upon session completion
+      allow create: if isAuthenticated() && (
+        (request.resource.data.studentId == request.auth.uid && request.resource.data.status == 'Completed') ||
+        isAdmin()
+      );
+
+      // History logs cannot be modified by ordinary users
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // =========================================================================
+    // WRONG PARKING REPORTS COLLECTION
+    // =========================================================================
+    match /wrong_parking_reports/{reportId} {
+      // Students can view notices related to their own vehicle/slot or their own reports; Admins can view all
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.studentId == request.auth.uid ||
+        (resource.data.reporterUid != null && resource.data.reporterUid == request.auth.uid) ||
+        isAdmin()
+      );
+
+      // Admins issue violation notices; Students can report violations
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          request.resource.data.source == 'student_report' &&
+          request.resource.data.reporterUid == request.auth.uid &&
+          request.resource.data.studentId == request.auth.uid &&
+          request.resource.data.status == 'Pending' &&
+          request.resource.data.vehicleNumber is string &&
+          request.resource.data.vehicleNumber.size() >= 3 &&
+          request.resource.data.floor in ['Ground Floor', 'Basement', 'Driveway / Ramp', 'Other'] &&
+          request.resource.data.reason in [
+            'Floor Mismatch',
+            'Blocking Driveway or Ramp',
+            'Parked Outside Designated Bay',
+            'Parked in Reserved Bay',
+            'Double Parked / Obstruction',
+            'Unauthorized Vehicle',
+            'Other',
+            'floor_mismatch',
+            'blocking_driveway',
+            'outside_bay',
+            'reserved_bay',
+            'double_parked',
+            'unauthorized',
+            'other'
+          ] &&
+          request.resource.data.adminNote == null &&
+          request.resource.data.resolvedAt == null &&
+          request.resource.data.resolvedBy == null
+        )
+      );
+
+      // Only admins can update reports; student report ownership and source are immutable
+      allow update: if isAuthenticated() && isAdmin() && (
+        resource.data.source != 'student_report' || (
+          request.resource.data.source == resource.data.source &&
+          request.resource.data.reporterUid == resource.data.reporterUid &&
+          request.resource.data.studentId == resource.data.studentId
+        )
+      );
+
+      // Admins resolve notices; Students can clear notices linked to their own slot on session release
+      // Student-submitted reports (source == 'student_report') CANNOT be deleted by students
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        (resource.data.source != 'student_report' &&
+         (resource.data.userId == request.auth.uid || resource.data.studentId == request.auth.uid))
+      );
+    }
+
+    // =========================================================================
+    // NOTIFICATIONS COLLECTION
+    // =========================================================================
+    match /notifications/{notificationId} {
+      // Users can read notifications addressed specifically to them or broadcast to ALL
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.userId == 'ALL' ||
+        isAdmin()
+      );
+
+      // Students can ONLY create notifications addressed to their own UID
+      // Admins & Security Admins can dispatch notifications to students or broadcast to ALL
+      allow create: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Users can only update their own notifications (e.g. mark as read)
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Users can only delete their own read notifications
+      allow delete: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && resource.data.read == true) ||
+        isAdmin()
+      );
+    }
+
+    // =========================================================================
+    // PAYMENTS COLLECTION (FINANCIAL AUDIT LEDGER)
+    // =========================================================================
+    match /payments/{paymentId} {
+      // Students can read ONLY their own payments; Admins can read all payments
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Payments can only be created upon legitimate student slot reservation:
+      // 1. Authenticated user matching userId
+      // 2. Verified successful payment status
+      // 3. Exact valid parking fee (₹10 standard daily, ₹300 monthly pass, ₹1200 semester pass)
+      // 4. Bound to a valid, existing reservation owned by the authenticated student
+      // 5. SlotId on payment matches the slotId on the reservation
+      // 6. Payment amount matches the amountPaidINR on the reservation
+      // 7. Deterministic paymentId matching PAY-{reservationId}
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        (
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.paymentStatus in ['SUCCESS', 'PAID'] &&
+          request.resource.data.amount is number &&
+          request.resource.data.amount in [10, 300, 1200] &&
+          request.resource.data.reservationId is string &&
+          paymentId == 'PAY-' + request.resource.data.reservationId &&
+          exists(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)) &&
+          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.userId == request.auth.uid &&
+          'amountPaidINR' in get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data &&
+          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.amountPaidINR is number &&
+          get(/databases/$(database)/documents/reservations/$(request.resource.data.reservationId)).data.amountPaidINR == request.resource.data.amount
+        )
+      );
+
+      // Financial audit records are strictly immutable — updates are strictly forbidden
+      allow update: if false;
+
+      // Payment records cannot be deleted — immutable audit log
+      allow delete: if false;
     }
   }
 }

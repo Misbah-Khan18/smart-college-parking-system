@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   SearchIcon
 } from './Icons'
@@ -17,6 +17,20 @@ export default function ParkingLotMap({
   const [localSelectedId, setLocalSelectedId] = useState(null)
 
   const selectedSlotId = controlledSelectedId !== undefined ? controlledSelectedId : localSelectedId
+
+  // Auto-switch to floor containing the controlled selected slot (e.g. newly entered vehicle)
+  useEffect(() => {
+    if (controlledSelectedId) {
+      const matchedSlot = slots.find((s) => s.id === controlledSelectedId)
+      if (matchedSlot && matchedSlot.floor) {
+        setSelectedFloor(matchedSlot.floor)
+      } else if (controlledSelectedId.startsWith('B')) {
+        setSelectedFloor('Basement')
+      } else if (controlledSelectedId.startsWith('G')) {
+        setSelectedFloor('Ground Floor')
+      }
+    }
+  }, [controlledSelectedId, slots])
 
   // Filter slots for current floor and search criteria
   const floorSlots = useMemo(() => {
@@ -186,14 +200,17 @@ export default function ParkingLotMap({
             )
             const canManage = isAdmin || isOwner
 
+            const isControlledHighlight = Boolean(controlledSelectedId && controlledSelectedId === slot.id)
+
             return (
               <div
                 key={slot.id}
-                className={`slot-box ${slot.status} ${isSelected ? 'selected' : ''}`}
+                className={`slot-box ${slot.status} ${isSelected ? 'selected' : ''} ${isControlledHighlight ? 'assigned-vehicle-focus' : ''}`}
                 onClick={() => handleSlotClick(slot)}
               >
                 <div className="slot-box-header">
                   <span className="slot-id font-mono">{slot.id}</span>
+                  {isControlledHighlight && <span className="slot-assigned-pin-badge">🎯 ASSIGNED</span>}
                   <span className="slot-type-icon">{isScooty ? '🛵' : '🏍️'}</span>
                 </div>
 

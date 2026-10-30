@@ -14,6 +14,7 @@ import {
 import { auth, db } from '../firebase/firebase.js'
 import { normalizePlate } from './vehicleService.js'
 import { calculateAuthoritativeDuration } from '../utils/timerUtils.js'
+import { createNotification } from './notificationService.js'
 
 const SESSIONS_COLLECTION = 'parking_sessions'
 const HISTORY_COLLECTION = 'parking_history'
@@ -106,7 +107,8 @@ export async function endParkingSession({
   vehicleType = '',
   floor = '',
   entryTime = null,
-  entryTimestamp = null
+  entryTimestamp = null,
+  requestingUserId = ''
 }) {
   if (!db) throw new Error('Firestore is not available.')
   const cleanPlate = normalizePlate(vehicleNumber)
@@ -173,6 +175,26 @@ export async function endParkingSession({
     throw new Error('Vehicle is not currently parked.')
   }
 
+  // Security Check: If requestingUserId is supplied, verify session ownership
+  if (requestingUserId) {
+    const sessStudentId = sessionData.studentId || ''
+    const slotStudentId = slotData.studentId || slotData.userId || slotData.reservedBy || ''
+    const sessRoll = (sessionData.rollNumber || '').toUpperCase().trim()
+    const reqRoll = (rollNumber || '').toUpperCase().trim()
+    const sessPlateComp = (sessionData.vehicleNumber || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
+    const reqPlateComp = cleanPlate.replace(/[^A-Z0-9]/g, '').toUpperCase()
+
+    const isOwner =
+      (sessStudentId && sessStudentId === requestingUserId) ||
+      (slotStudentId && slotStudentId === requestingUserId) ||
+      (sessRoll && reqRoll && sessRoll === reqRoll) ||
+      (sessPlateComp && reqPlateComp && sessPlateComp === reqPlateComp)
+
+    if (!isOwner && sessStudentId && sessStudentId !== requestingUserId) {
+      throw new Error('Unauthorized: You can only end your own active parking session.')
+    }
+  }
+
   // 4. Calculate authoritative duration from entryTimestamp to exitTimestamp
   const startTs = Number(sessionData.entryTimestamp) || Number(slotData.entryTimestamp) || Number(entryTimestamp) || (exitTimestamp - 60000)
   const { durationStr } = calculateAuthoritativeDuration(startTs, exitTimestamp)
@@ -191,7 +213,10 @@ export async function endParkingSession({
   const historyId = `HIST-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
   const historyRecord = {
     id: historyId,
-    studentId: sessionData.studentId || (auth.currentUser ? auth.currentUser.uid : ''),
+    historyId,
+    sessionId: activeSessionDoc ? activeSessionDoc.id : `SESS-${finalSlotId.replace(/[^a-zA-Z0-9]/g, '')}`,
+    reservationId: sessionData.reservationId || slotData.reservationId || '',
+    studentId: sessionData.studentId || slotData.userId || slotData.studentId || (auth.currentUser ? auth.currentUser.uid : ''),
     studentName: finalOwner,
     rollNumber: finalRoll,
     stream: finalStream,
@@ -211,6 +236,8 @@ export async function endParkingSession({
   }
 
   // 5. Query matching wrong_parking_reports (if any) to clean up in the same writeBatch
+  // Note: Only temporary automated notices are cleaned up. Student reports (source === 'student_report'
+  // or documents with reporterUid) must NEVER be deleted upon session exit.
   const matchingNoticeRefs = []
   try {
     const wrongParkingRef = collection(db, WRONG_PARKING_COLLECTION)
@@ -218,6 +245,11 @@ export async function endParkingSession({
       const qSlotNotice = query(wrongParkingRef, where('slotId', '==', finalSlotId))
       const snapSlotNotice = await getDocs(qSlotNotice)
       snapSlotNotice.forEach((d) => {
+        const dData = d.data() || {}
+        // Explicitly exclude student-submitted reports from session-exit cleanup
+        if (dData.source === 'student_report' || dData.reporterUid) {
+          return
+        }
         if (!matchingNoticeRefs.some((r) => r.id === d.id)) {
           matchingNoticeRefs.push(d.ref)
         }
@@ -227,7 +259,12 @@ export async function endParkingSession({
       const cleanTargetComp = finalPlate.replace(/[^A-Z0-9]/g, '')
       const snapAllNotices = await getDocs(wrongParkingRef)
       snapAllNotices.forEach((d) => {
-        const rPlate = (d.data().plate || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
+        const dData = d.data() || {}
+        // Explicitly exclude student-submitted reports from session-exit cleanup
+        if (dData.source === 'student_report' || dData.reporterUid) {
+          return
+        }
+        const rPlate = (dData.plate || '').replace(/[^A-Z0-9]/g, '').toUpperCase()
         if (rPlate && rPlate === cleanTargetComp) {
           if (!matchingNoticeRefs.some((r) => r.id === d.id)) {
             matchingNoticeRefs.push(d.ref)
@@ -239,7 +276,7 @@ export async function endParkingSession({
     console.warn('[parkingSessionService] Notice lookup notice:', wpErr?.message)
   }
 
-  // 6. Atomic Firestore Batch: Commit Session Update + Slot Release + History Insert + Notice Deletion
+  // 6. Atomic Firestore Batch: Commit Session Update + Slot Release + History Insert + Notice Deletion + Reservation Completion
   const batch = writeBatch(db)
 
   // A. Complete active session document (or create completed record if session was untracked)
@@ -274,10 +311,11 @@ export async function endParkingSession({
     })
   }
 
-  // B. Release the slot back to available in parking_slots (preserving static metadata)
+  // B. Release the slot back to available in parking_slots (comprehensively clearing transient metadata)
   if (finalSlotId) {
     const slotDocRef = doc(db, SLOTS_COLLECTION, finalSlotId)
-    batch.update(slotDocRef, {
+    batch.set(slotDocRef, {
+      id: finalSlotId,
       status: 'available',
       plate: '',
       owner: '',
@@ -285,25 +323,76 @@ export async function endParkingSession({
       stream: '',
       phoneNumber: '',
       category: '',
-      reservedUntil: null,
+      reservedBy: '',
+      reservedByName: '',
+      reservedByEmail: '',
+      reservedAt: null,
+      studentId: '',
+      userId: '',
+      passId: '',
       passType: null,
+      reservedUntil: null,
       entryTime: null,
       entryTimestamp: null,
+      gateEnteredAt: null,
+      gateExitedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    })
+    }, { merge: true })
   }
 
-  // C. Insert permanent record into parking_history collection
+  // C. Update linked reservation (if any) to completed
+  const targetReservationId = sessionData.reservationId || slotData.reservationId || (slotData.passId?.startsWith('RES-') ? slotData.passId : '')
+  if (targetReservationId) {
+    try {
+      const resDocRef = doc(db, 'reservations', targetReservationId)
+      batch.set(resDocRef, {
+        status: 'completed',
+        exitTime,
+        exitTimestamp,
+        duration: durationStr,
+        gateExitedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+    } catch {
+      // non-blocking
+    }
+  }
+
+  // D. Insert permanent record into parking_history collection
   const historyDocRef = doc(db, HISTORY_COLLECTION, historyId)
   batch.set(historyDocRef, historyRecord)
 
-  // D. Delete corresponding wrong_parking_reports document(s) if any exist
+  // E. Delete corresponding wrong_parking_reports document(s) if any exist
   matchingNoticeRefs.forEach((ref) => {
     batch.delete(ref)
   })
 
   // Commit all operations atomically
   await batch.commit()
+
+  // Dispatch persistent session completed notification (non-blocking secondary action)
+  const sessionStudentId =
+    sessionData.studentId ||
+    slotData.userId ||
+    slotData.studentId ||
+    requestingUserId ||
+    (auth.currentUser ? auth.currentUser.uid : '')
+  if (sessionStudentId) {
+    try {
+      createNotification({
+        userId: sessionStudentId,
+        title: 'Parking Session Completed',
+        message: `Parking session completed for vehicle ${finalPlate}. Bay ${finalSlotId} (${finalFloor}) is now released and available.`,
+        type: 'info',
+        relatedSlotId: finalSlotId,
+        relatedVehiclePlate: finalPlate
+      }).catch((notifErr) => {
+        console.warn('[parkingSessionService] Session completion notification warning:', notifErr?.message)
+      })
+    } catch (notifErr) {
+      console.warn('[parkingSessionService] Session completion notification sync warning:', notifErr?.message)
+    }
+  }
 
   return {
     success: true,

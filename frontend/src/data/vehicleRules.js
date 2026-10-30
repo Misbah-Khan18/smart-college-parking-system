@@ -83,3 +83,6 @@ export function isSlotAllowedForVehicleType(slotId, vehicleType) {
   if (normalized === 'bike') return id.startsWith('B-') || id.startsWith('B')
   return id.startsWith('G-') || id.startsWith('G')
 }
+
+export { normalizePlate } from '../services/vehicleService.js'
+
