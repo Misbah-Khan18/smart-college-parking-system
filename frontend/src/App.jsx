@@ -5,7 +5,8 @@ import { getUserProfile, logout } from './firebase/auth'
 import {
   ROLES,
   resolveUserRole,
-  evaluateIsAdmin
+  evaluateIsAdmin,
+  isMasterAdmin
 } from './utils/authRoles'
 
 import {
@@ -113,10 +114,11 @@ export default function App() {
 
       if (savedDemo) {
         const parsed = JSON.parse(savedDemo)
+        const isAdmin = isMasterAdmin(parsed) || parsed.role === ROLES.SECURITY_ADMIN || parsed.role === ROLES.ADMIN
         return {
           ...parsed,
-          role: ROLES.STUDENT,
-          isDemo: true
+          role: isAdmin ? ROLES.SECURITY_ADMIN : ROLES.STUDENT,
+          isDemo: !isAdmin
         }
       }
     } catch {
@@ -133,10 +135,11 @@ export default function App() {
 
       if (savedDemo) {
         const parsed = JSON.parse(savedDemo)
+        const isAdmin = isMasterAdmin(parsed) || parsed.role === ROLES.SECURITY_ADMIN || parsed.role === ROLES.ADMIN
         return {
           ...parsed,
-          role: ROLES.STUDENT,
-          isDemo: true
+          role: isAdmin ? ROLES.SECURITY_ADMIN : ROLES.STUDENT,
+          isDemo: !isAdmin
         }
       }
     } catch {
@@ -227,10 +230,11 @@ export default function App() {
         if (activeDemo) {
           try {
             const parsedDemo = JSON.parse(activeDemo)
+            const isAdmin = isMasterAdmin(parsedDemo) || parsedDemo.role === ROLES.SECURITY_ADMIN || parsedDemo.role === ROLES.ADMIN
             const safeDemo = {
               ...parsedDemo,
-              role: ROLES.STUDENT,
-              isDemo: true
+              role: isAdmin ? ROLES.SECURITY_ADMIN : ROLES.STUDENT,
+              isDemo: !isAdmin
             }
 
             setUser(safeDemo)

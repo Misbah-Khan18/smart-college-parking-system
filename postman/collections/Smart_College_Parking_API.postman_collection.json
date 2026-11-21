@@ -1,0 +1,549 @@
+{
+	"info": {
+		"_postman_id": "7b8f9e12-34cd-46ef-89ab-0123456789de",
+		"name": "Smart College Parking System API",
+		"description": "Comprehensive Automated End-to-End Test Suite for Smart College Parking Management System API.\n\nCovers:\n1. Health Check & Service Telemetry\n2. Parking State & 160-Bay Inventory (80 Ground Scooties + 80 Basement Bikes)\n3. Digital Permit Lifecycle (Purchase, Status, Verification)\n4. Webhook / Stripe Simulation with QR Code Token Generation\n5. Automated Barrier Ingress with Dynamic Bay Assignment\n6. Anti-Passback Security Enforcement (Duplicate Entry Prevention)\n7. Egress Checkout, Duration Calculation & Immediate Bay Release\n8. Historical Parking Session Auditing",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. System Health",
+			"item": [
+				{
+					"name": "GET Service Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Service health status is ok\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql(\"ok\");",
+									"    pm.expect(jsonData.service).to.eql(\"Smart College Parking Backend\");",
+									"    pm.expect(jsonData.timestamp).to.be.a(\"string\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"health"
+							]
+						},
+						"description": "Check if Smart College Parking backend service is healthy and online."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Parking State & Bays",
+			"item": [
+				{
+					"name": "GET Overall Parking State",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Parking telemetry contains 160 total bays and metrics\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property(\"slots\");",
+									"    pm.expect(jsonData).to.have.property(\"stats\");",
+									"    pm.expect(jsonData.stats.total).to.eql(160);",
+									"    pm.expect(jsonData.stats.ground.total).to.eql(80);",
+									"    pm.expect(jsonData.stats.basement.total).to.eql(80);",
+									"    pm.expect(jsonData.stats.available).to.be.at.least(0);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/parking/state",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"parking",
+								"state"
+							]
+						},
+						"description": "Retrieve system-wide parking telemetry including live occupancy and floor breakdowns."
+					},
+					"response": []
+				},
+				{
+					"name": "GET All 160 Parking Slots",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Verify all 160 parking slots are configured\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an(\"array\");",
+									"    pm.expect(jsonData.length).to.eql(160);",
+									"    pm.expect(jsonData[0]).to.have.property(\"id\");",
+									"    pm.expect(jsonData[0]).to.have.property(\"floor\");",
+									"    pm.expect(jsonData[0]).to.have.property(\"status\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/parking/slots",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"parking",
+								"slots"
+							]
+						},
+						"description": "Fetch the full list of bays across Ground Floor (G-01..80) and Basement (B-01..80)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Permit Lifecycle",
+			"item": [
+				{
+					"name": "POST Create Permit Checkout Session",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Permit checkout session created successfully\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.permitId).to.be.a(\"string\");",
+									"    pm.expect(jsonData.permitId).to.match(/^SOC-PRM-/);",
+									"    pm.expect(jsonData.permit.status).to.eql(\"PENDING_PAYMENT\");",
+									"    pm.expect(jsonData.permit.paymentStatus).to.eql(\"UNPAID\");",
+									"    pm.expect(jsonData.permit.amount).to.eql(300);",
+									"    pm.environment.set(\"permitId\", jsonData.permitId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"studentId\": \"{{studentId}}\",\n  \"studentName\": \"{{studentName}}\",\n  \"rollNumber\": \"SOC-2026-089\",\n  \"stream\": \"Information Technology\",\n  \"phoneNumber\": \"+91 98765 43210\",\n  \"vehiclePlate\": \"{{vehiclePlate}}\",\n  \"vehicleType\": \"{{vehicleType}}\",\n  \"permitType\": \"Monthly\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/permits/checkout-session",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"permits",
+								"checkout-session"
+							]
+						},
+						"description": "Initialize a monthly campus parking permit session."
+					},
+					"response": []
+				},
+				{
+					"name": "GET Permit by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Permit details retrieved correctly\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.permit).to.be.an(\"object\");",
+									"    pm.expect(jsonData.permit.id).to.eql(pm.environment.get(\"permitId\"));",
+									"    pm.expect(jsonData.permit.vehiclePlate).to.eql(pm.environment.get(\"vehiclePlate\"));",
+									"    pm.expect(jsonData.permit.amount).to.eql(300);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/permits/{{permitId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"permits",
+								"{{permitId}}"
+							]
+						},
+						"description": "Retrieve permit details using the saved permitId."
+					},
+					"response": []
+				},
+				{
+					"name": "GET Permits for Student",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Student permits list returned\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.permits).to.be.an(\"array\");",
+									"    pm.expect(jsonData.permits.length).to.be.at.least(1);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/permits/student/{{studentId}}?plate={{vehiclePlate}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"permits",
+								"student",
+								"{{studentId}}"
+							],
+							"query": [
+								{
+									"key": "plate",
+									"value": "{{vehiclePlate}}"
+								}
+							]
+						},
+						"description": "Fetch all permits and active sessions associated with a student."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Payment & QR Generation",
+			"item": [
+				{
+					"name": "POST Simulate Payment & Generate QR",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Permit activated and QR code generated\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.permit.status).to.eql(\"ACTIVE\");",
+									"    pm.expect(jsonData.permit.paymentStatus).to.eql(\"PAID\");",
+									"    pm.expect(jsonData.permit.qrToken).to.be.a(\"string\");",
+									"    pm.expect(jsonData.permit.qrCodeDataUrl).to.be.a(\"string\");",
+									"    pm.expect(jsonData.permit.qrCodeDataUrl).to.include(\"data:image/png;base64\");",
+									"    pm.environment.set(\"qrToken\", jsonData.permit.qrToken);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"permitId\": \"{{permitId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/webhooks/stripe-test-simulate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"webhooks",
+								"stripe-test-simulate"
+							]
+						},
+						"description": "Simulate verified webhook execution, activating the permit and issuing a cryptographic QR pass token."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Gate Barrier Automation",
+			"item": [
+				{
+					"name": "POST Ingress Verification & Bay Allocation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Access granted and bay dynamically allocated\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.status).to.eql(\"ACCESS_GRANTED\");",
+									"    pm.expect(jsonData.slotId).to.be.a(\"string\");",
+									"    pm.expect(jsonData.floor).to.eql(\"Ground Floor\");",
+									"    pm.expect(jsonData.session.status).to.eql(\"ACTIVE\");",
+									"    pm.environment.set(\"assignedSlotId\", jsonData.slotId);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"qrToken\": \"{{qrToken}}\",\n  \"plate\": \"{{vehiclePlate}}\",\n  \"studentName\": \"{{studentName}}\",\n  \"vehicleType\": \"{{vehicleType}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/gate/verify-and-enter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"gate",
+								"verify-and-enter"
+							]
+						},
+						"description": "Verify permit token at campus barrier gate, dynamically allocate Ground bay for scooty, and open barrier."
+					},
+					"response": []
+				},
+				{
+					"name": "POST Anti-Passback Violation Test",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 409 Conflict\", function () {",
+									"    pm.response.to.have.status(409);",
+									"});",
+									"",
+									"pm.test(\"Anti-passback blocks duplicate campus entry\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"    pm.expect(jsonData.code).to.eql(\"ALREADY_PARKED\");",
+									"    pm.expect(jsonData.status).to.eql(\"ACCESS_DENIED\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"qrToken\": \"{{qrToken}}\",\n  \"plate\": \"{{vehiclePlate}}\",\n  \"studentName\": \"{{studentName}}\",\n  \"vehicleType\": \"{{vehicleType}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/gate/verify-and-enter",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"gate",
+								"verify-and-enter"
+							]
+						},
+						"description": "Verify that an already-parked vehicle is rejected upon duplicate entry attempt (anti-passback rule)."
+					},
+					"response": []
+				},
+				{
+					"name": "POST Egress Checkout & Bay Release",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Vehicle checked out and bay released immediately\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.duration).to.be.a(\"string\");",
+									"    pm.expect(jsonData.slotId).to.eql(pm.environment.get(\"assignedSlotId\"));",
+									"    pm.expect(jsonData.historyEntry.vehicleNumber).to.eql(pm.environment.get(\"vehiclePlate\"));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"plate\": \"{{vehiclePlate}}\",\n  \"slotId\": \"{{assignedSlotId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/gate/exit",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"gate",
+								"exit"
+							]
+						},
+						"description": "Vehicle checks out through exit barrier, calculates parking duration, and restores bay to AVAILABLE state."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Historical Auditing",
+			"item": [
+				{
+					"name": "GET Parking Session History",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"History record verified for exited vehicle\", function () {",
+									"    const jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.be.an(\"array\");",
+									"    const found = jsonData.find(h => h.vehicleNumber === pm.environment.get(\"vehiclePlate\"));",
+									"    pm.expect(found).to.not.be.undefined;",
+									"    pm.expect(found.slotId).to.eql(pm.environment.get(\"assignedSlotId\"));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/parking/history",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"parking",
+								"history"
+							]
+						},
+						"description": "Confirm that the vehicle exit session was archived into the parking history log."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

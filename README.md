@@ -97,6 +97,21 @@ npm run build
 ```text
 smart-college-parking-system/
 ├── README.md                      # Project Documentation
+├── .postman/
+│   └── resources.yaml             # Postman Native Git Integration workspace config
+├── postman/
+│   ├── collections/
+│   │   └── Smart_College_Parking_API.postman_collection.json  # Comprehensive API test collection (11 requests, 22 assertions)
+│   ├── environments/
+│   │   └── Smart_College_Parking_Local.postman_environment.json # Sanitized local environment variables
+│   └── globals/
+│       └── workspace.globals.yaml # Workspace globals
+├── backend/                       # Express IoT Gate & Permit API Server
+│   ├── package.json
+│   └── src/
+│       ├── server.js              # Server entry point (:5000)
+│       ├── routes/                # Gate, Permit, Parking & Webhook routes
+│       └── store/                 # Parking telemetry & in-memory state store
 └── frontend/                      # React + Vite Frontend
     ├── package.json               # Dependencies and scripts
     ├── vite.config.js             # Vite configuration
@@ -127,6 +142,39 @@ smart-college-parking-system/
     │   └── utils/
     │       └── timerUtils.js      # Real-time parking duration helpers
 ```
+
+---
+
+## 🧪 Postman API Testing & CI Integration
+
+The repository includes a Postman Native Git Integration suite and automated test collections for backend API validation.
+
+### 📋 Test Collection Overview
+The test collection (`postman/collections/Smart_College_Parking_API.postman_collection.json`) verifies 11 API endpoints with 22 assertions:
+1. **System Health**: Checks server status, uptime and service timestamp (`GET /api/health`).
+2. **Parking State & Bay Inventory**: Validates 160 total bays (80 Ground scooties + 80 Basement bikes) and live capacity metrics (`GET /api/parking/state`, `GET /api/parking/slots`).
+3. **Permit Lifecycle**: Validates permit session creation, status `PENDING_PAYMENT`, ID generation, and retrieval (`POST /api/permits/checkout-session`, `GET /api/permits/:id`, `GET /api/permits/student/:studentId`).
+4. **Payment & QR Generation**: Simulates payment verification webhook and asserts QR pass token generation (`POST /api/webhooks/stripe-test-simulate`).
+5. **Gate Barrier Automation**: Validates boom barrier opening and dynamic bay assignment on ingress, anti-passback duplicate entry prevention (409 Conflict), and egress checkout with parking duration calculation (`POST /api/gate/verify-and-enter`, `POST /api/gate/exit`).
+6. **Historical Auditing**: Confirms parking session archiving into system history log (`GET /api/parking/history`).
+
+### 🏃 Running Postman Tests Locally (Newman)
+
+1. Start the backend API server:
+   ```bash
+   cd backend
+   npm run dev
+   ```
+
+2. Run the Postman collection via Newman:
+   ```bash
+   npx newman run postman/collections/Smart_College_Parking_API.postman_collection.json \
+     -e postman/environments/Smart_College_Parking_Local.postman_environment.json
+   ```
+
+### 🔒 Security & Privacy Guarantee
+- **Zero Secrets**: Environment files (`postman/environments/`) and collection variables use mock/local endpoints without sensitive API keys, passwords, or production secrets.
+- **Demo Mode**: Payments use the built-in simulation webhook without real financial transactions or live UPI keys.
 
 ---
 

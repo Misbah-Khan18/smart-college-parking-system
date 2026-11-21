@@ -16,11 +16,51 @@ import {
 } from '../components/Icons'
 import './Login.css'
 
-export default function Login() {
+export default function Login({ onDemoLogin }) {
   const [mode, setMode] = useState('login') // 'login' | 'register' | 'forgot'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  const handleAdminDirectLogin = () => {
+    setError('')
+    setSuccess('')
+    if (onDemoLogin) {
+      onDemoLogin({
+        uid: 'R2eyVR9vzOUb6rwv9gNCPWcuoGr1',
+        email: 'shaikhalzuni123@gmail.com',
+        displayName: 'Campus Security Admin',
+        role: 'Security Admin',
+        campusId: 'ADM-01',
+        rollNumber: 'ADM-01',
+        vehicleType: 'bike',
+        preferredFloor: 'Basement',
+        stream: 'Campus Administration',
+        phoneNumber: '+91 98765 00001'
+      })
+    }
+  }
+
+  const handleStudentDemoLogin = () => {
+    setError('')
+    setSuccess('')
+    if (onDemoLogin) {
+      onDemoLogin({
+        uid: 'demo-student-01',
+        email: 'student@college.edu',
+        displayName: 'Rahul Sharma',
+        role: 'Student',
+        campusId: 'S2410701',
+        rollNumber: 'S2410701',
+        vehicleType: 'scooty',
+        preferredFloor: 'Ground Floor',
+        vehiclePlate: 'MH-12-AB-1234',
+        defaultPlate: 'MH-12-AB-1234',
+        stream: 'Computer Engineering',
+        phoneNumber: '+91 98765 43210'
+      })
+    }
+  }
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('')
@@ -458,6 +498,31 @@ export default function Login() {
             </button>
           </form>
         )}
+
+        {/* 1-Click Instant Access (No Credentials Needed) */}
+        <div className="demo-section">
+          <div className="demo-divider">
+            <span>INSTANT ACCESS (NO CREDS NEEDED)</span>
+          </div>
+          <div className="demo-buttons">
+            <button
+              type="button"
+              className="demo-btn admin-demo"
+              onClick={handleAdminDirectLogin}
+              title="Open Admin Panel immediately without entering credentials"
+            >
+              <span>🛡️ Admin Panel (1-Click)</span>
+            </button>
+            <button
+              type="button"
+              className="demo-btn student-demo"
+              onClick={handleStudentDemoLogin}
+              title="Open Student Portal immediately without entering credentials"
+            >
+              <span>🎓 Student Demo</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
